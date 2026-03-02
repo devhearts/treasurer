@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
 import { getEventBySlug } from "@/app/actions/events";
-import EventDetailContent from "./EventDetailContent";
+import ContributionsPageContent from "./ContributionsPageContent";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-export default async function EventDetailPage({ params }: PageProps) {
+export default async function EventContributionsPage({ params }: PageProps) {
   const { slug } = await params;
   const event = await getEventBySlug(slug);
 
@@ -14,5 +14,5 @@ export default async function EventDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  return <EventDetailContent event={event} />;
+  return <ContributionsPageContent event={event} />;
 }

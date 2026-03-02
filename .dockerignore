@@ -1,0 +1,50 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Build (rebuilt in container)
+.next
+out
+build
+dist
+
+# Git / IDE / OS
+.git
+.gitignore
+.idea
+.vscode
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Env (inject at runtime)
+.env
+.env.*
+!.env.example
+
+# Docs / dev
+*.md
+.editorconfig
+
+# Docker
+Dockerfile*
+.dockerignore
+docker-compose*
+compose*
+
+# Test / coverage
+coverage
+.nyc_output
+*.test.*
+*.spec.*
+
+# Misc
+.cache
+*.log
+*.tsbuildinfo

@@ -16,6 +16,8 @@ export interface Contribution {
   message?: string;
   status: "paid" | "pledged";
   date: string;
+  /** True when added by treasurer (e.g. cash or off-form payment). */
+  manual?: boolean;
 }
 
 export interface CeremonyEvent {

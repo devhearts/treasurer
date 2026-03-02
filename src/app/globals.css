@@ -1,1 +1,27 @@
 @import "tailwindcss";
+
+@theme {
+  /* Your palette */
+  --color-light: #FFFDF6;
+  --color-cream: #FAF6E9;
+  --color-lime: #DDEB9D;
+  --color-sage: #A0C878;
+  /* Dark tones for text (readable on light) */
+  --color-surface: #2d3b28;
+  --color-muted: #4a5c42;
+  /* Semantic names used by components */
+  --color-accent: #A0C878;
+  --color-highlight: #DDEB9D;
+}
+
+/* 8px spacing grid: 8 16 24 32 40 48 */
+body {
+  font-family: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
+  background-color: var(--color-light);
+  color: var(--color-surface);
+}
+
+/* Action-first: single primary CTA per block, bottom-aligned. Light text on accent (never dark on dark). */
+.cta-primary {
+  @apply w-full bg-accent hover:bg-accent/90 text-white font-bold py-4 rounded-lg transition-colors;
+}

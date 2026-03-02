@@ -3,564 +3,366 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { EventType } from "@/lib/types";
-import { addEvent } from "@/lib/data";
+import { addEvent } from "@/app/actions/events";
+import { EventTypeIcon, IconWallet } from "@/components/Icons";
+import FloatingLabelInput from "@/components/FloatingLabelInput";
 
-interface BudgetItemInput {
-  id: string;
-  name: string;
-  amount: string;
-}
-
-const EVENT_TYPES: { value: EventType; label: string; emoji: string }[] = [
-  { value: "wedding", label: "Wedding", emoji: "💍" },
-  { value: "introduction", label: "Introduction (Kwanjula)", emoji: "🤝" },
-  { value: "funeral", label: "Funeral (Mabugo)", emoji: "🕊️" },
-  { value: "other", label: "Other Ceremony", emoji: "🎉" },
+const EVENT_TYPES: { value: EventType; label: string }[] = [
+  { value: "wedding", label: "Wedding" },
+  { value: "introduction", label: "Kwanjula" },
+  { value: "funeral", label: "Mabugo" },
+  { value: "other", label: "Other" },
 ];
 
-const SUBSCRIPTION_FEE = 50000; // UGX 50,000
+const SUBSCRIPTION_FEE = 50000;
+
+const GRID = "gap-4"; // 8px grid: 16px = gap-4, 24px = gap-6
 
 export default function CreateEventForm() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  // Step 1 fields
+  const [type, setType] = useState<EventType | null>(null);
   const [title, setTitle] = useState("");
-  const [type, setType] = useState<EventType>("wedding");
   const [organizer, setOrganizer] = useState("");
   const [treasurerPhone, setTreasurerPhone] = useState("");
-  const [description, setDescription] = useState("");
   const [date, setDate] = useState("");
   const [location, setLocation] = useState("");
-
-  // Step 2 fields
   const [targetAmount, setTargetAmount] = useState("");
-  const [budgetItems, setBudgetItems] = useState<BudgetItemInput[]>([
-    { id: "1", name: "", amount: "" },
-  ]);
+  const [description, setDescription] = useState("");
+  const [showDescription, setShowDescription] = useState(false);
 
-  function addBudgetItem() {
-    setBudgetItems([
-      ...budgetItems,
-      { id: String(Date.now()), name: "", amount: "" },
-    ]);
-  }
-
-  function removeBudgetItem(id: string) {
-    setBudgetItems(budgetItems.filter((item) => item.id !== id));
-  }
-
-  function updateBudgetItem(
-    id: string,
-    field: "name" | "amount",
-    value: string
-  ) {
-    setBudgetItems(
-      budgetItems.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item
-      )
-    );
-  }
-
-  const budgetTotal = budgetItems.reduce(
-    (sum, item) => sum + (Number(item.amount) || 0),
-    0
-  );
-
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleActivate(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    
-    // Simulate payment processing
-    await new Promise((r) => setTimeout(r, 1500));
-    
-    // Create the new event object
-    const newEvent = {
-      id: String(Date.now()),
-      slug: title
+    await new Promise((r) => setTimeout(r, 800));
+    const slug =
+      title
         .toLowerCase()
         .replace(/[^a-z0-9\s]/g, "")
         .replace(/\s+/g, "-")
-        .slice(0, 50) || "new-event",
+        .slice(0, 50) || "new-event";
+    const target = Number(targetAmount) || 0;
+    const newEvent = {
+      id: String(Date.now()),
+      slug,
       title,
-      type,
+      type: type ?? "wedding",
       organizer,
       treasurerPhone,
       description,
-      targetAmount: Number(targetAmount) || 0,
+      targetAmount: target,
       raisedAmount: 0,
       date,
       location,
-      subscriptionPaid: true, // Mark as paid after subscription flow
-      budgetItems: budgetItems
-        .filter((item) => item.name && item.amount)
-        .map((item) => ({
-          id: item.id,
-          name: item.name,
-          amount: Number(item.amount),
-        })),
+      subscriptionPaid: true,
+      budgetItems:
+        target > 0
+          ? [{ id: "target", name: "Target", amount: target }]
+          : [],
       contributions: [],
       createdAt: new Date().toISOString().split("T")[0],
     };
-    
-    // Add to events storage
-    addEvent(newEvent);
-    
+    const result = await addEvent(newEvent);
     setLoading(false);
-    router.push(`/events/${newEvent.slug}`);
+    if (result.success) {
+      router.push(`/events/${result.slug}`);
+    } else {
+      alert(result.error ?? "Failed to create event.");
+    }
   }
 
+  const typeLabel = type ? EVENT_TYPES.find((t) => t.value === type)?.label : "";
+
   return (
-    <div className="space-y-6">
-      {/* Step Indicator */}
-      <div className="flex items-center gap-3 overflow-x-auto pb-2">
-        {[1, 2, 3].map((s) => (
-          <div key={s} className="flex items-center gap-2 flex-shrink-0">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
-                step >= s
-                  ? "bg-purple-700 text-white"
-                  : "bg-gray-200 text-gray-400"
-              }`}
-            >
-              {s}
-            </div>
-            <span
-              className={`text-sm font-medium whitespace-nowrap ${
-                step >= s ? "text-gray-900" : "text-gray-400"
-              }`}
-            >
-              {s === 1 ? "Event Details" : s === 2 ? "Budget" : "Subscribe"}
-            </span>
-            {s < 3 && (
-              <div
-                className={`w-8 h-0.5 ${
-                  step > s ? "bg-purple-700" : "bg-gray-200"
-                }`}
-              />
-            )}
-          </div>
-        ))}
+    <div className={GRID}>
+      {/* Single progress line + back when step > 1 */}
+      <div className="flex items-center justify-between">
+        <p className="text-muted text-sm">
+          Step {step} of 3
+        </p>
+        {step > 1 && (
+          <button
+            type="button"
+            onClick={() => setStep(step - 1)}
+            className="text-sm text-accent font-medium hover:underline"
+          >
+            Back
+          </button>
+        )}
       </div>
 
+      {/* Step 1: Select Event Type */}
       {step === 1 && (
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            setStep(2);
+            if (type) setStep(2);
           }}
-          className="space-y-5"
+          className={GRID}
         >
-          {/* Event Type */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">
-              What type of event is this?
-            </h2>
-            <div className="grid grid-cols-2 gap-3">
-              {EVENT_TYPES.map((et) => (
-                <button
-                  key={et.value}
-                  type="button"
-                  onClick={() => setType(et.value)}
-                  className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-left ${
-                    type === et.value
-                      ? "border-purple-600 bg-purple-50"
-                      : "border-gray-200 hover:border-purple-300"
+          <div className="bg-light rounded-xl border border-muted/30 overflow-hidden">
+            <div className="p-6">
+              <h1 className="text-xl font-bold text-surface mb-1">
+                What&apos;s the occasion?
+              </h1>
+              <p className="text-muted text-sm mb-6">
+                Choose one. You can change this later.
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                {EVENT_TYPES.map((et) => (
+                  <button
+                    key={et.value}
+                    type="button"
+                    onClick={() => setType(et.value)}
+                    className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all text-left min-h-[56px] ${
+                      type === et.value
+? "border-accent bg-accent/10 text-surface"
+                        : "border-muted/30 hover:border-muted text-surface"
                   }`}
                 >
-                  <span className="text-2xl">{et.emoji}</span>
-                  <span
-                    className={`font-semibold text-sm ${
-                      type === et.value ? "text-purple-700" : "text-gray-700"
-                    }`}
-                  >
+                  <EventTypeIcon
+                    type={et.value}
+                    className="w-6 h-6 text-accent flex-shrink-0"
+                  />
+                  <span className={`font-semibold text-sm ${type === et.value ? "text-surface" : "text-muted"}`}>
                     {et.label}
                   </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Basic Info */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm space-y-4">
-            <h2 className="text-lg font-bold text-gray-900">Event Details</h2>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                Event Title *
-              </label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. John & Mary's Wedding Fund"
-                required
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                Your Name (Treasurer) *
-              </label>
-              <input
-                type="text"
-                value={organizer}
-                onChange={(e) => setOrganizer(e.target.value)}
-                placeholder="e.g. Sarah Nakato (Committee Chair)"
-                required
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
-              />
-            </div>
-
-            {/* Treasurer Phone - Key for receiving contributions */}
-            <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
-              <label className="block text-xs font-semibold text-orange-700 uppercase tracking-wider mb-1.5">
-                📱 Your Mobile Money Number *
-              </label>
-              <p className="text-xs text-orange-600 mb-2">
-                This is where contributors will send their money via Mobile Money.
-                All contributions go directly to you — we never hold any funds.
-              </p>
-              <input
-                type="tel"
-                value={treasurerPhone}
-                onChange={(e) => setTreasurerPhone(e.target.value)}
-                placeholder="e.g. 0772 123 456"
-                required
-                className="w-full border border-orange-300 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
-              />
-              <p className="text-xs text-orange-500 mt-1">MTN or Airtel Money</p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                Description
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Tell people about this event and why their contribution matters..."
-                rows={3}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm resize-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                  Event Date *
-                </label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  required
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                  Location *
-                </label>
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="e.g. Kampala"
-                  required
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
-                />
+                  </button>
+                ))}
               </div>
             </div>
+            <div className="p-4 border-t border-muted/20">
+              <button
+                type="submit"
+                disabled={!type}
+                className="w-full bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:pointer-events-none text-white font-bold py-4 rounded-lg transition-colors"
+              >
+                Continue
+              </button>
+            </div>
           </div>
-
-          <button
-            type="submit"
-            className="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-4 rounded-xl transition-colors"
-          >
-            Next: Set Budget →
-          </button>
         </form>
       )}
 
+      {/* Step 2: Add Basic Details */}
       {step === 2 && (
         <form
           onSubmit={(e) => {
             e.preventDefault();
             setStep(3);
           }}
-          className="space-y-5"
+          className={GRID}
         >
-          {/* Budget */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm space-y-4">
-            <h2 className="text-lg font-bold text-gray-900">
-              💰 Budget Breakdown
-            </h2>
-            <p className="text-gray-500 text-sm">
-              List what you need money for. This helps contributors understand
-              where their money goes — and proves your transparency as treasurer.
-            </p>
+          {/* Collapsed Step 1 summary */}
+          <button
+            type="button"
+            onClick={() => setStep(1)}
+            className="w-full flex items-center justify-between p-4 rounded-xl bg-muted/10 border border-muted/20 text-left"
+          >
+            <span className="flex items-center gap-3">
+              <EventTypeIcon type={type ?? "wedding"} className="w-5 h-5 text-accent" />
+              <span className="font-medium text-surface">{typeLabel}</span>
+            </span>
+            <span className="text-sm text-accent">Change</span>
+          </button>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                Total Target Amount (UGX) *
-              </label>
-              <input
-                type="number"
-                value={targetAmount}
-                onChange={(e) => setTargetAmount(e.target.value)}
-                placeholder="e.g. 15000000"
+          <div className="bg-light rounded-xl border border-muted/30 overflow-hidden">
+            <div className="p-6 space-y-4">
+              <h1 className="text-xl font-bold text-surface mb-1">
+                Add basic details
+              </h1>
+              <p className="text-muted text-sm mb-4">
+                Event name, your name, and where to receive contributions.
+              </p>
+
+              <FloatingLabelInput
+                id="title"
+                label="Event title"
+                value={title}
+                onChange={setTitle}
                 required
-                min={10000}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                placeholder="e.g. John & Mary's Wedding"
               />
-              {targetAmount && (
-                <p className="text-xs text-gray-400 mt-1">
-                  = UGX {Number(targetAmount).toLocaleString()}
-                </p>
-              )}
-            </div>
+              <FloatingLabelInput
+                id="organizer"
+                label="Your name (treasurer)"
+                value={organizer}
+                onChange={setOrganizer}
+                required
+                placeholder="e.g. Sarah Nakato"
+              />
+              <FloatingLabelInput
+                id="treasurerPhone"
+                label="Mobile Money number"
+                value={treasurerPhone}
+                onChange={setTreasurerPhone}
+                type="tel"
+                required
+                placeholder="e.g. 0772 123 456"
+                hint="Contributions go directly here. We never hold funds."
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FloatingLabelInput
+                  id="date"
+                  label="Event date"
+                  value={date}
+                  onChange={setDate}
+                  type="date"
+                  required
+                />
+                <FloatingLabelInput
+                  id="location"
+                  label="Location"
+                  value={location}
+                  onChange={setLocation}
+                  required
+                  placeholder="e.g. Kampala"
+                />
+              </div>
+              <FloatingLabelInput
+                id="targetAmount"
+                label="Target amount (UGX, optional)"
+                value={targetAmount}
+                onChange={setTargetAmount}
+                type="number"
+                inputMode="numeric"
+                placeholder="e.g. 15000000"
+                min={0}
+              />
 
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Budget Items (Optional)
-                </label>
+              {!showDescription ? (
                 <button
                   type="button"
-                  onClick={addBudgetItem}
-                  className="text-purple-700 text-xs font-semibold hover:text-purple-900"
+                  onClick={() => setShowDescription(true)}
+                  className="text-sm text-accent font-medium"
                 >
-                  + Add Item
+                  Add description (optional)
                 </button>
-              </div>
-              <div className="space-y-2">
-                {budgetItems.map((item, idx) => (
-                  <div key={item.id} className="flex gap-2 items-center">
-                    <input
-                      type="text"
-                      value={item.name}
-                      onChange={(e) =>
-                        updateBudgetItem(item.id, "name", e.target.value)
-                      }
-                      placeholder={`Item ${idx + 1} (e.g. Tent Hire)`}
-                      className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
-                    />
-                    <input
-                      type="number"
-                      value={item.amount}
-                      onChange={(e) =>
-                        updateBudgetItem(item.id, "amount", e.target.value)
-                      }
-                      placeholder="Amount"
-                      className="w-32 border border-gray-200 rounded-xl px-3 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
-                    />
-                    {budgetItems.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeBudgetItem(item.id)}
-                        className="text-red-400 hover:text-red-600 text-lg leading-none"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {budgetTotal > 0 && (
-                <div className="flex justify-between text-sm font-semibold text-purple-700 mt-3 pt-3 border-t border-gray-100">
-                  <span>Items Total</span>
-                  <span>UGX {budgetTotal.toLocaleString()}</span>
+              ) : (
+                <div>
+                  <label htmlFor="description" className="sr-only">
+                    Description
+                  </label>
+                  <textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    onBlur={() => setShowDescription(description.length > 0)}
+                    placeholder="Tell people about this event..."
+                    rows={2}
+                    className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent text-sm resize-none bg-light"
+                    autoFocus
+                  />
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Summary */}
-          <div className="bg-purple-50 rounded-2xl p-5 border border-purple-100">
-            <h3 className="font-bold text-purple-900 mb-3">
-              📋 Event Summary
-            </h3>
-            <div className="space-y-1.5 text-sm">
-              <div className="flex justify-between">
-                <span className="text-purple-700">Title</span>
-                <span className="font-medium text-purple-900 text-right max-w-[60%] truncate">
-                  {title || "—"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-purple-700">Type</span>
-                <span className="font-medium text-purple-900">
-                  {EVENT_TYPES.find((t) => t.value === type)?.label}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-purple-700">Date</span>
-                <span className="font-medium text-purple-900">
-                  {date
-                    ? new Date(date).toLocaleDateString("en-UG", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })
-                    : "—"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-purple-700">Location</span>
-                <span className="font-medium text-purple-900">
-                  {location || "—"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-purple-700">Target</span>
-                <span className="font-medium text-purple-900">
-                  {targetAmount
-                    ? `UGX ${Number(targetAmount).toLocaleString()}`
-                    : "—"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-purple-700">Your Phone</span>
-                <span className="font-medium text-purple-900">
-                  {treasurerPhone || "—"}
-                </span>
-              </div>
+            <div className="p-4 border-t border-muted/20">
+              <button
+                type="submit"
+                className="w-full bg-accent hover:bg-accent/90 text-white font-bold py-4 rounded-lg transition-colors"
+              >
+                Continue
+              </button>
             </div>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => setStep(1)}
-              className="flex-1 bg-white border border-gray-200 text-gray-700 font-semibold py-4 rounded-xl hover:bg-gray-50 transition-colors"
-            >
-              ← Back
-            </button>
-            <button
-              type="submit"
-              className="flex-1 bg-purple-700 hover:bg-purple-800 text-white font-bold py-4 rounded-xl transition-colors"
-            >
-              Next: Pay Subscription →
-            </button>
           </div>
         </form>
       )}
 
-      {/* Step 3: Subscription Payment */}
+      {/* Step 3: Confirm Wallet */}
       {step === 3 && (
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Subscription Info */}
-          <div className="bg-gradient-to-br from-purple-50 to-orange-50 rounded-2xl p-6 border border-purple-200">
-            <div className="text-center mb-6">
-              <div className="text-4xl mb-2">👛</div>
-              <h2 className="text-xl font-bold text-gray-900">
-                Pay Subscription to Activate
-              </h2>
-              <p className="text-gray-500 text-sm mt-2">
-                One-time fee to unlock all features for this event
-              </p>
-            </div>
-
-            <div className="bg-white rounded-xl p-4 border border-gray-200 mb-4">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">
-                  CeremonyWallet Subscription
-                </span>
-                <span className="text-2xl font-bold text-purple-700">
-                  UGX {SUBSCRIPTION_FEE.toLocaleString()}
-                </span>
+        <form onSubmit={handleActivate} className={GRID}>
+          {/* Collapsed Step 1 + 2 summaries */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="w-full flex items-center justify-between p-4 rounded-xl bg-muted/10 border border-muted/20 text-left"
+            >
+              <span className="flex items-center gap-3">
+                <EventTypeIcon type={type ?? "wedding"} className="w-5 h-5 text-accent" />
+                <span className="font-medium text-surface">{typeLabel}</span>
+              </span>
+              <span className="text-sm text-accent">Change</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep(2)}
+              className="w-full flex items-center justify-between p-4 rounded-xl bg-muted/10 border border-muted/20 text-left"
+            >
+              <div className="text-left min-w-0">
+                <p className="font-medium text-surface truncate">{title || "Event"}</p>
+                <p className="text-muted text-sm">
+                  {date
+                    ? new Date(date).toLocaleDateString("en-UG", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })
+                    : "—"}{" "}
+                  · {location || "—"}
+                </p>
               </div>
-            </div>
-
-            <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
-              <p className="text-sm text-orange-800 font-semibold mb-2">
-                📱 Payment goes to CeremonyWallet
-              </p>
-              <p className="text-xs text-orange-600 leading-relaxed">
-                This fee covers our platform costs. <strong>All contributions</strong> from
-                guests go directly to <strong>your Mobile Money number</strong> — we never
-                touch that money. Contributors pay directly to you.
-              </p>
-            </div>
+              <span className="text-sm text-accent flex-shrink-0 ml-2">Change</span>
+            </button>
           </div>
 
-          {/* Payment Instructions */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-            <h3 className="font-bold text-gray-900 mb-4">
-              How to Pay (MTN or Airtel)
-            </h3>
-            <ol className="space-y-3 text-sm text-gray-600">
-              <li className="flex gap-3">
-                <span className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                  1
-                </span>
-                <span>Open your Mobile Money app or dial <strong>*165#</strong></span>
-              </li>
-              <li className="flex gap-3">
-                <span className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                  2
-                </span>
-                <span>Select <strong>Pay Bill</strong> → <strong>Business</strong></span>
-              </li>
-              <li className="flex gap-3">
-                <span className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                  3
-                </span>
-                <span>Enter business number: <strong className="text-purple-700">123456</strong></span>
-              </li>
-              <li className="flex gap-3">
-                <span className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                  4
-                </span>
-                <span>Enter amount: <strong>UGX 50,000</strong></span>
-              </li>
-              <li className="flex gap-3">
-                <span className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                  5
-                </span>
-                <span>Enter reference: <strong className="text-purple-700">YourName</strong></span>
-              </li>
-              <li className="flex gap-3">
-                <span className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                  6
-                </span>
-                <span>Confirm payment</span>
-              </li>
-            </ol>
+          <div className="bg-light rounded-xl border border-muted/30 overflow-hidden">
+            <div className="p-6">
+              <h1 className="text-xl font-bold text-surface mb-1">
+                Confirm & activate
+              </h1>
+              <p className="text-muted text-sm mb-6">
+                One-time subscription. Then share your event and receive contributions.
+              </p>
 
-            <div className="mt-6 pt-4 border-t border-gray-100">
+              <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/10 border border-muted/20 mb-4">
+                <div className="w-12 h-12 rounded-lg bg-accent/20 flex items-center justify-center text-accent flex-shrink-0">
+                  <IconWallet className="w-6 h-6" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-bold text-surface">
+                    UGX {SUBSCRIPTION_FEE.toLocaleString()}
+                  </p>
+                  <p className="text-muted text-sm">
+                    CeremonyWallet subscription · Pay via Mobile Money
+                  </p>
+                </div>
+              </div>
+
+              <details className="group mb-4">
+                <summary className="text-sm text-muted cursor-pointer list-none py-2">
+                  How to pay (MTN or Airtel)
+                </summary>
+                <ol className="text-sm text-muted space-y-1 mt-2 pl-0 list-decimal list-inside">
+                  <li>Mobile Money app or *165#</li>
+                  <li>Pay Bill → Business</li>
+                  <li>Business: 123456 · Amount: 50,000</li>
+                  <li>Reference: your name → Confirm</li>
+                </ol>
+              </details>
+
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   required
-                  className="mt-1 w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                  className="mt-1 w-5 h-5 rounded border-muted text-accent focus:ring-accent"
                 />
-                <span className="text-sm text-gray-600">
-                  I have made the payment of <strong>UGX 50,000</strong> to
-                  CeremonyWallet
+                <span className="text-sm text-muted">
+                  I have paid UGX 50,000 to CeremonyWallet
                 </span>
               </label>
             </div>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => setStep(2)}
-              className="flex-1 bg-white border border-gray-200 text-gray-700 font-semibold py-4 rounded-xl hover:bg-gray-50 transition-colors"
-            >
-              ← Back
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white font-bold py-4 rounded-xl transition-colors"
-            >
-              {loading ? "Activating..." : "✅ Activate My Event"}
-            </button>
+            <div className="p-4 border-t border-muted/20">
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-accent hover:bg-accent/90 disabled:opacity-50 text-white font-bold py-4 rounded-lg transition-colors"
+              >
+                {loading ? "Activating…" : <><span className="sm:hidden">Activate</span><span className="hidden sm:inline">Activate my event</span></>}
+              </button>
+            </div>
           </div>
         </form>
       )}

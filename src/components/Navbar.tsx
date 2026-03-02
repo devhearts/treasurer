@@ -1,28 +1,33 @@
 import Link from "next/link";
+import { IconWallet, IconList, IconAdd } from "./Icons";
 
 export default function Navbar() {
   return (
-    <nav className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
+    <nav className="bg-surface border-b border-muted/30 sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-2xl">👛</span>
-            <span className="font-bold text-xl text-purple-700">
-              Ceremony<span className="text-orange-500">Wallet</span>
+        <div className="flex items-center justify-between h-14">
+          <Link href="/" className="flex items-center gap-2 text-light hover:text-accent transition-colors">
+            <IconWallet className="w-6 h-6 text-accent" />
+            <span className="font-semibold text-lg">
+              Ceremony<span className="text-accent">Wallet</span>
             </span>
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Link
               href="/events"
-              className="text-gray-600 hover:text-purple-700 font-medium text-sm transition-colors"
+              className="flex items-center gap-1.5 text-light/80 hover:text-light text-sm transition-colors min-w-0"
             >
-              Browse Events
+              <IconList className="w-4 h-4 flex-shrink-0 sm:hidden" aria-hidden />
+              <span className="sm:hidden">Browse</span>
+              <span className="hidden sm:inline">Browse Events</span>
             </Link>
             <Link
               href="/create"
-              className="bg-purple-700 hover:bg-purple-800 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-semibold px-3 sm:px-4 py-2 rounded-lg transition-colors min-w-0"
             >
-              + Create Event
+              <IconAdd className="w-4 h-4 flex-shrink-0 sm:hidden" aria-hidden />
+              <span className="sm:hidden">Create</span>
+              <span className="hidden sm:inline">Create Event</span>
             </Link>
           </div>
         </div>
