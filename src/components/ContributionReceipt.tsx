@@ -98,7 +98,7 @@ export default function ContributionReceipt({
   }
 
   return (
-    <details className="bg-light rounded-xl border border-muted/30 mb-4 overflow-hidden group">
+    <details open={false} className="bg-light rounded-xl border border-muted/30 mb-4 overflow-hidden group">
       <summary className="p-4 cursor-pointer list-none font-bold text-surface flex items-center justify-between">
         <span className="flex items-center gap-2">
           <IconReceipt className="w-5 h-5 text-accent" />

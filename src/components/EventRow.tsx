@@ -57,7 +57,7 @@ export default function EventRow({ event }: EventRowProps) {
             )}
           </div>
           <Link
-            href={`/events/${event.slug}`}
+            href={`/app/events/${event.slug}`}
             className="cta-primary block text-center mt-4 text-white"
           >
             Contribute

@@ -47,7 +47,7 @@ export default function EventsList({ events, tabs }: EventsListProps) {
       {filtered.length === 0 && (
         <div className="text-center py-12">
           <p className="text-muted mb-4">No events match.</p>
-          <Link href="/create" className="cta-primary inline-block text-center max-w-xs mx-auto">
+          <Link href="/app/create" className="cta-primary inline-block text-center max-w-xs mx-auto">
             <span className="sm:hidden">Create</span>
             <span className="hidden sm:inline">Create event</span>
           </Link>

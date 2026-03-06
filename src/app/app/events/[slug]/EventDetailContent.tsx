@@ -21,32 +21,35 @@ import {
 
 interface EventDetailContentProps {
   event: CeremonyEvent;
+  /** When true, used on public /events/[slug]; back link and some treasurer links differ. Share/copy always use public URL. */
+  isPublicView?: boolean;
 }
 
-export default function EventDetailContent({ event }: EventDetailContentProps) {
+export default function EventDetailContent({ event, isPublicView = false }: EventDetailContentProps) {
   const slug = event.slug;
   const [shareCopied, setShareCopied] = useState(false);
+  // Always use public link for share/copy so recipients can view and contribute without logging in
+  const publicEventUrl =
+    (typeof window !== "undefined" ? window.location.origin : "") + `/events/${slug}`;
 
   async function handleShare() {
-    const url = typeof window !== "undefined" ? `${window.location.origin}/events/${slug}` : "";
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
-        await navigator.share({ title: event.title, url });
+        await navigator.share({ title: event.title, url: publicEventUrl });
       } catch {
-        await navigator.clipboard.writeText(url);
+        await navigator.clipboard.writeText(publicEventUrl);
         setShareCopied(true);
         setTimeout(() => setShareCopied(false), 2000);
       }
     } else {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(publicEventUrl);
       setShareCopied(true);
       setTimeout(() => setShareCopied(false), 2000);
     }
   }
 
   function copyEventLink() {
-    const url = typeof window !== "undefined" ? `${window.location.origin}/events/${slug}` : "";
-    navigator.clipboard.writeText(url);
+    navigator.clipboard.writeText(publicEventUrl);
     setShareCopied(true);
     setTimeout(() => setShareCopied(false), 2000);
   }
@@ -57,12 +60,12 @@ export default function EventDetailContent({ event }: EventDetailContentProps) {
     <main className="min-h-screen bg-light pb-24">
       <div className="max-w-lg mx-auto px-4">
         <Link
-          href="/events"
+          href={isPublicView ? "/" : "/app/events"}
           className="inline-flex items-center gap-1 text-muted hover:text-surface text-sm py-4"
         >
           <IconBack className="w-4 h-4" />
           <span className="sm:hidden">Back</span>
-          <span className="hidden sm:inline">Back to events</span>
+          <span className="hidden sm:inline">{isPublicView ? "Back" : "Back to events"}</span>
         </Link>
 
         {/* Above fold: one key metric + one primary CTA */}
@@ -109,7 +112,7 @@ export default function EventDetailContent({ event }: EventDetailContentProps) {
         </div>
 
         {/* Collapsible sections */}
-        <details className="bg-light rounded-xl border border-muted/30 mb-4 overflow-hidden group">
+        <details open={false} className="bg-light rounded-xl border border-muted/30 mb-4 overflow-hidden group">
           <summary className="p-4 cursor-pointer list-none font-bold text-surface">
             About
           </summary>
@@ -119,7 +122,7 @@ export default function EventDetailContent({ event }: EventDetailContentProps) {
         </details>
 
         {event.budgetItems.length > 0 && (
-          <details className="bg-light rounded-xl border border-muted/30 mb-4 overflow-hidden group">
+          <details open={false} className="bg-light rounded-xl border border-muted/30 mb-4 overflow-hidden group">
             <summary className="p-4 cursor-pointer list-none font-bold text-surface">
               Budget
             </summary>
@@ -141,6 +144,7 @@ export default function EventDetailContent({ event }: EventDetailContentProps) {
         <RecentContributionsCard
           contributions={event.contributions}
           eventSlug={event.slug}
+          hideAllLink={isPublicView}
         />
 
         <ContributionReceipt
@@ -152,10 +156,10 @@ export default function EventDetailContent({ event }: EventDetailContentProps) {
           targetAmount={event.targetAmount}
         />
 
-        {event.type === "wedding" && (
+        {event.type === "wedding" && !isPublicView && (
           <div className="mt-4">
             <Link
-              href={`/events/${event.slug}/invite`}
+              href={`/app/events/${event.slug}/invite`}
               className="flex items-center justify-center gap-2 p-4 rounded-xl border border-muted/30 text-surface font-medium hover:bg-muted/10"
             >
               <IconInvite className="w-5 h-5 text-accent" />

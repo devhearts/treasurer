@@ -22,6 +22,8 @@ export interface Contribution {
 
 export interface CeremonyEvent {
   id: string;
+  /** Owner's user id (set for events created by logged-in users). */
+  userId?: string | null;
   title: string;
   type: EventType;
   organizer: string;

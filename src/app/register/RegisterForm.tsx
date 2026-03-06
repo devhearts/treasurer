@@ -1,0 +1,69 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { register as registerUser } from "@/app/actions/auth";
+
+export default function RegisterForm() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    const result = await registerUser(email, password);
+    setLoading(false);
+    if (result.success) {
+      router.refresh();
+      router.push("/app");
+    } else {
+      setError(result.error);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
+          {error}
+        </p>
+      )}
+      <div>
+        <label htmlFor="reg-email" className="sr-only">Email</label>
+        <input
+          id="reg-email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+          required
+          className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
+        />
+      </div>
+      <div>
+        <label htmlFor="reg-password" className="sr-only">Password</label>
+        <input
+          id="reg-password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password"
+          required
+          minLength={6}
+          className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={loading}
+        className="cta-primary w-full disabled:opacity-50"
+      >
+        {loading ? "Creating account…" : "Create account"}
+      </button>
+    </form>
+  );
+}

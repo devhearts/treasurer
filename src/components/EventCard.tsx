@@ -16,7 +16,7 @@ export default function EventCard({ event }: EventCardProps) {
   const paidCount = event.contributions.filter((c) => c.status === "paid").length;
 
   return (
-    <Link href={`/events/${event.slug}`} className="block group">
+    <Link href={`/app/events/${event.slug}`} className="block group">
       <div className="bg-light rounded-xl border border-muted/30 hover:border-accent/50 transition-all overflow-hidden">
         <div className="bg-surface p-5">
           <div className="flex items-start gap-3">

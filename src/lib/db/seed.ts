@@ -1,6 +1,9 @@
+import { eq } from "drizzle-orm";
 import { getDb } from "./index";
-import { events, budgetItems, contributions } from "./schema";
+import { events, budgetItems, contributions, users } from "./schema";
 import type { CeremonyEvent } from "../types";
+
+const SEED_USER_ID = "seed-user";
 
 const SEED_EVENTS: CeremonyEvent[] = [
   {
@@ -178,9 +181,21 @@ export function seedDb() {
   const existing = db.select().from(events).limit(1).all();
   if (existing.length > 0) return;
 
+  // Ensure seed user exists so events can have an owner
+  const userExists = db.select().from(users).where(eq(users.id, SEED_USER_ID)).limit(1).all();
+  if (userExists.length === 0) {
+    db.insert(users).values({
+      id: SEED_USER_ID,
+      email: "seed@ceremonywallet.local",
+      passwordHash: "",
+      createdAt: new Date().toISOString(),
+    }).run();
+  }
+
   for (const ev of SEED_EVENTS) {
     db.insert(events).values({
       id: ev.id,
+      userId: SEED_USER_ID,
       slug: ev.slug,
       title: ev.title,
       type: ev.type,

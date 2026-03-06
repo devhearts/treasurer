@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { formatUGX } from "@/lib/data";
 import type { Contribution } from "@/lib/types";
+import { IconPaid, IconPledge } from "@/components/Icons";
 
 const ROTATE_MS = 4000;
 const CHUNK_SIZE = 2;
@@ -11,6 +12,8 @@ const CHUNK_SIZE = 2;
 interface RecentContributionsCardProps {
   contributions: Contribution[];
   eventSlug: string;
+  /** When true, hide "See all contributions" link (e.g. on public event view). */
+  hideAllLink?: boolean;
 }
 
 /** Chunk array into groups of size n. */
@@ -25,6 +28,7 @@ function chunk<T>(arr: T[], n: number): T[][] {
 export default function RecentContributionsCard({
   contributions,
   eventSlug,
+  hideAllLink = false,
 }: RecentContributionsCardProps) {
   const chunks = useMemo(() => {
     const recent = [...contributions].reverse();
@@ -52,12 +56,14 @@ export default function RecentContributionsCard({
         <div className="p-4">
           <h3 className="font-bold text-surface mb-2">Recent contributions</h3>
           <p className="text-muted text-sm">No contributions yet.</p>
-          <Link
-            href={`/events/${eventSlug}/contributions`}
-            className="mt-3 inline-block text-sm text-accent font-medium hover:underline"
-          >
-            See all contributions
-          </Link>
+          {!hideAllLink && (
+            <Link
+              href={`/app/events/${eventSlug}/contributions`}
+              className="mt-3 inline-block text-sm text-accent font-medium hover:underline"
+            >
+              See all contributions
+            </Link>
+          )}
         </div>
       </div>
     );
@@ -82,21 +88,28 @@ export default function RecentContributionsCard({
           {current.map((c) => (
             <div
               key={c.id}
-              className="flex items-center justify-between py-1"
+              className="flex items-center justify-between gap-2 py-1"
             >
-              <span className="font-medium text-surface text-sm">
-                {c.anonymous ? "Anonymous" : c.name}
+              <span className="font-medium text-surface text-sm flex items-center gap-2 min-w-0">
+                {c.status === "paid" ? (
+                  <IconPaid className="w-4 h-4 flex-shrink-0 text-accent" aria-label="Paid" />
+                ) : (
+                  <IconPledge className="w-4 h-4 flex-shrink-0 text-muted" aria-label="Pledged" />
+                )}
+                <span className="truncate">{c.anonymous ? "Anonymous" : c.name}</span>
               </span>
-              <span className="text-sm text-muted">{formatUGX(c.amount)}</span>
+              <span className="text-sm text-muted flex-shrink-0">{formatUGX(c.amount)}</span>
             </div>
           ))}
         </div>
-        <Link
-          href={`/events/${eventSlug}/contributions`}
-          className="mt-3 inline-block text-sm text-accent font-medium hover:underline"
-        >
-          See all contributions
-        </Link>
+        {!hideAllLink && (
+          <Link
+            href={`/app/events/${eventSlug}/contributions`}
+            className="mt-3 inline-block text-sm text-accent font-medium hover:underline"
+          >
+            See all contributions
+          </Link>
+        )}
       </div>
     </div>
   );

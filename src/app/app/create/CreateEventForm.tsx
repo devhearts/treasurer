@@ -67,7 +67,7 @@ export default function CreateEventForm() {
     const result = await addEvent(newEvent);
     setLoading(false);
     if (result.success) {
-      router.push(`/events/${result.slug}`);
+      router.push(`/app/events/${result.slug}`);
     } else {
       alert(result.error ?? "Failed to create event.");
     }
@@ -331,7 +331,7 @@ export default function CreateEventForm() {
                 </div>
               </div>
 
-              <details className="group mb-4">
+              <details open={false} className="group mb-4">
                 <summary className="text-sm text-muted cursor-pointer list-none py-2">
                   How to pay (MTN or Airtel)
                 </summary>

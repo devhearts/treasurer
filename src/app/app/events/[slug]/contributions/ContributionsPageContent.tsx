@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { formatUGX } from "@/lib/data";
 import { addContribution } from "@/app/actions/events";
 import type { CeremonyEvent } from "@/lib/types";
-import { IconBack, IconAdd } from "@/components/Icons";
+import { IconBack, IconAdd, IconPaid, IconPledge } from "@/components/Icons";
 
 interface ContributionsPageContentProps {
   event: CeremonyEvent;
@@ -51,7 +51,7 @@ export default function ContributionsPageContent({
     <main className="min-h-screen bg-light pb-24">
       <div className="max-w-lg mx-auto px-4">
         <Link
-          href={`/events/${event.slug}`}
+          href={`/app/events/${event.slug}`}
           className="inline-flex items-center gap-1 text-muted hover:text-surface text-sm py-4"
         >
           <IconBack className="w-4 h-4" />
@@ -82,22 +82,29 @@ export default function ContributionsPageContent({
                   .map((c) => (
                     <li
                       key={c.id}
-                      className="flex items-center justify-between py-3 border-b border-muted/10 last:border-0"
+                      className="flex items-center justify-between gap-3 py-3 border-b border-muted/10 last:border-0"
                     >
-                      <div>
-                        <p className="font-medium text-surface text-sm">
-                          {c.anonymous ? "Anonymous" : c.name}
-                        </p>
-                        <p className="text-xs text-muted">
-                          {new Date(c.date).toLocaleDateString("en-UG", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                          {c.manual && " · Added by treasurer"}
-                        </p>
+                      <div className="flex items-center gap-2 min-w-0">
+                        {c.status === "paid" ? (
+                          <IconPaid className="w-4 h-4 flex-shrink-0 text-accent" aria-label="Paid" />
+                        ) : (
+                          <IconPledge className="w-4 h-4 flex-shrink-0 text-muted" aria-label="Pledged" />
+                        )}
+                        <div>
+                          <p className="font-medium text-surface text-sm">
+                            {c.anonymous ? "Anonymous" : c.name}
+                          </p>
+                          <p className="text-xs text-muted">
+                            {new Date(c.date).toLocaleDateString("en-UG", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                            {c.manual && " · Added by treasurer"}
+                          </p>
+                        </div>
                       </div>
-                      <span className="font-semibold text-surface text-sm">
+                      <span className="font-semibold text-surface text-sm flex-shrink-0">
                         {formatUGX(c.amount)}
                       </span>
                     </li>

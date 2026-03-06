@@ -1,92 +1,57 @@
 import Link from "next/link";
-import { getAllEvents } from "@/app/actions/events";
 import { IconWallet } from "@/components/Icons";
-import HomeEventsList from "@/components/HomeEventsList";
 
-export default async function Home() {
-  const events = await getAllEvents();
-  const featured = events.slice(0, 5);
-
+export default function LandingPage() {
   return (
-    <main>
-      {/* Above fold: one headline, one line, one primary CTA */}
-      <section className="bg-surface text-light">
-        <div className="max-w-lg mx-auto px-4 py-12 sm:py-16 text-center">
-          <h1 className="text-2xl sm:text-3xl font-bold leading-tight mb-2">
-            The Transparent Treasurer
-            <span className="block text-accent">for Every Ceremony</span>
-          </h1>
-          <p className="text-light/80 text-sm mb-8">
-            Track contributions for weddings, kwanjula, and mabugo. We never hold your money.
-          </p>
-          <Link
-            href="/create"
-            className="cta-primary block text-center"
-          >
-            Create your event
-          </Link>
-        </div>
-      </section>
-
-      {/* Secondary: single link, no competing CTA */}
-      <section className="px-4 py-4 border-b border-muted/20 bg-light">
-        <div className="max-w-lg mx-auto flex justify-center">
-          <Link href="/events" className="text-sm text-accent font-medium hover:underline">
-            <span className="sm:hidden">Browse</span>
-            <span className="hidden sm:inline">Browse events</span>
-          </Link>
-        </div>
-      </section>
-
-      {/* How it works: contextual (expandable) */}
-      <section className="max-w-lg mx-auto px-4 py-6">
-        <details className="bg-light rounded-xl border border-muted/30 overflow-hidden group">
-          <summary className="p-4 cursor-pointer list-none font-bold text-surface flex items-center justify-between">
-            How it works
-            <span className="text-muted text-sm font-normal group-open:rotate-180 transition-transform">&#9660;</span>
-          </summary>
-          <div className="px-4 pb-4 space-y-4 text-sm text-muted border-t border-muted/20 pt-4">
-            <p><strong className="text-surface">1. Create</strong> — Set up your event and Mobile Money number.</p>
-            <p><strong className="text-surface">2. Share</strong> — Send the link. Guests pay you directly.</p>
-            <p><strong className="text-surface">3. Track</strong> — See contributions and share receipts.</p>
-          </div>
-        </details>
-      </section>
-
-      {/* Featured: one metric (count) + expandable list */}
-      {featured.length > 0 && (
-        <section className="max-w-lg mx-auto px-4 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-muted text-sm">{featured.length} event{featured.length !== 1 ? "s" : ""} collecting</p>
-            <Link href="/events" className="text-sm text-accent font-medium hover:underline">
-              View all
-            </Link>
-          </div>
-          <HomeEventsList events={featured} />
-        </section>
-      )}
-
-      {/* Pricing: contextual (expandable) */}
-      <section className="max-w-lg mx-auto px-4 py-6">
-        <details className="bg-light rounded-xl border border-muted/30 overflow-hidden group">
-          <summary className="p-4 cursor-pointer list-none font-bold text-surface flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <IconWallet className="w-5 h-5 text-accent" />
-              <span className="sm:hidden">Treasurers</span>
-              <span className="hidden sm:inline">For treasurers</span>
+    <main className="min-h-screen bg-light flex flex-col">
+      <header className="bg-surface text-light">
+        <div className="max-w-lg mx-auto px-4 py-6 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 text-light hover:text-accent transition-colors">
+            <IconWallet className="w-6 h-6 text-accent" />
+            <span className="font-semibold text-lg">
+              Ceremony<span className="text-accent">Wallet</span>
             </span>
-            <span className="text-accent text-lg">50,000 UGX</span>
-          </summary>
-          <div className="px-4 pb-4 text-sm text-muted border-t border-muted/20 pt-4">
-            <p className="mb-2">One-time fee. No monthly costs. Unlimited contributors.</p>
-            <Link href="/create" className="cta-primary block text-center mt-4">
-              Get started
+          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/login"
+              className="text-sm text-light/90 hover:text-light font-medium"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/register"
+              className="text-sm bg-accent hover:bg-accent/90 text-white font-semibold px-4 py-2 rounded-lg transition-colors"
+            >
+              Sign up
             </Link>
           </div>
-        </details>
+        </div>
+      </header>
+
+      <section className="flex-1 max-w-lg mx-auto px-4 py-16 text-center">
+        <h1 className="text-2xl sm:text-3xl font-bold text-surface leading-tight mb-3">
+          The Transparent Treasurer
+          <span className="block text-accent">for Every Ceremony</span>
+        </h1>
+        <p className="text-muted text-sm mb-10">
+          Track contributions for weddings, kwanjula, and mabugo. We never hold your money.
+        </p>
+        <Link
+          href="/register"
+          className="cta-primary block text-center max-w-xs mx-auto"
+        >
+          Get started
+        </Link>
+        <p className="mt-4 text-sm text-muted">
+          Already have an account?{" "}
+          <Link href="/login" className="text-accent font-medium hover:underline">
+            Sign in
+          </Link>
+        </p>
       </section>
 
-      <footer className="bg-surface text-light/70 py-6 mt-8">
+      <footer className="bg-surface text-light/70 py-6 mt-auto">
         <div className="max-w-lg mx-auto px-4 text-center text-sm">
           <span className="font-semibold text-light">CeremonyWallet</span>
           <span className="mx-2">·</span>

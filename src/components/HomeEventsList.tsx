@@ -13,7 +13,7 @@ export default function HomeEventsList({ events }: HomeEventsListProps) {
       {events.map((event) => (
           <li key={event.id}>
             <Link
-              href={`/events/${event.slug}`}
+              href={`/app/events/${event.slug}`}
               className="flex items-center gap-4 p-4 rounded-xl bg-light border border-muted/30 hover:border-accent/50 transition-colors"
             >
               <div className="w-10 h-10 rounded-lg bg-muted/30 flex items-center justify-center text-accent flex-shrink-0">

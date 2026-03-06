@@ -5,12 +5,16 @@ import { events, budgetItems, contributions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { CeremonyEvent } from "@/lib/types";
 import {
-  getAllEvents as dbGetAllEvents,
+  getEventsByUserId as dbGetEventsByUserId,
   getEventBySlug as dbGetEventBySlug,
 } from "@/lib/db/queries";
+import { getCurrentUser } from "@/app/actions/auth";
 
-export async function getAllEvents(): Promise<CeremonyEvent[]> {
-  return dbGetAllEvents();
+/** Returns events owned by the current user (for app "My events"). */
+export async function getMyEvents(): Promise<CeremonyEvent[]> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+  return dbGetEventsByUserId(user.id);
 }
 
 export async function getEventBySlug(
@@ -22,10 +26,13 @@ export async function getEventBySlug(
 export async function addEvent(
   event: CeremonyEvent
 ): Promise<{ success: true; slug: string } | { success: false; error: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: "You must be signed in to create an event." };
   try {
     const db = getDb();
     db.insert(events).values({
       id: event.id,
+      userId: user.id,
       slug: event.slug,
       title: event.title,
       type: event.type,

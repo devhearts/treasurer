@@ -20,7 +20,7 @@ export default async function InvitePage({ params }: PageProps) {
     <main className="min-h-screen bg-light">
       <div className="max-w-lg mx-auto px-4 py-6">
         <Link
-          href={`/events/${slug}`}
+          href={`/app/events/${slug}`}
           className="inline-flex items-center gap-1 text-muted hover:text-surface text-sm mb-4"
         >
           <IconBack className="w-4 h-4" />

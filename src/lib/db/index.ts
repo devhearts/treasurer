@@ -30,8 +30,24 @@ export function initDb() {
   const db = drizzle(sqlite, { schema });
   // Create tables (Drizzle doesn't create tables by default; we run raw SQL for init)
   sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token_hash ON password_reset_tokens(token_hash);
+    CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at ON password_reset_tokens(expires_at);
     CREATE TABLE IF NOT EXISTS events (
       id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
       slug TEXT NOT NULL UNIQUE,
       title TEXT NOT NULL,
       type TEXT NOT NULL,
@@ -45,6 +61,18 @@ export function initDb() {
       created_at TEXT NOT NULL,
       subscription_paid INTEGER NOT NULL DEFAULT 0
     );
+  `);
+  // Migration: add user_id to events if missing (existing DBs created before we added this column)
+  try {
+    const info = sqlite.prepare("PRAGMA table_info(events)").all() as { name: string }[];
+    if (!info.some((c) => c.name === "user_id")) {
+      sqlite.exec("ALTER TABLE events ADD COLUMN user_id TEXT");
+    }
+  } catch {
+    // ignore
+  }
+  sqlite.exec(`
+    CREATE INDEX IF NOT EXISTS idx_events_user_id ON events(user_id);
     CREATE TABLE IF NOT EXISTS budget_items (
       id TEXT NOT NULL,
       event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
