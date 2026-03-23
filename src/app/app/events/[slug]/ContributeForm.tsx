@@ -10,6 +10,8 @@ interface ContributeFormProps {
   eventSlug: string;
   eventTitle: string;
   treasurerPhone: string;
+  /** Private (app) view: show visible label for contributor name. */
+  flow?: "public" | "private";
 }
 
 const PRESET_AMOUNTS = [50000, 100000, 200000, 500000];
@@ -18,6 +20,7 @@ export default function ContributeForm({
   eventSlug,
   eventTitle,
   treasurerPhone,
+  flow = "public",
 }: ContributeFormProps) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -120,15 +123,35 @@ export default function ContributeForm({
             UGX {numAmount.toLocaleString()} to {eventTitle}
           </p>
           <div className="mb-4">
-            <label className="sr-only">Your name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
-              required
-              className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
-            />
+            {flow === "private" ? (
+              <>
+                <input
+                  id="contributor-name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name"
+                  required
+                  autoComplete="name"
+                  className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
+                />
+              </>
+            ) : (
+              <>
+                <label className="sr-only" htmlFor="contributor-name-public">
+                  Your name
+                </label>
+                <input
+                  id="contributor-name-public"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name"
+                  required
+                  className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
+                />
+              </>
+            )}
           </div>
           <p className="text-xs text-muted mb-2">Pay to treasurer</p>
           <p className="font-bold text-surface mb-4">{treasurerPhone}</p>
@@ -161,6 +184,11 @@ export default function ContributeForm({
               ? `Your pledge of UGX ${numAmount.toLocaleString()} is recorded. Pay the treasurer via Mobile Money when you're ready.`
               : `Your contribution of UGX ${numAmount.toLocaleString()} is recorded. Pay the treasurer via Mobile Money.`}
           </p>
+          {name.trim() && (
+            <p className="text-sm font-medium text-surface mb-4">
+              Recorded as: <span className="text-accent">{name.trim()}</span>
+            </p>
+          )}
           <div className="flex items-center justify-between p-4 rounded-lg bg-muted/10 border border-muted/20 mb-4">
             <span className="font-bold text-surface">{treasurerPhone}</span>
             <button

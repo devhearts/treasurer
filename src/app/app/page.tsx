@@ -41,7 +41,7 @@ export default async function AppHome() {
       </section>
 
       <section className="max-w-lg mx-auto px-4 py-6">
-        <details open={false} className="bg-light rounded-xl border border-muted/30 overflow-hidden group">
+        <details open className="bg-light rounded-xl border border-muted/30 overflow-hidden group">
           <summary className="p-4 cursor-pointer list-none font-bold text-surface flex items-center justify-between">
             How it works
             <span className="text-muted text-sm font-normal group-open:rotate-180 transition-transform">&#9660;</span>
@@ -67,7 +67,7 @@ export default async function AppHome() {
       )}
 
       <section className="max-w-lg mx-auto px-4 py-6">
-        <details open={false} className="bg-light rounded-xl border border-muted/30 overflow-hidden group">
+        <details open className="bg-light rounded-xl border border-muted/30 overflow-hidden group">
           <summary className="p-4 cursor-pointer list-none font-bold text-surface flex items-center justify-between">
             <span className="flex items-center gap-2">
               <IconWallet className="w-5 h-5 text-accent" />

@@ -81,7 +81,7 @@ export default function InviteCardGenerator({ event }: { event: CeremonyEvent })
 
   return (
     <div className="space-y-4">
-        <details open={false} className="bg-light rounded-xl border border-muted/30 overflow-hidden group">
+        <details open className="bg-light rounded-xl border border-muted/30 overflow-hidden group">
           <summary className="p-4 cursor-pointer list-none font-bold text-surface">
             <span className="sm:hidden">Message</span>
             <span className="hidden sm:inline">Message for all</span>

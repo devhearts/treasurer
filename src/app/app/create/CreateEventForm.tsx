@@ -331,7 +331,7 @@ export default function CreateEventForm() {
                 </div>
               </div>
 
-              <details open={false} className="group mb-4">
+              <details open className="group mb-4">
                 <summary className="text-sm text-muted cursor-pointer list-none py-2">
                   How to pay (MTN or Airtel)
                 </summary>
