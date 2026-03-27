@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addContribution } from "@/app/actions/events";
+import {
+  initiateMomoContribution,
+  pollMomoContribution,
+} from "@/app/actions/momo";
 import { IconCopy } from "@/components/Icons";
 
 interface ContributeFormProps {
@@ -12,30 +16,97 @@ interface ContributeFormProps {
   treasurerPhone: string;
   /** Private (app) view: show visible label for contributor name. */
   flow?: "public" | "private";
+  momoConfigured?: boolean;
 }
 
 const PRESET_AMOUNTS = [50000, 100000, 200000, 500000];
+
+const MOMO_POLL_MS = 2500;
+const MOMO_MAX_POLLS = 48;
 
 export default function ContributeForm({
   eventSlug,
   eventTitle,
   treasurerPhone,
   flow = "public",
+  momoConfigured = false,
 }: ContributeFormProps) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [amount, setAmount] = useState("");
   const [name, setName] = useState("");
+  const [payerPhone, setPayerPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   /** After step 3: whether the last recorded contribution was pledged (pay later) or paid. */
   const [lastStatus, setLastStatus] = useState<"paid" | "pledged">("paid");
+  /** Last completion was via MoMo (vs manual record). */
+  const [lastPaidViaMomo, setLastPaidViaMomo] = useState(false);
+
+  const [momoWait, setMomoWait] = useState(false);
+  const [momoRef, setMomoRef] = useState<string | null>(null);
+  const [momoError, setMomoError] = useState<string | null>(null);
 
   function copyPhone() {
     navigator.clipboard.writeText(treasurerPhone);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
+
+  useEffect(() => {
+    if (!momoWait || !momoRef) return;
+
+    let cancelled = false;
+    let polls = 0;
+
+    const tick = async () => {
+      if (cancelled) return;
+      polls += 1;
+      if (polls > MOMO_MAX_POLLS) {
+        setMomoError(
+          "Timed out waiting for approval. If you approved on your phone, refresh this page or contact the treasurer."
+        );
+        setMomoWait(false);
+        setMomoRef(null);
+        return;
+      }
+
+      const r = await pollMomoContribution(momoRef);
+      if (cancelled) return;
+
+      if (r.status === "SUCCESSFUL") {
+        setLastStatus("paid");
+        setLastPaidViaMomo(true);
+        setMomoWait(false);
+        setMomoRef(null);
+        router.refresh();
+        setStep(3);
+        return;
+      }
+
+      if (r.status === "FAILED") {
+        setMomoError(r.message ?? "Payment failed.");
+        setMomoWait(false);
+        setMomoRef(null);
+        return;
+      }
+
+      if (r.status === "NOT_FOUND") {
+        setMomoError("Payment session expired. Try again.");
+        setMomoWait(false);
+        setMomoRef(null);
+        return;
+      }
+    };
+
+    void tick();
+    const id = window.setInterval(tick, MOMO_POLL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [momoWait, momoRef, router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -54,13 +125,14 @@ export default function ContributeForm({
       name,
       anonymous: false,
       amount: Number(amount),
-      phone: "",
+      phone: payerPhone.trim() || "",
       status,
       date: new Date().toISOString().split("T")[0],
     });
     setLoading(false);
     if (result.success) {
       setLastStatus(status);
+      setLastPaidViaMomo(false);
       router.refresh();
       setStep(3);
     } else {
@@ -68,7 +140,54 @@ export default function ContributeForm({
     }
   }
 
+  async function startMomoPay() {
+    setMomoError(null);
+    if (!payerPhone.trim()) {
+      setMomoError("Enter the MTN MoMo number that will pay.");
+      return;
+    }
+    setLoading(true);
+    const result = await initiateMomoContribution({
+      eventSlug,
+      amount: Number(amount),
+      name,
+      payerPhone,
+    });
+    setLoading(false);
+    if (!result.success) {
+      setMomoError(result.error ?? "Could not start payment.");
+      return;
+    }
+    setMomoRef(result.referenceId);
+    setMomoWait(true);
+  }
+
   const numAmount = Number(amount) || 0;
+
+  if (momoWait) {
+    return (
+      <div className="bg-light rounded-xl border border-muted/30 overflow-hidden p-6">
+        <h2 className="text-lg font-bold text-surface mb-1">Approve on your phone</h2>
+        <p className="text-muted text-sm mb-4">
+          We sent a Mobile Money request for UGX {numAmount.toLocaleString()}. Open the prompt on your phone and enter your PIN to pay.
+        </p>
+        <div className="flex items-center gap-3 py-6 justify-center">
+          <span className="inline-block h-8 w-8 border-2 border-accent border-t-transparent rounded-full animate-spin" aria-hidden />
+          <span className="text-sm text-muted">Waiting for MTN MoMo…</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setMomoWait(false);
+            setMomoRef(null);
+          }}
+          className="text-sm text-accent font-medium"
+        >
+          Cancel
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-light rounded-xl border border-muted/30 overflow-hidden">
@@ -153,17 +272,53 @@ export default function ContributeForm({
               </>
             )}
           </div>
+
+          {momoConfigured && (
+            <div className="mb-4">
+              <label className="block text-xs text-muted mb-1" htmlFor="payer-phone">
+                MTN MoMo number (paying wallet)
+              </label>
+              <input
+                id="payer-phone"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel"
+                value={payerPhone}
+                onChange={(e) => setPayerPhone(e.target.value)}
+                placeholder="e.g. 077xxxxxxx"
+                className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+            </div>
+          )}
+
+          {momoError && (
+            <p className="text-sm text-red-600 mb-3" role="alert">
+              {momoError}
+            </p>
+          )}
+
           <p className="text-xs text-muted mb-2">Pay to treasurer</p>
           <p className="font-bold text-surface mb-4">{treasurerPhone}</p>
           <div className="flex flex-col gap-2">
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => recordContribution("paid")}
-              className="cta-primary w-full text-white disabled:opacity-50"
-            >
-              {loading ? "Recording…" : <><span className="sm:hidden">Pay now</span><span className="hidden sm:inline">I've paid — record</span></>}
-            </button>
+            {momoConfigured ? (
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => void startMomoPay()}
+                className="cta-primary w-full text-white disabled:opacity-50"
+              >
+                {loading ? "Starting…" : "Pay with MTN MoMo"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => recordContribution("paid")}
+                className="cta-primary w-full text-white disabled:opacity-50"
+              >
+                {loading ? "Recording…" : <><span className="sm:hidden">Pay now</span><span className="hidden sm:inline">I&apos;ve paid — record</span></>}
+              </button>
+            )}
             <button
               type="button"
               disabled={loading}
@@ -182,7 +337,9 @@ export default function ContributeForm({
           <p className="text-muted text-sm mb-4">
             {lastStatus === "pledged"
               ? `Your pledge of UGX ${numAmount.toLocaleString()} is recorded. Pay the treasurer via Mobile Money when you're ready.`
-              : `Your contribution of UGX ${numAmount.toLocaleString()} is recorded. Pay the treasurer via Mobile Money.`}
+              : lastPaidViaMomo
+                ? `Your payment of UGX ${numAmount.toLocaleString()} was received via MTN MoMo.`
+                : `Your contribution of UGX ${numAmount.toLocaleString()} is recorded. Pay the treasurer via Mobile Money.`}
           </p>
           {name.trim() && (
             <p className="text-sm font-medium text-surface mb-4">
@@ -202,7 +359,13 @@ export default function ContributeForm({
           </div>
           <button
             type="button"
-            onClick={() => { setStep(1); setAmount(""); setName(""); }}
+            onClick={() => {
+              setStep(1);
+              setAmount("");
+              setName("");
+              setPayerPhone("");
+              setMomoError(null);
+            }}
             className="text-sm text-accent font-medium"
           >
             Make another contribution

@@ -56,3 +56,23 @@ export const contributions = sqliteTable("contributions", {
   date: text("date").notNull(),
   manual: integer("manual", { mode: "boolean" }).default(false),
 });
+
+/** In-flight MoMo RequestToPay; finalized when status is SUCCESSFUL. */
+export const momoPendingPayments = sqliteTable("momo_pending_payments", {
+  referenceId: text("reference_id").primaryKey(),
+  eventId: text("event_id")
+    .notNull()
+    .references(() => events.id, { onDelete: "cascade" }),
+  amount: integer("amount").notNull(),
+  name: text("name").notNull(),
+  anonymous: integer("anonymous", { mode: "boolean" }).notNull(),
+  phone: text("phone").notNull(),
+  message: text("message"),
+  externalId: text("external_id").notNull(),
+  contributionRecorded: integer("contribution_recorded", {
+    mode: "boolean",
+  })
+    .notNull()
+    .default(false),
+  createdAt: text("created_at").notNull(),
+});

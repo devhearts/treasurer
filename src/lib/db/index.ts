@@ -94,6 +94,19 @@ export function initDb() {
     CREATE INDEX IF NOT EXISTS idx_budget_items_event_id ON budget_items(event_id);
     CREATE INDEX IF NOT EXISTS idx_contributions_event_id ON contributions(event_id);
     CREATE INDEX IF NOT EXISTS idx_events_slug ON events(slug);
+    CREATE TABLE IF NOT EXISTS momo_pending_payments (
+      reference_id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      amount INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      anonymous INTEGER NOT NULL,
+      phone TEXT NOT NULL,
+      message TEXT,
+      external_id TEXT NOT NULL,
+      contribution_recorded INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_momo_pending_event_id ON momo_pending_payments(event_id);
   `);
   sqlite.close();
 }

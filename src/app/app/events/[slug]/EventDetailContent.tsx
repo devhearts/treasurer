@@ -19,6 +19,8 @@ interface EventDetailContentProps {
   event: CeremonyEvent;
   /** When true, used on public /events/[slug]; back link and some treasurer links differ. Share/copy always use public URL. */
   isPublicView?: boolean;
+  /** MTN MoMo RequestToPay is available (server env configured). */
+  momoConfigured?: boolean;
 }
 
 type PrivateFlow = "details" | "contributions";
@@ -51,7 +53,11 @@ async function copyToClipboardSafe(text: string): Promise<boolean> {
   }
 }
 
-export default function EventDetailContent({ event, isPublicView = false }: EventDetailContentProps) {
+export default function EventDetailContent({
+  event,
+  isPublicView = false,
+  momoConfigured = false,
+}: EventDetailContentProps) {
   const slug = event.slug;
   const [shareCopied, setShareCopied] = useState(false);
   const [copyFallbackUrl, setCopyFallbackUrl] = useState<string | null>(null);
@@ -223,6 +229,7 @@ export default function EventDetailContent({ event, isPublicView = false }: Even
           eventTitle={event.title}
           treasurerPhone={event.treasurerPhone}
           flow={isPublicView ? "public" : "private"}
+          momoConfigured={momoConfigured}
         />
       </div>
     </>

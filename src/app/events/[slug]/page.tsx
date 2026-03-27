@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getEventBySlug } from "@/app/actions/events";
 import EventDetailContent from "@/app/app/events/[slug]/EventDetailContent";
+import { isMomoConfigured } from "@/lib/momo/config";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -16,5 +17,11 @@ export default async function PublicEventPage({ params }: PageProps) {
 
   if (!event) notFound();
 
-  return <EventDetailContent event={event} isPublicView />;
+  return (
+    <EventDetailContent
+      event={event}
+      isPublicView
+      momoConfigured={isMomoConfigured()}
+    />
+  );
 }
