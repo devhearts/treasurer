@@ -32,6 +32,13 @@
 - **Logging**: `src/lib/momo/log.ts` (`[MoMo]` prefix); client/http log errors; `initiateMomoContribution` / `pollMomoContribution` log key events; MSISDN redacted to last four digits in action logs. MoMo API failures on start log full `internal` detail server-side; UI gets `MOMO_PUBLIC_PAYMENT_START_FAILED` from `src/lib/momo/messages.ts`.
 - **Production**: `output: "standalone"` in `next.config.ts`; use `npm run build` then `npm run start` runs `node .next/standalone/server.js` (do not use `next start` with standalone — Next warns and behavior/logging can be wrong). Build runs `scripts/copy-standalone-static.mjs` so `.next/static` (and `public` if present) are copied into `.next/standalone/` — required or `/_next/static/*` returns 404.
 
+## Recent: Milestone items (sub-goals)
+- Table `milestone_items` (event_id, name, target_amount); `contributions.milestone_id` and `momo_pending_payments.milestone_id` optional FKs.
+- App event page (owner): third tab **Milestones** — add/delete milestones with progress (`MilestoneItemsTab.tsx`).
+- **ContributeForm**: horizontal `MilestoneCardsRow` for public/private contribute flow.
+- **All contributions** page: `MilestoneCardsRow` removed; **Filter by milestone** `<select>` on the list card; **Add contribution** modal has **Tag to milestone** `<select>`. List filters client-side (`all` / `general` / milestone id).
+- Server: `addMilestoneItem`, `deleteMilestoneItem`; `addContribution` + MoMo flow accept `milestoneId`.
+
 ## Recent: Subscription Fee = UGX 10,000 via MoMo
 - Event activation subscription changed from UGX 50,000 (manual checkbox) to **UGX 10,000 paid via MTN MoMo** (RequestToPay).
 - Server actions `initiateSubscriptionPayment` / `pollSubscriptionPayment` added in `src/app/actions/momo.ts` — lightweight versions that don't use `momo_pending_payments` (no DB row needed; just poll the reference ID).

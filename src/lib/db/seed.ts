@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "./index";
-import { events, budgetItems, contributions, users } from "./schema";
+import { events, budgetItems, contributions, milestoneItems, users } from "./schema";
 import type { CeremonyEvent } from "../types";
 
 const SEED_USER_ID = "seed-user";
@@ -27,6 +27,10 @@ const SEED_EVENTS: CeremonyEvent[] = [
       { id: "b4", name: "Bride's Dress & Groom's Suit", amount: 2500000 },
       { id: "b5", name: "Decorations & Flowers", amount: 1500000 },
     ],
+    milestoneItems: [
+      { id: "ms1", name: "Catering boost", targetAmount: 2000000, raisedAmount: 0 },
+      { id: "ms2", name: "Photography", targetAmount: 1500000, raisedAmount: 0 },
+    ],
     contributions: [
       {
         id: "c1",
@@ -38,6 +42,7 @@ const SEED_EVENTS: CeremonyEvent[] = [
         message: "Wishing you a blessed union!",
         status: "paid",
         date: "2024-03-01",
+        milestoneId: "ms1",
       },
       {
         id: "c2",
@@ -59,6 +64,7 @@ const SEED_EVENTS: CeremonyEvent[] = [
         message: "From the Ochieng family, congratulations!",
         status: "paid",
         date: "2024-03-05",
+        milestoneId: "ms1",
       },
       {
         id: "c4",
@@ -105,6 +111,7 @@ const SEED_EVENTS: CeremonyEvent[] = [
       { id: "b3", name: "Gifts for Groom's Family", amount: 2000000 },
       { id: "b4", name: "Tent & Setup", amount: 1500000 },
     ],
+    milestoneItems: [],
     contributions: [
       {
         id: "c1",
@@ -150,6 +157,7 @@ const SEED_EVENTS: CeremonyEvent[] = [
       { id: "b3", name: "Transport for Family", amount: 800000 },
       { id: "b4", name: "Miscellaneous", amount: 700000 },
     ],
+    milestoneItems: [],
     contributions: [
       {
         id: "c1",
@@ -220,6 +228,15 @@ export function seedDb() {
       }).run();
     }
 
+    for (const m of ev.milestoneItems) {
+      db.insert(milestoneItems).values({
+        id: m.id,
+        eventId: ev.id,
+        name: m.name,
+        targetAmount: m.targetAmount,
+      }).run();
+    }
+
     for (const c of ev.contributions) {
       db.insert(contributions).values({
         id: c.id,
@@ -233,6 +250,7 @@ export function seedDb() {
         date: c.date,
         pledgeHopeBy: c.pledgeHopeBy ?? null,
         visible: true,
+        milestoneId: c.milestoneId ?? null,
       }).run();
     }
   }

@@ -79,6 +79,13 @@ export function initDb() {
       name TEXT NOT NULL,
       amount INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS milestone_items (
+      id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      target_amount INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_milestone_items_event_id ON milestone_items(event_id);
     CREATE TABLE IF NOT EXISTS contributions (
       id TEXT PRIMARY KEY,
       event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
@@ -120,6 +127,21 @@ export function initDb() {
     if (!cInfo.some((c) => c.name === "visible")) {
       sqlite.exec(
         "ALTER TABLE contributions ADD COLUMN visible INTEGER NOT NULL DEFAULT 1"
+      );
+    }
+    if (!cInfo.some((c) => c.name === "milestone_id")) {
+      sqlite.exec("ALTER TABLE contributions ADD COLUMN milestone_id TEXT REFERENCES milestone_items(id) ON DELETE SET NULL");
+    }
+  } catch {
+    // ignore
+  }
+  try {
+    const mInfo = sqlite.prepare("PRAGMA table_info(momo_pending_payments)").all() as {
+      name: string;
+    }[];
+    if (!mInfo.some((c) => c.name === "milestone_id")) {
+      sqlite.exec(
+        "ALTER TABLE momo_pending_payments ADD COLUMN milestone_id TEXT REFERENCES milestone_items(id) ON DELETE SET NULL"
       );
     }
   } catch {

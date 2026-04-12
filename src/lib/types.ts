@@ -6,6 +6,15 @@ export interface BudgetItem {
   amount: number;
 }
 
+/** Fundraising sub-goal within an event; progress = sum of visible allocations. */
+export interface MilestoneItem {
+  id: string;
+  name: string;
+  targetAmount: number;
+  /** Sum of amounts from visible contributions tagged to this milestone. */
+  raisedAmount: number;
+}
+
 export interface Contribution {
   id: string;
   eventId: string;
@@ -22,6 +31,8 @@ export interface Contribution {
   manual?: boolean;
   /** False = hidden from public page and receipt; omitted/true = shown. */
   visible?: boolean;
+  /** Optional milestone this contribution counts toward. */
+  milestoneId?: string | null;
 }
 
 export interface CeremonyEvent {
@@ -38,6 +49,7 @@ export interface CeremonyEvent {
   date: string;
   location: string;
   budgetItems: BudgetItem[];
+  milestoneItems: MilestoneItem[];
   contributions: Contribution[];
   createdAt: string;
   slug: string;

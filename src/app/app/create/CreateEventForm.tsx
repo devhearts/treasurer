@@ -144,6 +144,7 @@ export default function CreateEventForm({
         target > 0
           ? [{ id: "target", name: "Target", amount: target }]
           : [],
+      milestoneItems: [],
       contributions: [],
       createdAt: new Date().toISOString().split("T")[0],
     };

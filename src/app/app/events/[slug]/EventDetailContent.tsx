@@ -8,6 +8,7 @@ import {
   filterPublicContributions,
 } from "@/lib/data";
 import ContributeForm from "./ContributeForm";
+import MilestoneItemsTab from "./MilestoneItemsTab";
 import ContributionReceipt from "@/components/ContributionReceipt";
 import RecentContributionsCard from "@/components/RecentContributionsCard";
 import { CeremonyEvent } from "@/lib/types";
@@ -27,7 +28,7 @@ interface EventDetailContentProps {
   momoConfigured?: boolean;
 }
 
-type PrivateFlow = "details" | "contributions";
+type PrivateFlow = "details" | "contributions" | "milestones";
 
 /** Clipboard API can throw NotAllowedError if document isn't focused or gesture was lost (e.g. after share sheet closes). */
 async function copyToClipboardSafe(text: string): Promise<boolean> {
@@ -241,6 +242,7 @@ export default function EventDetailContent({
           eventSlug={event.slug}
           eventTitle={event.title}
           treasurerPhone={event.treasurerPhone}
+          milestoneItems={event.milestoneItems}
           flow={isPublicView ? "public" : "private"}
           momoConfigured={momoConfigured}
         />
@@ -321,31 +323,45 @@ export default function EventDetailContent({
           </>
         ) : (
           <>
-            <div className="flex rounded-xl border border-muted/30 bg-light p-1 mb-4">
+            <div className="flex rounded-xl border border-muted/30 bg-light p-1 mb-4 gap-0.5">
               <button
                 type="button"
                 onClick={() => setPrivateFlow("details")}
-                className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-semibold transition-colors ${
+                className={`flex-1 py-2.5 px-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors ${
                   privateFlow === "details"
                     ? "bg-accent text-white shadow-sm"
                     : "text-muted hover:text-surface"
                 }`}
               >
-                Event details
+                <span className="sm:hidden">Details</span>
+                <span className="hidden sm:inline">Event details</span>
               </button>
               <button
                 type="button"
                 onClick={() => setPrivateFlow("contributions")}
-                className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-semibold transition-colors ${
+                className={`flex-1 py-2.5 px-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors ${
                   privateFlow === "contributions"
                     ? "bg-accent text-white shadow-sm"
                     : "text-muted hover:text-surface"
                 }`}
               >
-                Contributions
-                <span className="ml-1 text-xs font-normal opacity-90">
+                <span className="sm:hidden">Pay</span>
+                <span className="hidden sm:inline">Contributions</span>
+                <span className="ml-0.5 text-[10px] sm:text-xs font-normal opacity-90">
                   ({event.contributions.length})
                 </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPrivateFlow("milestones")}
+                className={`flex-1 py-2.5 px-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors ${
+                  privateFlow === "milestones"
+                    ? "bg-accent text-white shadow-sm"
+                    : "text-muted hover:text-surface"
+                }`}
+              >
+                <span className="sm:hidden">Goals</span>
+                <span className="hidden sm:inline">Milestones</span>
               </button>
             </div>
 
@@ -367,9 +383,13 @@ export default function EventDetailContent({
                   </div>
                 )}
                 <p className="text-center text-sm text-muted mt-6 mb-2">
-                  Switch to <strong className="text-surface">Contributions</strong> to record payments, receipts, and new contributions.
+                  Use <strong className="text-surface">Milestones</strong> for sub-goals, or <strong className="text-surface">Contributions</strong> to pay and record receipts.
                 </p>
               </div>
+            )}
+
+            {privateFlow === "milestones" && (
+              <MilestoneItemsTab event={event} />
             )}
 
             {privateFlow === "contributions" && (

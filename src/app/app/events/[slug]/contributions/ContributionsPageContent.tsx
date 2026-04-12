@@ -28,10 +28,23 @@ export default function ContributionsPageContent({
   const [addAnonymous, setAddAnonymous] = useState(false);
   const [addAmount, setAddAmount] = useState("");
   const [addNote, setAddNote] = useState("");
+  /** Empty string = tag to whole event (no milestone). */
+  const [addMilestoneId, setAddMilestoneId] = useState("");
   const [addSaving, setAddSaving] = useState(false);
   const [visibilitySavingId, setVisibilitySavingId] = useState<string | null>(
     null
   );
+  /** `"all"` | `"general"` | milestone id */
+  const [milestoneFilter, setMilestoneFilter] = useState<string>("all");
+
+  const hasMilestones = event.milestoneItems.length > 0;
+
+  const contributionsSorted = event.contributions.slice().reverse();
+  const filteredContributions = contributionsSorted.filter((c) => {
+    if (milestoneFilter === "all") return true;
+    if (milestoneFilter === "general") return !c.milestoneId;
+    return c.milestoneId === milestoneFilter;
+  });
 
   async function handleAddContribution(e: React.FormEvent) {
     e.preventDefault();
@@ -45,6 +58,7 @@ export default function ContributionsPageContent({
       status: "paid",
       date: new Date().toISOString().split("T")[0],
       manual: true,
+      milestoneId: addMilestoneId.trim() || undefined,
     });
     setAddSaving(false);
     if (result.success) {
@@ -54,6 +68,7 @@ export default function ContributionsPageContent({
       setAddAnonymous(false);
       setAddAmount("");
       setAddNote("");
+      setAddMilestoneId("");
     } else {
       alert(result.error ?? "Failed to add contribution.");
     }
@@ -72,16 +87,42 @@ export default function ContributionsPageContent({
         </Link>
 
         <div className="bg-light rounded-xl border border-muted/30 overflow-hidden">
-          <div className="p-4 border-b border-muted/20 flex items-center justify-between">
-            <h1 className="text-lg font-bold text-surface">All contributions</h1>
-            <button
-              type="button"
-              onClick={() => setAddModalOpen(true)}
-              className="inline-flex items-center gap-1.5 text-sm text-accent font-medium"
-            >
-              <IconAdd className="w-4 h-4" />
-              Add
-            </button>
+          <div className="p-4 border-b border-muted/20 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <h1 className="text-lg font-bold text-surface">All contributions</h1>
+              <button
+                type="button"
+                onClick={() => setAddModalOpen(true)}
+                className="inline-flex items-center gap-1.5 text-sm text-accent font-medium flex-shrink-0"
+              >
+                <IconAdd className="w-4 h-4" />
+                Add
+              </button>
+            </div>
+            {hasMilestones && (
+              <div>
+                <label
+                  htmlFor="contributions-milestone-filter"
+                  className="block text-xs font-medium text-muted mb-1"
+                >
+                  Filter by milestone
+                </label>
+                <select
+                  id="contributions-milestone-filter"
+                  value={milestoneFilter}
+                  onChange={(e) => setMilestoneFilter(e.target.value)}
+                  className="w-full border border-muted/50 rounded-lg px-3 py-2.5 text-sm text-surface bg-light focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  <option value="all">All contributions</option>
+                  <option value="general">General (no milestone)</option>
+                  {event.milestoneItems.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <div className="p-4">
             <p className="text-xs text-muted mb-3">
@@ -90,12 +131,13 @@ export default function ContributionsPageContent({
             </p>
             {event.contributions.length === 0 ? (
               <p className="text-muted text-sm">No contributions yet.</p>
+            ) : filteredContributions.length === 0 ? (
+              <p className="text-muted text-sm">
+                No contributions match this milestone filter.
+              </p>
             ) : (
               <ul className="space-y-2">
-                {event.contributions
-                  .slice()
-                  .reverse()
-                  .map((c) => {
+                {filteredContributions.map((c) => {
                     const onPublic = isPublicContribution(c);
                     return (
                       <li
@@ -114,6 +156,15 @@ export default function ContributionsPageContent({
                             </p>
                             <p className="text-xs text-muted">
                               {formatCalendarDate(c.date)}
+                              {c.milestoneId && (
+                                <>
+                                  {" · "}
+                                  <span className="text-accent/90">
+                                    {event.milestoneItems.find((m) => m.id === c.milestoneId)
+                                      ?.name ?? "Milestone"}
+                                  </span>
+                                </>
+                              )}
                               {c.status === "pledged" && c.pledgeHopeBy?.trim() && (
                                 <>
                                   {" · "}
@@ -232,6 +283,29 @@ export default function ContributionsPageContent({
                   className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
                 />
               </div>
+              {hasMilestones && (
+                <div>
+                  <label
+                    htmlFor="add-contribution-milestone"
+                    className="block text-xs font-medium text-muted mb-1"
+                  >
+                    Tag to milestone
+                  </label>
+                  <select
+                    id="add-contribution-milestone"
+                    value={addMilestoneId}
+                    onChange={(e) => setAddMilestoneId(e.target.value)}
+                    className="w-full border border-muted/50 rounded-lg px-3 py-3 text-sm text-surface bg-light focus:outline-none focus:ring-2 focus:ring-accent"
+                  >
+                    <option value="">Whole event (no milestone)</option>
+                    {event.milestoneItems.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="sr-only">Note (optional)</label>
                 <input

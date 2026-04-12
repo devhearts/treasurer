@@ -1,7 +1,7 @@
 "use server";
 
 import { getDb } from "@/lib/db";
-import { events, budgetItems, contributions } from "@/lib/db/schema";
+import { events, budgetItems, contributions, milestoneItems } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import type { CeremonyEvent } from "@/lib/types";
 import {
@@ -56,6 +56,15 @@ export async function addEvent(
       }).run();
     }
 
+    for (const m of event.milestoneItems ?? []) {
+      db.insert(milestoneItems).values({
+        id: m.id,
+        eventId: event.id,
+        name: m.name,
+        targetAmount: m.targetAmount,
+      }).run();
+    }
+
     for (const c of event.contributions) {
       db.insert(contributions).values({
         id: c.id,
@@ -69,6 +78,7 @@ export async function addEvent(
         date: c.date,
         pledgeHopeBy: c.pledgeHopeBy ?? null,
         visible: c.visible !== false,
+        milestoneId: c.milestoneId ?? null,
       }).run();
     }
 
@@ -88,6 +98,11 @@ export async function addContribution(
   try {
     const event = dbGetEventBySlug(eventSlug);
     if (!event) return { success: false, error: "Event not found" };
+
+    const mid = contribution.milestoneId?.trim() || null;
+    if (mid && !event.milestoneItems.some((m) => m.id === mid)) {
+      return { success: false, error: "Invalid milestone." };
+    }
 
     const id = `c${Date.now()}`;
     const db = getDb();
@@ -110,6 +125,7 @@ export async function addContribution(
       pledgeHopeBy,
       manual: contribution.manual ?? false,
       visible: true,
+      milestoneId: mid,
     }).run();
 
     db.update(events)
@@ -125,6 +141,62 @@ export async function addContribution(
       err instanceof Error ? err.message : "Failed to add contribution";
     return { success: false, error: message };
   }
+}
+
+export async function addMilestoneItem(
+  eventSlug: string,
+  input: { name: string; targetAmount: number }
+): Promise<
+  { success: true; id: string } | { success: false; error: string }
+> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: "You must be signed in." };
+  const event = dbGetEventBySlug(eventSlug);
+  if (!event) return { success: false, error: "Event not found" };
+  if (event.userId && event.userId !== user.id) {
+    return { success: false, error: "Not allowed." };
+  }
+  const name = input.name.trim();
+  if (!name) return { success: false, error: "Enter a name." };
+  const target = Math.round(Number(input.targetAmount));
+  if (!Number.isFinite(target) || target < 1) {
+    return { success: false, error: "Enter a valid target amount." };
+  }
+  const id = `ms${Date.now()}`;
+  const db = getDb();
+  db.insert(milestoneItems).values({
+    id,
+    eventId: event.id,
+    name,
+    targetAmount: target,
+  }).run();
+  return { success: true, id };
+}
+
+export async function deleteMilestoneItem(
+  eventSlug: string,
+  milestoneId: string
+): Promise<{ success: true } | { success: false; error: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: "You must be signed in." };
+  const event = dbGetEventBySlug(eventSlug);
+  if (!event) return { success: false, error: "Event not found" };
+  if (event.userId && event.userId !== user.id) {
+    return { success: false, error: "Not allowed." };
+  }
+  if (!event.milestoneItems.some((m) => m.id === milestoneId)) {
+    return { success: false, error: "Milestone not found." };
+  }
+  const db = getDb();
+  db.delete(milestoneItems)
+    .where(
+      and(
+        eq(milestoneItems.id, milestoneId),
+        eq(milestoneItems.eventId, event.id)
+      )
+    )
+    .run();
+  return { success: true };
 }
 
 export async function setContributionVisibility(

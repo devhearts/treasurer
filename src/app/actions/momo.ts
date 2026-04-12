@@ -30,6 +30,8 @@ export async function initiateMomoContribution(input: {
   name: string;
   anonymous?: boolean;
   payerPhone: string;
+  /** When set, successful payment is recorded against this milestone. */
+  milestoneId?: string | null;
 }): Promise<
   | { success: true; referenceId: string }
   | { success: false; error: string }
@@ -41,6 +43,14 @@ export async function initiateMomoContribution(input: {
 
   const event = getEventBySlug(input.eventSlug);
   if (!event) return { success: false, error: "Event not found" };
+
+  const milestoneId = input.milestoneId?.trim() || null;
+  if (
+    milestoneId &&
+    !event.milestoneItems.some((m) => m.id === milestoneId)
+  ) {
+    return { success: false, error: "Invalid milestone." };
+  }
 
   if (!Number.isFinite(input.amount) || input.amount < 1000) {
     return { success: false, error: "Invalid amount." };
@@ -74,6 +84,7 @@ export async function initiateMomoContribution(input: {
       externalId,
       contributionRecorded: false,
       createdAt,
+      milestoneId,
     })
     .run();
 
@@ -143,6 +154,7 @@ function recordContributionFromPending(referenceId: string): boolean {
       pledgeHopeBy: null,
       manual: false,
       visible: true,
+      milestoneId: row.milestoneId ?? null,
     }).run();
 
     tx.update(events)

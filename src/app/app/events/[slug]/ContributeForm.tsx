@@ -9,12 +9,15 @@ import {
 } from "@/app/actions/momo";
 import { IconCopy } from "@/components/Icons";
 import { formatCalendarDate } from "@/lib/data";
+import MilestoneCardsRow from "@/components/MilestoneCardsRow";
+import type { MilestoneItem } from "@/lib/types";
 
 interface ContributeFormProps {
   eventId: string;
   eventSlug: string;
   eventTitle: string;
   treasurerPhone: string;
+  milestoneItems?: MilestoneItem[];
   /** Private (app) view: show visible label for contributor name. */
   flow?: "public" | "private";
   momoConfigured?: boolean;
@@ -29,11 +32,13 @@ export default function ContributeForm({
   eventSlug,
   eventTitle,
   treasurerPhone,
+  milestoneItems = [],
   flow = "public",
   momoConfigured = false,
 }: ContributeFormProps) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [name, setName] = useState("");
   const [anonymous, setAnonymous] = useState(false);
@@ -138,6 +143,7 @@ export default function ContributeForm({
         status === "pledged" && pledgeHopeBy.trim()
           ? pledgeHopeBy.trim()
           : undefined,
+      milestoneId: selectedMilestoneId ?? undefined,
     });
     setLoading(false);
     if (result.success) {
@@ -163,6 +169,7 @@ export default function ContributeForm({
       name: anonymous ? "Anonymous" : name.trim(),
       anonymous,
       payerPhone,
+      milestoneId: selectedMilestoneId,
     });
     setLoading(false);
     if (!result.success) {
@@ -202,6 +209,15 @@ export default function ContributeForm({
 
   return (
     <div className="bg-light rounded-xl border border-muted/30 overflow-hidden">
+      {milestoneItems.length > 0 && !momoWait && (
+        <div className="px-6 pt-6 pb-0">
+          <MilestoneCardsRow
+            items={milestoneItems}
+            selectedId={selectedMilestoneId}
+            onSelect={setSelectedMilestoneId}
+          />
+        </div>
+      )}
       {step === 1 && (
         <form onSubmit={handleSubmit} className="p-6">
           <h2 className="text-lg font-bold text-surface mb-1">How much?</h2>

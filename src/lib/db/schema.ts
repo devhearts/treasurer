@@ -43,6 +43,15 @@ export const budgetItems = sqliteTable("budget_items", {
   amount: integer("amount").notNull(),
 });
 
+export const milestoneItems = sqliteTable("milestone_items", {
+  id: text("id").primaryKey(),
+  eventId: text("event_id")
+    .notNull()
+    .references(() => events.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  targetAmount: integer("target_amount").notNull(),
+});
+
 export const contributions = sqliteTable("contributions", {
   id: text("id").primaryKey(),
   eventId: text("event_id")
@@ -60,6 +69,9 @@ export const contributions = sqliteTable("contributions", {
   manual: integer("manual", { mode: "boolean" }).default(false),
   /** When false, hidden from public event page, recent list on public links, and receipt text. */
   visible: integer("visible", { mode: "boolean" }).notNull().default(true),
+  milestoneId: text("milestone_id").references(() => milestoneItems.id, {
+    onDelete: "set null",
+  }),
 });
 
 /** In-flight MoMo RequestToPay; finalized when status is SUCCESSFUL. */
@@ -80,4 +92,7 @@ export const momoPendingPayments = sqliteTable("momo_pending_payments", {
     .notNull()
     .default(false),
   createdAt: text("created_at").notNull(),
+  milestoneId: text("milestone_id").references(() => milestoneItems.id, {
+    onDelete: "set null",
+  }),
 });

@@ -1,7 +1,14 @@
 import { eq, and, gt } from "drizzle-orm";
 import { getDb } from "./index";
-import { events, budgetItems, contributions, users, passwordResetTokens } from "./schema";
-import type { CeremonyEvent } from "../types";
+import {
+  events,
+  budgetItems,
+  contributions,
+  milestoneItems,
+  users,
+  passwordResetTokens,
+} from "./schema";
+import type { CeremonyEvent, MilestoneItem } from "../types";
 
 export type User = {
   id: string;
@@ -80,9 +87,41 @@ export function deletePasswordResetTokenByTokenHash(tokenHash: string) {
   db.delete(passwordResetTokens).where(eq(passwordResetTokens.tokenHash, tokenHash)).run();
 }
 
+function raisedForMilestone(
+  contributionRows: {
+    amount: number;
+    milestoneId?: string | null;
+    visible?: boolean | null;
+  }[],
+  milestoneId: string
+): number {
+  return contributionRows.reduce((sum, c) => {
+    if ((c.milestoneId ?? null) !== milestoneId) return sum;
+    if (c.visible === false) return sum;
+    return sum + c.amount;
+  }, 0);
+}
+
+function buildMilestoneItems(
+  milestoneRows: { id: string; name: string; targetAmount: number }[],
+  contributionRows: {
+    amount: number;
+    milestoneId?: string | null;
+    visible?: boolean | null;
+  }[]
+): MilestoneItem[] {
+  return milestoneRows.map((m) => ({
+    id: m.id,
+    name: m.name,
+    targetAmount: m.targetAmount,
+    raisedAmount: raisedForMilestone(contributionRows, m.id),
+  }));
+}
+
 function rowToEvent(
   row: typeof events.$inferSelect,
   budgetRows: { id: string; name: string; amount: number }[],
+  milestoneRows: { id: string; name: string; targetAmount: number }[],
   contributionRows: {
     id: string;
     eventId: string;
@@ -96,6 +135,7 @@ function rowToEvent(
     pledgeHopeBy?: string | null;
     manual?: boolean | null;
     visible?: boolean | null;
+    milestoneId?: string | null;
   }[]
 ): CeremonyEvent {
   return {
@@ -118,6 +158,7 @@ function rowToEvent(
       name: b.name,
       amount: b.amount,
     })),
+    milestoneItems: buildMilestoneItems(milestoneRows, contributionRows),
     contributions: contributionRows.map((c) => ({
       id: c.id,
       eventId: c.eventId,
@@ -131,6 +172,7 @@ function rowToEvent(
       pledgeHopeBy: c.pledgeHopeBy ?? undefined,
       manual: c.manual ?? undefined,
       visible: c.visible === false ? false : undefined,
+      milestoneId: c.milestoneId ?? undefined,
     })),
   };
 }
@@ -146,6 +188,11 @@ export function getAllEvents(): CeremonyEvent[] {
       .from(budgetItems)
       .where(eq(budgetItems.eventId, row.id))
       .all();
+    const msRows = db
+      .select()
+      .from(milestoneItems)
+      .where(eq(milestoneItems.eventId, row.id))
+      .all();
     const contributionRows = db
       .select()
       .from(contributions)
@@ -155,6 +202,11 @@ export function getAllEvents(): CeremonyEvent[] {
       rowToEvent(
         row,
         budgetRows.map((b) => ({ id: b.id, name: b.name, amount: b.amount })),
+        msRows.map((m) => ({
+          id: m.id,
+          name: m.name,
+          targetAmount: m.targetAmount,
+        })),
         contributionRows.map((c) => ({
           id: c.id,
           eventId: c.eventId,
@@ -168,6 +220,7 @@ export function getAllEvents(): CeremonyEvent[] {
           pledgeHopeBy: c.pledgeHopeBy ?? null,
           manual: c.manual ?? null,
           visible: c.visible,
+          milestoneId: c.milestoneId ?? null,
         }))
       )
     );
@@ -187,6 +240,11 @@ export function getEventsByUserId(userId: string): CeremonyEvent[] {
       .from(budgetItems)
       .where(eq(budgetItems.eventId, row.id))
       .all();
+    const msRows = db
+      .select()
+      .from(milestoneItems)
+      .where(eq(milestoneItems.eventId, row.id))
+      .all();
     const contributionRows = db
       .select()
       .from(contributions)
@@ -196,6 +254,11 @@ export function getEventsByUserId(userId: string): CeremonyEvent[] {
       rowToEvent(
         row,
         budgetRows.map((b) => ({ id: b.id, name: b.name, amount: b.amount })),
+        msRows.map((m) => ({
+          id: m.id,
+          name: m.name,
+          targetAmount: m.targetAmount,
+        })),
         contributionRows.map((c) => ({
           id: c.id,
           eventId: c.eventId,
@@ -209,6 +272,7 @@ export function getEventsByUserId(userId: string): CeremonyEvent[] {
           pledgeHopeBy: c.pledgeHopeBy ?? null,
           manual: c.manual ?? null,
           visible: c.visible,
+          milestoneId: c.milestoneId ?? null,
         }))
       )
     );
@@ -228,6 +292,11 @@ export function getEventBySlug(slug: string): CeremonyEvent | undefined {
     .from(budgetItems)
     .where(eq(budgetItems.eventId, row.id))
     .all();
+  const msRows = db
+    .select()
+    .from(milestoneItems)
+    .where(eq(milestoneItems.eventId, row.id))
+    .all();
   const contributionRows = db
     .select()
     .from(contributions)
@@ -237,6 +306,11 @@ export function getEventBySlug(slug: string): CeremonyEvent | undefined {
   return rowToEvent(
     row,
     budgetRows.map((b) => ({ id: b.id, name: b.name, amount: b.amount })),
+    msRows.map((m) => ({
+      id: m.id,
+      name: m.name,
+      targetAmount: m.targetAmount,
+    })),
     contributionRows.map((c) => ({
       id: c.id,
       eventId: c.eventId,
@@ -250,6 +324,7 @@ export function getEventBySlug(slug: string): CeremonyEvent | undefined {
       pledgeHopeBy: c.pledgeHopeBy ?? null,
       manual: c.manual ?? null,
       visible: c.visible,
+      milestoneId: c.milestoneId ?? null,
     }))
   );
 }
