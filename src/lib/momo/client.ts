@@ -1,4 +1,10 @@
 import { getMomoConfig } from "./config";
+import {
+  formatMomoGatewayError,
+  momoCollectionHeaders,
+  readMomoJson,
+} from "./http";
+import { momoLog } from "./log";
 
 export interface RequestToPayStatusBody {
   status: string;
@@ -18,17 +24,25 @@ async function getCollectionAccessToken(): Promise<string> {
   const res = await fetch(`${config.baseUrl}/collection/token/`, {
     method: "POST",
     headers: {
+      ...momoCollectionHeaders(config),
       Authorization: `Basic ${basic}`,
-      "Ocp-Apim-Subscription-Key": config.subscriptionKey,
     },
   });
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`MoMo token error ${res.status}: ${text}`);
+    momoLog("error", "collection token request failed", {
+      status: res.status,
+    });
+    throw new Error(
+      `MoMo token error ${res.status}: ${formatMomoGatewayError(text)}`
+    );
   }
 
-  const data = (await res.json()) as { access_token: string };
+  const data = await readMomoJson<{ access_token: string }>(res, "MoMo token");
+  if (!data.access_token) {
+    throw new Error("MoMo token response missing access_token");
+  }
   return data.access_token;
 }
 
@@ -46,27 +60,15 @@ export async function requestToPay(params: {
 
   const token = await getCollectionAccessToken();
   const amountStr = String(Math.round(params.amount));
-  console.log("body", JSON.stringify({
-    amount: amountStr,
-    currency: params.currency,
-    externalId: params.externalId,
-    payer: {
-      partyIdType: "MSISDN",
-      partyId: params.payerMsisdn,
-    },
-    payerMessage: params.payerMessage,
-    payeeNote: params.payeeNote,
-  }));
 
   const res = await fetch(
     `${config.baseUrl}/collection/v1_0/requesttopay`,
     {
       method: "POST",
       headers: {
+        ...momoCollectionHeaders(config),
         Authorization: `Bearer ${token}`,
         "X-Reference-Id": params.referenceId,
-        "X-Target-Environment": config.targetEnvironment,
-        "Ocp-Apim-Subscription-Key": config.subscriptionKey,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -86,7 +88,13 @@ export async function requestToPay(params: {
   if (res.status === 202) return;
 
   const text = await res.text();
-  throw new Error(`MoMo requestToPay ${res.status}: ${text}`);
+  momoLog("error", "requestToPay failed", {
+    status: res.status,
+    referenceId: params.referenceId,
+  });
+  throw new Error(
+    `MoMo requestToPay ${res.status}: ${formatMomoGatewayError(text)}`
+  );
 }
 
 export async function getRequestToPayStatus(
@@ -101,17 +109,25 @@ export async function getRequestToPayStatus(
     {
       method: "GET",
       headers: {
+        ...momoCollectionHeaders(config),
         Authorization: `Bearer ${token}`,
-        "X-Target-Environment": config.targetEnvironment,
-        "Ocp-Apim-Subscription-Key": config.subscriptionKey,
       },
     }
   );
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`MoMo status ${res.status}: ${text}`);
+    momoLog("error", "getRequestToPayStatus HTTP error", {
+      status: res.status,
+      referenceId,
+    });
+    throw new Error(
+      `MoMo status ${res.status}: ${formatMomoGatewayError(text)}`
+    );
   }
 
-  return (await res.json()) as RequestToPayStatusBody;
+  return readMomoJson<RequestToPayStatusBody>(
+    res,
+    "MoMo requestToPay status"
+  );
 }

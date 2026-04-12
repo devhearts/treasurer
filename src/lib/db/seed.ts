@@ -69,6 +69,7 @@ const SEED_EVENTS: CeremonyEvent[] = [
         phone: "07XX",
         status: "pledged",
         date: "2024-03-10",
+        pledgeHopeBy: "2024-04-01",
       },
       {
         id: "c5",
@@ -230,6 +231,8 @@ export function seedDb() {
         message: c.message ?? null,
         status: c.status,
         date: c.date,
+        pledgeHopeBy: c.pledgeHopeBy ?? null,
+        visible: true,
       }).run();
     }
   }

@@ -16,8 +16,12 @@ export interface Contribution {
   message?: string;
   status: "paid" | "pledged";
   date: string;
+  /** For pledges: when the contributor hopes to pay (YYYY-MM-DD). */
+  pledgeHopeBy?: string;
   /** True when added by treasurer (e.g. cash or off-form payment). */
   manual?: boolean;
+  /** False = hidden from public page and receipt; omitted/true = shown. */
+  visible?: boolean;
 }
 
 export interface CeremonyEvent {

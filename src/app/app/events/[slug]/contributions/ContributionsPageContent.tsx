@@ -3,10 +3,17 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatUGX } from "@/lib/data";
-import { addContribution } from "@/app/actions/events";
+import { formatUGX, formatCalendarDate, isPublicContribution } from "@/lib/data";
+import { addContribution, setContributionVisibility } from "@/app/actions/events";
 import type { CeremonyEvent } from "@/lib/types";
-import { IconBack, IconAdd, IconPaid, IconPledge } from "@/components/Icons";
+import {
+  IconBack,
+  IconAdd,
+  IconPaid,
+  IconPledge,
+  IconEye,
+  IconEyeOff,
+} from "@/components/Icons";
 
 interface ContributionsPageContentProps {
   event: CeremonyEvent;
@@ -18,16 +25,20 @@ export default function ContributionsPageContent({
   const router = useRouter();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addName, setAddName] = useState("");
+  const [addAnonymous, setAddAnonymous] = useState(false);
   const [addAmount, setAddAmount] = useState("");
   const [addNote, setAddNote] = useState("");
   const [addSaving, setAddSaving] = useState(false);
+  const [visibilitySavingId, setVisibilitySavingId] = useState<string | null>(
+    null
+  );
 
   async function handleAddContribution(e: React.FormEvent) {
     e.preventDefault();
     setAddSaving(true);
     const result = await addContribution(event.slug, {
-      name: addName,
-      anonymous: false,
+      name: addAnonymous ? "Anonymous" : addName.trim(),
+      anonymous: addAnonymous,
       amount: Number(addAmount),
       phone: "",
       message: addNote || undefined,
@@ -40,6 +51,7 @@ export default function ContributionsPageContent({
       router.refresh();
       setAddModalOpen(false);
       setAddName("");
+      setAddAnonymous(false);
       setAddAmount("");
       setAddNote("");
     } else {
@@ -72,6 +84,10 @@ export default function ContributionsPageContent({
             </button>
           </div>
           <div className="p-4">
+            <p className="text-xs text-muted mb-3">
+              Use visibility to exclude a row from the public event page, recent
+              contributions there, and the receipt (copy/share).
+            </p>
             {event.contributions.length === 0 ? (
               <p className="text-muted text-sm">No contributions yet.</p>
             ) : (
@@ -79,36 +95,81 @@ export default function ContributionsPageContent({
                 {event.contributions
                   .slice()
                   .reverse()
-                  .map((c) => (
-                    <li
-                      key={c.id}
-                      className="flex items-center justify-between gap-3 py-3 border-b border-muted/10 last:border-0"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        {c.status === "paid" ? (
-                          <IconPaid className="w-4 h-4 flex-shrink-0 text-accent" aria-label="Paid" />
-                        ) : (
-                          <IconPledge className="w-4 h-4 flex-shrink-0 text-muted" aria-label="Pledged" />
-                        )}
-                        <div>
-                          <p className="font-medium text-surface text-sm">
-                            {c.anonymous ? "Anonymous" : c.name}
-                          </p>
-                          <p className="text-xs text-muted">
-                            {new Date(c.date).toLocaleDateString("en-UG", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                            {c.manual && " · Added by treasurer"}
-                          </p>
+                  .map((c) => {
+                    const onPublic = isPublicContribution(c);
+                    return (
+                      <li
+                        key={c.id}
+                        className="flex items-center justify-between gap-3 py-3 border-b border-muted/10 last:border-0"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {c.status === "paid" ? (
+                            <IconPaid className="w-4 h-4 flex-shrink-0 text-accent" aria-label="Paid" />
+                          ) : (
+                            <IconPledge className="w-4 h-4 flex-shrink-0 text-muted" aria-label="Pledged" />
+                          )}
+                          <div>
+                            <p className="font-medium text-surface text-sm">
+                              {c.anonymous ? "Anonymous" : c.name}
+                            </p>
+                            <p className="text-xs text-muted">
+                              {formatCalendarDate(c.date)}
+                              {c.status === "pledged" && c.pledgeHopeBy?.trim() && (
+                                <>
+                                  {" · "}
+                                  Hope to pay by{" "}
+                                  {formatCalendarDate(c.pledgeHopeBy)}
+                                </>
+                              )}
+                              {c.manual && " · Added by treasurer"}
+                              {!onPublic && (
+                                <span className="text-muted/80">
+                                  {" · "}
+                                  Not on public / receipt
+                                </span>
+                              )}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                      <span className="font-semibold text-surface text-sm flex-shrink-0">
-                        {formatUGX(c.amount)}
-                      </span>
-                    </li>
-                  ))}
+                        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                          <span className="font-semibold text-surface text-sm">
+                            {formatUGX(c.amount)}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={visibilitySavingId === c.id}
+                            onClick={async () => {
+                              setVisibilitySavingId(c.id);
+                              const result = await setContributionVisibility(
+                                event.slug,
+                                c.id,
+                                !onPublic
+                              );
+                              setVisibilitySavingId(null);
+                              if (result.success) {
+                                router.refresh();
+                              } else {
+                                alert(result.error ?? "Could not update.");
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 rounded-md border border-muted/30 px-2 py-1 text-xs font-medium text-muted hover:bg-muted/10 hover:text-surface disabled:opacity-50"
+                            aria-pressed={onPublic}
+                            aria-label={
+                              onPublic
+                                ? "Hide from public page and receipt"
+                                : "Show on public page and receipt"
+                            }
+                          >
+                            {onPublic ? (
+                              <IconEye className="w-3.5 h-3.5 text-accent" />
+                            ) : (
+                              <IconEyeOff className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
               </ul>
             )}
           </div>
@@ -132,17 +193,32 @@ export default function ContributionsPageContent({
               Record cash or off-app payment.
             </p>
             <form onSubmit={handleAddContribution} className="space-y-4">
-              <div>
-                <label className="sr-only">Name</label>
+              {!addAnonymous && (
+                <div>
+                  <label className="sr-only">Name</label>
+                  <input
+                    type="text"
+                    value={addName}
+                    onChange={(e) => setAddName(e.target.value)}
+                    placeholder="Contributor name"
+                    required
+                    className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </div>
+              )}
+              <label className="flex items-start gap-3 cursor-pointer text-sm text-surface">
                 <input
-                  type="text"
-                  value={addName}
-                  onChange={(e) => setAddName(e.target.value)}
-                  placeholder="Contributor name"
-                  required
-                  className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
+                  type="checkbox"
+                  checked={addAnonymous}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setAddAnonymous(on);
+                    if (on) setAddName("");
+                  }}
+                  className="mt-0.5 h-4 w-4 rounded border-muted/50 text-accent focus:ring-accent"
                 />
-              </div>
+                <span>Anonymous on the list</span>
+              </label>
               <div>
                 <label className="sr-only">Amount (UGX)</label>
                 <input

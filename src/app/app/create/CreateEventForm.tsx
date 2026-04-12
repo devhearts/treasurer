@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { EventType } from "@/lib/types";
 import { addEvent } from "@/app/actions/events";
+import {
+  initiateSubscriptionPayment,
+  pollSubscriptionPayment,
+} from "@/app/actions/momo";
 import { EventTypeIcon, IconWallet } from "@/components/Icons";
 import FloatingLabelInput from "@/components/FloatingLabelInput";
 
@@ -14,11 +18,18 @@ const EVENT_TYPES: { value: EventType; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
-const SUBSCRIPTION_FEE = 50000;
+const SUBSCRIPTION_FEE = 10000;
 
-const GRID = "gap-4"; // 8px grid: 16px = gap-4, 24px = gap-6
+const MOMO_POLL_MS = 2500;
+const MOMO_MAX_POLLS = 48;
 
-export default function CreateEventForm() {
+const GRID = "gap-4";
+
+export default function CreateEventForm({
+  momoConfigured = false,
+}: {
+  momoConfigured?: boolean;
+}) {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -33,10 +44,82 @@ export default function CreateEventForm() {
   const [description, setDescription] = useState("");
   const [showDescription, setShowDescription] = useState(false);
 
+  const [subPhone, setSubPhone] = useState("");
+  const [momoWait, setMomoWait] = useState(false);
+  const [momoRef, setMomoRef] = useState<string | null>(null);
+  const [momoError, setMomoError] = useState<string | null>(null);
+  const [subscriptionPaid, setSubscriptionPaid] = useState(false);
+
+  useEffect(() => {
+    if (!momoWait || !momoRef) return;
+
+    let cancelled = false;
+    let polls = 0;
+
+    const tick = async () => {
+      if (cancelled) return;
+      polls += 1;
+      if (polls > MOMO_MAX_POLLS) {
+        setMomoError("Timed out waiting for approval. Please try again.");
+        setMomoWait(false);
+        setMomoRef(null);
+        return;
+      }
+
+      const r = await pollSubscriptionPayment(momoRef);
+      if (cancelled) return;
+
+      if (r.status === "SUCCESSFUL") {
+        setSubscriptionPaid(true);
+        setMomoWait(false);
+        setMomoRef(null);
+        return;
+      }
+
+      if (r.status === "FAILED") {
+        setMomoError(r.message ?? "Payment failed.");
+        setMomoWait(false);
+        setMomoRef(null);
+        return;
+      }
+
+      if (r.status === "NOT_FOUND") {
+        setMomoError("Payment session expired. Try again.");
+        setMomoWait(false);
+        setMomoRef(null);
+        return;
+      }
+    };
+
+    void tick();
+    const id = window.setInterval(tick, MOMO_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [momoWait, momoRef]);
+
+  async function startSubMomoPay() {
+    setMomoError(null);
+    const phone = subPhone.trim() || treasurerPhone.trim();
+    if (!phone) {
+      setMomoError("Enter the MTN MoMo number that will pay.");
+      return;
+    }
+    setLoading(true);
+    const result = await initiateSubscriptionPayment({ payerPhone: phone });
+    setLoading(false);
+    if (!result.success) {
+      setMomoError(result.error ?? "Could not start payment.");
+      return;
+    }
+    setMomoRef(result.referenceId);
+    setMomoWait(true);
+  }
+
   async function handleActivate(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
     const slug =
       title
         .toLowerCase()
@@ -270,7 +353,7 @@ export default function CreateEventForm() {
         </form>
       )}
 
-      {/* Step 3: Confirm Wallet */}
+      {/* Step 3: Confirm & Pay */}
       {step === 3 && (
         <form onSubmit={handleActivate} className={GRID}>
           {/* Collapsed Step 1 + 2 summaries */}
@@ -331,34 +414,94 @@ export default function CreateEventForm() {
                 </div>
               </div>
 
-              <details open className="group mb-4">
-                <summary className="text-sm text-muted cursor-pointer list-none py-2">
-                  How to pay (MTN or Airtel)
-                </summary>
-                <ol className="text-sm text-muted space-y-1 mt-2 pl-0 list-decimal list-inside">
-                  <li>Mobile Money app or *165#</li>
-                  <li>Pay Bill → Business</li>
-                  <li>Business: 123456 · Amount: 50,000</li>
-                  <li>Reference: your name → Confirm</li>
-                </ol>
-              </details>
+              {momoWait && (
+                <div className="mb-4">
+                  <p className="text-sm font-bold text-surface mb-1">Approve on your phone</p>
+                  <p className="text-muted text-sm mb-4">
+                    We sent a Mobile Money request for UGX {SUBSCRIPTION_FEE.toLocaleString()}. Open the prompt on your phone and enter your PIN to pay.
+                  </p>
+                  <div className="flex items-center gap-3 py-4 justify-center">
+                    <span className="inline-block h-8 w-8 border-2 border-accent border-t-transparent rounded-full animate-spin" aria-hidden />
+                    <span className="text-sm text-muted">Waiting for MTN MoMo…</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setMomoWait(false); setMomoRef(null); }}
+                    className="text-sm text-accent font-medium"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
 
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  required
-                  className="mt-1 w-5 h-5 rounded border-muted text-accent focus:ring-accent"
-                />
-                <span className="text-sm text-muted">
-                  I have paid UGX 50,000 to CeremonyWallet
-                </span>
-              </label>
+              {!momoWait && !subscriptionPaid && (
+                <>
+                  {momoConfigured && (
+                    <div className="mb-4">
+                      <label className="block text-xs text-muted mb-1" htmlFor="sub-phone">
+                        MTN MoMo number (paying wallet)
+                      </label>
+                      <input
+                        id="sub-phone"
+                        type="tel"
+                        inputMode="numeric"
+                        autoComplete="tel"
+                        value={subPhone}
+                        onChange={(e) => setSubPhone(e.target.value)}
+                        placeholder={treasurerPhone || "e.g. 077xxxxxxx"}
+                        className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent text-sm"
+                      />
+                      <p className="text-xs text-muted mt-1">
+                        Leave blank to use your Mobile Money number above.
+                      </p>
+                    </div>
+                  )}
+
+                  {momoError && (
+                    <p className="text-sm text-red-600 mb-3" role="alert">
+                      {momoError}
+                    </p>
+                  )}
+
+                  {momoConfigured ? (
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() => void startSubMomoPay()}
+                      className="w-full bg-accent hover:bg-accent/90 disabled:opacity-50 text-white font-bold py-4 rounded-lg transition-colors mb-2"
+                    >
+                      {loading ? "Starting…" : `Pay UGX ${SUBSCRIPTION_FEE.toLocaleString()} with MTN MoMo`}
+                    </button>
+                  ) : (
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={subscriptionPaid}
+                        onChange={(e) => setSubscriptionPaid(e.target.checked)}
+                        className="mt-1 w-5 h-5 rounded border-muted text-accent focus:ring-accent"
+                      />
+                      <span className="text-sm text-muted">
+                        I have paid UGX {SUBSCRIPTION_FEE.toLocaleString()} to CeremonyWallet
+                      </span>
+                    </label>
+                  )}
+                </>
+              )}
+
+              {subscriptionPaid && !momoWait && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 border border-green-200 mb-2">
+                  <span className="text-green-600 text-lg">&#10003;</span>
+                  <span className="text-sm font-medium text-green-800">
+                    {momoConfigured ? "Payment received via MTN MoMo" : "Payment confirmed"}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="p-4 border-t border-muted/20">
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full bg-accent hover:bg-accent/90 disabled:opacity-50 text-white font-bold py-4 rounded-lg transition-colors"
+                disabled={loading || !subscriptionPaid}
+                className="w-full bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:pointer-events-none text-white font-bold py-4 rounded-lg transition-colors"
               >
                 {loading ? "Activating…" : <><span className="sm:hidden">Activate</span><span className="hidden sm:inline">Activate my event</span></>}
               </button>

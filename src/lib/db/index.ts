@@ -89,7 +89,9 @@ export function initDb() {
       message TEXT,
       status TEXT NOT NULL,
       date TEXT NOT NULL,
-      manual INTEGER DEFAULT 0
+      pledge_hope_by TEXT,
+      manual INTEGER DEFAULT 0,
+      visible INTEGER NOT NULL DEFAULT 1
     );
     CREATE INDEX IF NOT EXISTS idx_budget_items_event_id ON budget_items(event_id);
     CREATE INDEX IF NOT EXISTS idx_contributions_event_id ON contributions(event_id);
@@ -108,5 +110,32 @@ export function initDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_momo_pending_event_id ON momo_pending_payments(event_id);
   `);
+  try {
+    const cInfo = sqlite.prepare("PRAGMA table_info(contributions)").all() as {
+      name: string;
+    }[];
+    if (!cInfo.some((c) => c.name === "pledge_hope_by")) {
+      sqlite.exec("ALTER TABLE contributions ADD COLUMN pledge_hope_by TEXT");
+    }
+    if (!cInfo.some((c) => c.name === "visible")) {
+      sqlite.exec(
+        "ALTER TABLE contributions ADD COLUMN visible INTEGER NOT NULL DEFAULT 1"
+      );
+    }
+  } catch {
+    // ignore
+  }
+  // `raised_amount` counts only visible contributions; keep in sync (also fixes legacy rows).
+  try {
+    sqlite.exec(`
+      UPDATE events SET raised_amount = (
+        SELECT COALESCE(SUM(amount), 0) FROM contributions
+        WHERE contributions.event_id = events.id
+          AND COALESCE(contributions.visible, 1) != 0
+      )
+    `);
+  } catch {
+    // ignore
+  }
   sqlite.close();
 }

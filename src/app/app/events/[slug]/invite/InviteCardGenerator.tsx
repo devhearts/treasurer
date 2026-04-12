@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CeremonyEvent } from "@/lib/types";
+import { filterPublicContributions } from "@/lib/data";
 import { IconCopy } from "@/components/Icons";
 
 function formatDate(dateStr: string) {
@@ -28,7 +29,7 @@ function buildInviteText(
     ``,
     `${event.title}`,
     `${dateStr}`,
-    `${event.location}`,
+    `Address: ${event.location}`,
     ``,
   ];
   if (customMessage.trim()) {
@@ -40,7 +41,9 @@ function buildInviteText(
   lines.push(`With love,`);
   lines.push(`${event.organizer}`);
   lines.push(``);
-  lines.push(`CeremonyWallet`);
+  // Business identity block (useful when the page is "Print -> Save as PDF")
+  lines.push(`Business: CeremonyWallet`);
+  if (event.treasurerPhone.trim()) lines.push(`Contact: ${event.treasurerPhone}`);
   return lines.join("\n");
 }
 
@@ -51,7 +54,9 @@ export default function InviteCardGenerator({ event }: { event: CeremonyEvent })
   const [customName, setCustomName] = useState("");
   const [copiedFor, setCopiedFor] = useState<string | null>(null);
 
-  const namedContributors = event.contributions.filter((c) => !c.anonymous);
+  const namedContributors = filterPublicContributions(
+    event.contributions
+  ).filter((c) => !c.anonymous);
   const inviteText = customName.trim()
     ? buildInviteText(customName.trim(), event, customMessage)
     : "";

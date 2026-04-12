@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { formatUGX } from "@/lib/data";
+import { formatUGX, formatCalendarDate } from "@/lib/data";
 import type { Contribution } from "@/lib/types";
 import { IconPaid, IconPledge } from "@/components/Icons";
 
@@ -98,7 +98,14 @@ export default function RecentContributionsCard({
                 )}
                 <span className="truncate">{c.anonymous ? "Anonymous" : c.name}</span>
               </span>
-              <span className="text-sm text-muted flex-shrink-0">{formatUGX(c.amount)}</span>
+              <span className="text-sm text-muted flex-shrink-0 text-right">
+                <span className="block">{formatUGX(c.amount)}</span>
+                {c.status === "pledged" && c.pledgeHopeBy?.trim() && (
+                  <span className="block text-[11px] font-normal opacity-90">
+                    hope to pay {formatCalendarDate(c.pledgeHopeBy)}
+                  </span>
+                )}
+              </span>
             </div>
           ))}
         </div>

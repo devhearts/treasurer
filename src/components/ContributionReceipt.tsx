@@ -2,25 +2,25 @@
 
 import { useState } from "react";
 import { Contribution } from "@/lib/types";
+import { formatCalendarDate, formatUGX } from "@/lib/data";
 import { IconCopy, IconReceipt } from "@/components/Icons";
 
 interface ContributionReceiptProps {
   eventTitle: string;
   eventDate: string;
   eventLocation: string;
+  /** Mobile Money number to contact/receive contributions for this event. */
+  treasurerPhone: string;
   contributions: Contribution[];
   raisedAmount: number;
   targetAmount: number;
-}
-
-function formatUGX(amount: number) {
-  return `UGX ${amount.toLocaleString("en-UG")}`;
 }
 
 function buildReceiptText(
   eventTitle: string,
   eventDate: string,
   eventLocation: string,
+  treasurerPhone: string,
   contributions: Contribution[],
   raisedAmount: number,
   targetAmount: number
@@ -34,7 +34,7 @@ function buildReceiptText(
     `CONTRIBUTION RECEIPT`,
     `Event: ${eventTitle}`,
     `Date: ${dateStr}`,
-    `Location: ${eventLocation}`,
+    `Address: ${eventLocation}`,
     ``,
     `CONTRIBUTIONS (${contributions.length}):`,
     ``,
@@ -43,14 +43,22 @@ function buildReceiptText(
     const name = c.anonymous ? "Anonymous" : c.name;
     const status = c.status === "paid" ? "Paid" : "Pledged";
     const manual = c.manual ? " (added by treasurer)" : "";
-    lines.push(`${i + 1}. ${name} - ${formatUGX(c.amount)} - ${status}${manual}`);
+    const hope =
+      c.status === "pledged" && c.pledgeHopeBy?.trim()
+        ? ` — hope to pay by ${formatCalendarDate(c.pledgeHopeBy, "long")}`
+        : "";
+    lines.push(
+      `${i + 1}. ${name} - ${formatUGX(c.amount)} - ${status}${manual}${hope}`
+    );
   });
   lines.push(``);
   lines.push(`Total Raised: ${formatUGX(raisedAmount)}`);
   lines.push(`Target: ${formatUGX(targetAmount)}`);
   lines.push(`Progress: ${Math.min(Math.round((raisedAmount / targetAmount) * 100), 100)}%`);
   lines.push(``);
-  lines.push(`CeremonyWallet`);
+  // Business identity block (useful when the page is "Print -> Save as PDF")
+  lines.push(`Business: CeremonyWallet`);
+  if (treasurerPhone.trim()) lines.push(`Contact: ${treasurerPhone}`);
   return lines.join("\n");
 }
 
@@ -58,6 +66,7 @@ export default function ContributionReceipt({
   eventTitle,
   eventDate,
   eventLocation,
+  treasurerPhone,
   contributions,
   raisedAmount,
   targetAmount,
@@ -67,6 +76,7 @@ export default function ContributionReceipt({
     eventTitle,
     eventDate,
     eventLocation,
+    treasurerPhone,
     contributions,
     raisedAmount,
     targetAmount

@@ -2,7 +2,11 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { formatUGX, getEventTypeLabel } from "@/lib/data";
+import {
+  formatUGX,
+  getEventTypeLabel,
+  filterPublicContributions,
+} from "@/lib/data";
 import ContributeForm from "./ContributeForm";
 import ContributionReceipt from "@/components/ContributionReceipt";
 import RecentContributionsCard from "@/components/RecentContributionsCard";
@@ -68,8 +72,11 @@ export default function EventDetailContent({
     if (typeof window === "undefined" || isPublicView) return;
     const hash = window.location.hash;
     if (hash === "#contribute") {
-      setPrivateFlow("contributions");
-      setTimeout(() => contributeRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+      // Defer state update to avoid cascading renders inside the effect body.
+      setTimeout(() => {
+        setPrivateFlow("contributions");
+        setTimeout(() => contributeRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+      }, 0);
     }
   }, [isPublicView]);
   // Always use public link for share/copy so recipients can view and contribute without logging in
@@ -116,6 +123,11 @@ export default function EventDetailContent({
     setPrivateFlow("contributions");
     setTimeout(() => contributeRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   }
+
+  const publicContributions = filterPublicContributions(event.contributions);
+  const recentContributionsForCard = isPublicView
+    ? publicContributions
+    : event.contributions;
 
   const paidCount = event.contributions.filter((c) => c.status === "paid").length;
   const pledgedCount = event.contributions.filter((c) => c.status === "pledged").length;
@@ -208,7 +220,7 @@ export default function EventDetailContent({
   const contributionsBlock = (
     <>
       <RecentContributionsCard
-        contributions={event.contributions}
+        contributions={recentContributionsForCard}
         eventSlug={event.slug}
         hideAllLink={isPublicView}
       />
@@ -217,7 +229,8 @@ export default function EventDetailContent({
         eventTitle={event.title}
         eventDate={event.date}
         eventLocation={event.location}
-        contributions={event.contributions}
+        treasurerPhone={event.treasurerPhone}
+        contributions={publicContributions}
         raisedAmount={event.raisedAmount}
         targetAmount={event.targetAmount}
       />

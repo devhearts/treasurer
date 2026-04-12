@@ -93,7 +93,9 @@ function rowToEvent(
     message: string | null;
     status: "paid" | "pledged";
     date: string;
+    pledgeHopeBy?: string | null;
     manual?: boolean | null;
+    visible?: boolean | null;
   }[]
 ): CeremonyEvent {
   return {
@@ -126,7 +128,9 @@ function rowToEvent(
       message: c.message ?? undefined,
       status: c.status,
       date: c.date,
+      pledgeHopeBy: c.pledgeHopeBy ?? undefined,
       manual: c.manual ?? undefined,
+      visible: c.visible === false ? false : undefined,
     })),
   };
 }
@@ -161,7 +165,9 @@ export function getAllEvents(): CeremonyEvent[] {
           message: c.message,
           status: c.status as "paid" | "pledged",
           date: c.date,
+          pledgeHopeBy: c.pledgeHopeBy ?? null,
           manual: c.manual ?? null,
+          visible: c.visible,
         }))
       )
     );
@@ -200,7 +206,9 @@ export function getEventsByUserId(userId: string): CeremonyEvent[] {
           message: c.message,
           status: c.status as "paid" | "pledged",
           date: c.date,
+          pledgeHopeBy: c.pledgeHopeBy ?? null,
           manual: c.manual ?? null,
+          visible: c.visible,
         }))
       )
     );
@@ -239,7 +247,9 @@ export function getEventBySlug(slug: string): CeremonyEvent | undefined {
       message: c.message,
       status: c.status as "paid" | "pledged",
       date: c.date,
+      pledgeHopeBy: c.pledgeHopeBy ?? null,
       manual: c.manual ?? null,
+      visible: c.visible,
     }))
   );
 }

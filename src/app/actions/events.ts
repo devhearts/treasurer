@@ -2,7 +2,7 @@
 
 import { getDb } from "@/lib/db";
 import { events, budgetItems, contributions } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import type { CeremonyEvent } from "@/lib/types";
 import {
   getEventsByUserId as dbGetEventsByUserId,
@@ -67,6 +67,8 @@ export async function addEvent(
         message: c.message ?? null,
         status: c.status,
         date: c.date,
+        pledgeHopeBy: c.pledgeHopeBy ?? null,
+        visible: c.visible !== false,
       }).run();
     }
 
@@ -89,6 +91,12 @@ export async function addContribution(
 
     const id = `c${Date.now()}`;
     const db = getDb();
+    const pledgeHopeBy =
+      contribution.status === "pledged" &&
+      contribution.pledgeHopeBy?.trim()
+        ? contribution.pledgeHopeBy.trim()
+        : null;
+
     db.insert(contributions).values({
       id,
       eventId: event.id,
@@ -99,7 +107,9 @@ export async function addContribution(
       message: contribution.message ?? null,
       status: contribution.status,
       date: contribution.date,
+      pledgeHopeBy,
       manual: contribution.manual ?? false,
+      visible: true,
     }).run();
 
     db.update(events)
@@ -115,4 +125,47 @@ export async function addContribution(
       err instanceof Error ? err.message : "Failed to add contribution";
     return { success: false, error: message };
   }
+}
+
+export async function setContributionVisibility(
+  eventSlug: string,
+  contributionId: string,
+  visible: boolean
+): Promise<{ success: true } | { success: false; error: string }> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { success: false, error: "You must be signed in." };
+  }
+  const event = dbGetEventBySlug(eventSlug);
+  if (!event) return { success: false, error: "Event not found" };
+  if (event.userId && event.userId !== user.id) {
+    return { success: false, error: "Not allowed." };
+  }
+  const contrib = event.contributions.find((c) => c.id === contributionId);
+  if (!contrib) return { success: false, error: "Contribution not found." };
+
+  const wasVisible = contrib.visible !== false;
+  if (wasVisible === visible) {
+    return { success: true };
+  }
+
+  const db = getDb();
+  db.update(contributions)
+    .set({ visible })
+    .where(
+      and(
+        eq(contributions.id, contributionId),
+        eq(contributions.eventId, event.id)
+      )
+    )
+    .run();
+
+  const delta = visible ? contrib.amount : -contrib.amount;
+  const nextRaised = Math.max(0, event.raisedAmount + delta);
+  db.update(events)
+    .set({ raisedAmount: nextRaised })
+    .where(eq(events.id, event.id))
+    .run();
+
+  return { success: true };
 }

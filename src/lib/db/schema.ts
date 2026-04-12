@@ -24,6 +24,7 @@ export const events = sqliteTable("events", {
   treasurerPhone: text("treasurer_phone").notNull(),
   description: text("description").notNull(),
   targetAmount: integer("target_amount").notNull(),
+  /** Sum of amounts for contributions with visible=true only. */
   raisedAmount: integer("raised_amount").notNull().default(0),
   date: text("date").notNull(),
   location: text("location").notNull(),
@@ -54,7 +55,11 @@ export const contributions = sqliteTable("contributions", {
   message: text("message"),
   status: text("status").notNull(), // paid | pledged
   date: text("date").notNull(),
+  /** When status is pledged: contributor's hoped pay-by date (YYYY-MM-DD). */
+  pledgeHopeBy: text("pledge_hope_by"),
   manual: integer("manual", { mode: "boolean" }).default(false),
+  /** When false, hidden from public event page, recent list on public links, and receipt text. */
+  visible: integer("visible", { mode: "boolean" }).notNull().default(true),
 });
 
 /** In-flight MoMo RequestToPay; finalized when status is SUCCESSFUL. */
