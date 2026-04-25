@@ -5,20 +5,18 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { contributions, events, momoPendingPayments } from "@/lib/db/schema";
 import { getEventBySlug } from "@/lib/db/queries";
-import { getMomoConfig } from "@/lib/momo/config";
-import {
-  getRequestToPayStatus,
-  requestToPay,
-} from "@/lib/momo/client";
 import { momoLog, redactMsisdn } from "@/lib/momo/log";
+import {
+  getPaymentProcessor,
+  paymentPhoneValidationMessage,
+  paymentNotConfiguredMessage,
+  type PaymentPollResult,
+  type PaymentStatusBody,
+} from "@/lib/payments";
 import { MOMO_PUBLIC_PAYMENT_START_FAILED } from "@/lib/momo/messages";
-import { normalizeUgandaMsisdn } from "@/lib/momo/phone";
+import { normalizeUgandaMsisdnForNetworks } from "@/lib/momo/phone";
 
-export type MomoPollResult =
-  | { status: "PENDING" }
-  | { status: "SUCCESSFUL" }
-  | { status: "FAILED"; message?: string }
-  | { status: "NOT_FOUND" };
+export type MomoPollResult = PaymentPollResult;
 
 function externalIdForPayment(): string {
   return `cw-${Date.now()}-${randomUUID().slice(0, 8)}`;
@@ -36,9 +34,12 @@ export async function initiateMomoContribution(input: {
   | { success: true; referenceId: string }
   | { success: false; error: string }
 > {
-  const config = getMomoConfig();
-  if (!config) {
-    return { success: false, error: "MoMo payments are not configured." };
+  const processor = getPaymentProcessor();
+  if (!processor.isConfigured() || !processor.getCurrency()) {
+    return {
+      success: false,
+      error: paymentNotConfiguredMessage(processor.kind),
+    };
   }
 
   const event = getEventBySlug(input.eventSlug);
@@ -56,12 +57,14 @@ export async function initiateMomoContribution(input: {
     return { success: false, error: "Invalid amount." };
   }
 
-  const msisdn = normalizeUgandaMsisdn(input.payerPhone);
+  const msisdn = normalizeUgandaMsisdnForNetworks(
+    input.payerPhone,
+    processor.supportedNetworks
+  );
   if (!msisdn) {
     return {
       success: false,
-      error:
-        "Enter a valid MTN Uganda number (76, 77, 78, 79, or 39 — e.g. 077… or 25677…).",
+      error: paymentPhoneValidationMessage(processor.supportedNetworks),
     };
   }
 
@@ -89,10 +92,9 @@ export async function initiateMomoContribution(input: {
     .run();
 
   try {
-    await requestToPay({
+    await processor.requestToPay({
       referenceId,
       amount: Math.round(input.amount),
-      currency: config.currency,
       externalId,
       payerMsisdn: msisdn,
       payerMessage: `Contribution to ${event.title}`.slice(0, 140),
@@ -179,8 +181,8 @@ function recordContributionFromPending(referenceId: string): boolean {
 export async function pollMomoContribution(
   referenceId: string
 ): Promise<MomoPollResult> {
-  const config = getMomoConfig();
-  if (!config) return { status: "NOT_FOUND" };
+  const processor = getPaymentProcessor();
+  if (!processor.isConfigured()) return { status: "NOT_FOUND" };
 
   const db = getDb();
   const pending = db
@@ -195,9 +197,9 @@ export async function pollMomoContribution(
     return { status: "SUCCESSFUL" };
   }
 
-  let body: Awaited<ReturnType<typeof getRequestToPayStatus>>;
+  let body: PaymentStatusBody;
   try {
-    body = await getRequestToPayStatus(referenceId);
+    body = await processor.getPaymentStatus(referenceId);
   } catch (e) {
     momoLog("warn", "pollMomoContribution status fetch failed, will retry", {
       referenceId,
@@ -240,14 +242,22 @@ export async function initiateSubscriptionPayment(input: {
   | { success: true; referenceId: string }
   | { success: false; error: string }
 > {
-  const config = getMomoConfig();
-  if (!config) return { success: false, error: "MoMo payments are not configured." };
+  const processor = getPaymentProcessor();
+  if (!processor.isConfigured() || !processor.getCurrency()) {
+    return {
+      success: false,
+      error: paymentNotConfiguredMessage(processor.kind),
+    };
+  }
 
-  const msisdn = normalizeUgandaMsisdn(input.payerPhone);
+  const msisdn = normalizeUgandaMsisdnForNetworks(
+    input.payerPhone,
+    processor.supportedNetworks
+  );
   if (!msisdn) {
     return {
       success: false,
-      error: "Enter a valid MTN Uganda number (76, 77, 78, 79, or 39 — e.g. 077… or 25677…).",
+      error: paymentPhoneValidationMessage(processor.supportedNetworks),
     };
   }
 
@@ -255,10 +265,9 @@ export async function initiateSubscriptionPayment(input: {
   const externalId = externalIdForPayment();
 
   try {
-    await requestToPay({
+    await processor.requestToPay({
       referenceId,
       amount: SUBSCRIPTION_AMOUNT,
-      currency: config.currency,
       externalId,
       payerMsisdn: msisdn,
       payerMessage: "CeremonyWallet event activation",
@@ -284,12 +293,12 @@ export async function initiateSubscriptionPayment(input: {
 export async function pollSubscriptionPayment(
   referenceId: string
 ): Promise<MomoPollResult> {
-  const config = getMomoConfig();
-  if (!config) return { status: "NOT_FOUND" };
+  const processor = getPaymentProcessor();
+  if (!processor.isConfigured()) return { status: "NOT_FOUND" };
 
-  let body: Awaited<ReturnType<typeof getRequestToPayStatus>>;
+  let body: PaymentStatusBody;
   try {
-    body = await getRequestToPayStatus(referenceId);
+    body = await processor.getPaymentStatus(referenceId);
   } catch (e) {
     momoLog("warn", "pollSubscriptionPayment status fetch failed, will retry", {
       referenceId,

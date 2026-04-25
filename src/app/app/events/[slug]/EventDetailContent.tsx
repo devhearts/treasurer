@@ -26,6 +26,8 @@ interface EventDetailContentProps {
   isPublicView?: boolean;
   /** MTN MoMo RequestToPay is available (server env configured). */
   momoConfigured?: boolean;
+  payButtonLabel?: string;
+  payerPhoneLabel?: string;
 }
 
 type PrivateFlow = "details" | "contributions" | "milestones";
@@ -62,6 +64,8 @@ export default function EventDetailContent({
   event,
   isPublicView = false,
   momoConfigured = false,
+  payButtonLabel = "Pay with MTN Momo",
+  payerPhoneLabel = "MTN Momo number (paying wallet)",
 }: EventDetailContentProps) {
   const slug = event.slug;
   const [shareCopied, setShareCopied] = useState(false);
@@ -245,6 +249,8 @@ export default function EventDetailContent({
           milestoneItems={event.milestoneItems}
           flow={isPublicView ? "public" : "private"}
           momoConfigured={momoConfigured}
+          payButtonLabel={payButtonLabel}
+          payerPhoneLabel={payerPhoneLabel}
         />
       </div>
     </>

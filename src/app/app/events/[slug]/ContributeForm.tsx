@@ -21,6 +21,8 @@ interface ContributeFormProps {
   /** Private (app) view: show visible label for contributor name. */
   flow?: "public" | "private";
   momoConfigured?: boolean;
+  payButtonLabel?: string;
+  payerPhoneLabel?: string;
 }
 
 const PRESET_AMOUNTS = [50000, 100000, 200000, 500000];
@@ -35,6 +37,8 @@ export default function ContributeForm({
   milestoneItems = [],
   flow = "public",
   momoConfigured = false,
+  payButtonLabel = "Pay with MTN Momo",
+  payerPhoneLabel = "MTN Momo number (paying wallet)",
 }: ContributeFormProps) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -159,7 +163,7 @@ export default function ContributeForm({
   async function startMomoPay() {
     setMomoError(null);
     if (!payerPhone.trim()) {
-      setMomoError("Enter the MTN MoMo number that will pay.");
+      setMomoError("Enter the Mobile Money number that will pay.");
       return;
     }
     setLoading(true);
@@ -324,7 +328,7 @@ export default function ContributeForm({
           {momoConfigured && (
             <div className="mb-4">
               <label className="block text-xs text-muted mb-1" htmlFor="payer-phone">
-                MTN MoMo number (paying wallet)
+                {payerPhoneLabel}
               </label>
               <input
                 id="payer-phone"
@@ -353,7 +357,7 @@ export default function ContributeForm({
                 onClick={() => void startMomoPay()}
                 className="cta-primary w-full text-white disabled:opacity-50"
               >
-                {loading ? "Starting…" : "Pay with MTN MoMo"}
+                {loading ? "Starting…" : payButtonLabel}
               </button>
             ) : (
               <button

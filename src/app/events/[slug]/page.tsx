@@ -1,7 +1,12 @@
 import { notFound } from "next/navigation";
 import { getEventBySlug } from "@/app/actions/events";
 import EventDetailContent from "@/app/app/events/[slug]/EventDetailContent";
-import { isMomoConfigured } from "@/lib/momo/config";
+import {
+  getPaymentProcessor,
+  isPaymentProcessorConfigured,
+  paymentCtaLabel,
+  paymentNetworksText,
+} from "@/lib/payments";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -14,6 +19,7 @@ interface PageProps {
 export default async function PublicEventPage({ params }: PageProps) {
   const { slug } = await params;
   const event = await getEventBySlug(slug);
+  const processor = getPaymentProcessor();
 
   if (!event) notFound();
 
@@ -21,7 +27,9 @@ export default async function PublicEventPage({ params }: PageProps) {
     <EventDetailContent
       event={event}
       isPublicView
-      momoConfigured={isMomoConfigured()}
+      momoConfigured={isPaymentProcessorConfigured()}
+      payButtonLabel={paymentCtaLabel(processor.kind)}
+      payerPhoneLabel={`${paymentNetworksText(processor.supportedNetworks)} number (paying wallet)`}
     />
   );
 }

@@ -24,8 +24,8 @@
 ## Recent: MTN MoMo RequestToPay
 
 - **Collections API** (Request to Pay) integrated for contributions: OAuth token, `POST /collection/v1_0/requesttopay`, status via `GET /collection/v1_0/requesttopay/{referenceId}`.
-- **Server-only**: `src/lib/momo/` (config, client, Uganda MSISDN normalization). **Actions**: `src/app/actions/momo.ts`. Pending rows: table `momo_pending_payments`.
-- **UI**: When `MOMO_SUBSCRIPTION_KEY` + `MOMO_API_USER` + `MOMO_API_KEY` are set, event pages pass `momoConfigured` and `ContributeForm` shows “Pay with MTN MoMo” plus payer phone; polls until success/fail/timeout.
+- **Server-only**: `src/lib/momo/` (config, client, Uganda MSISDN normalization). **Payment processor**: `src/lib/payments/` — `PAYMENT_PROCESSOR_TYPE` (`mtn_momo` default, `pawapay`). `getPaymentProcessor()` / `isPaymentProcessorConfigured()`; MTN adapter wraps `src/lib/momo/client.ts`. **PawaPay** (`src/lib/pawapay/`): `POST /v1/predict-correspondent` then `POST /deposits`, status `GET /deposits/{depositId}`; env `PAWAPAY_API_TOKEN`, optional `PAWAPAY_BASE_URL`, `PAWAPAY_CURRENCY`, `PAWAPAY_COUNTRY`. **Actions**: `src/app/actions/momo.ts`. Pending rows: `momo_pending_payments`.
+- **UI + validation**: active processor now exposes `supportedNetworks` (`mtn_momo`: MTN-only, `pawapay`: MTN + Airtel). Server phone validation uses this network set. Event/create pages pass dynamic labels to forms: MTN CTA is **“Pay with MTN Momo”**, pawaPay CTA is **“Pay with Mobile money”**.
 - **Env**: `MOMO_SUBSCRIPTION_KEY` (or `PRIMARY_KEY`), `MOMO_API_USER`, `MOMO_API_KEY`; optional `MOMO_BASE_URL` (default sandbox), `MOMO_TARGET_ENVIRONMENT` (default `sandbox`), `MOMO_CURRENCY` (default `UGX`). Portal: [MoMo use cases](https://momodeveloper.mtn.com/api-documentation/use-cases).
 - **Provision API user + key (one-off)**: `npm run momo:provision` runs `scripts/provision-momo-api-user.ts` ([API description](https://momodeveloper.mtn.com/api-documentation/api-description)); needs Collections subscription key; optional `MOMO_PROVIDER_CALLBACK_HOST`.
 - **HTTP**: `src/lib/momo/http.ts` adds `Accept`, `User-Agent`, and `X-Target-Environment` on all Collection calls (including token); HTML “Request Rejected” responses are detected and surfaced with MoMo support ID when present.
@@ -42,7 +42,7 @@
 ## Recent: Subscription Fee = UGX 10,000 via MoMo
 - Event activation subscription changed from UGX 50,000 (manual checkbox) to **UGX 10,000 paid via MTN MoMo** (RequestToPay).
 - Server actions `initiateSubscriptionPayment` / `pollSubscriptionPayment` added in `src/app/actions/momo.ts` — lightweight versions that don't use `momo_pending_payments` (no DB row needed; just poll the reference ID).
-- `src/app/app/create/page.tsx` passes `momoConfigured` (from `isMomoConfigured()`) into `CreateEventForm`.
+- `src/app/app/create/page.tsx` passes `momoConfigured` (from `isPaymentProcessorConfigured()`) into `CreateEventForm`.
 - Step 3 of `CreateEventForm` now shows a phone input + "Pay with MTN MoMo" button when MoMo is configured, with spinner while polling. Falls back to a manual "I have paid" checkbox when MoMo env vars are not set.
 - The "Activate my event" submit button is disabled until subscription payment succeeds (or manual checkbox is ticked in fallback mode).
 

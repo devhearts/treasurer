@@ -27,8 +27,12 @@ const GRID = "gap-4";
 
 export default function CreateEventForm({
   momoConfigured = false,
+  payButtonLabel = "Pay with MTN Momo",
+  payerPhoneLabel = "MTN Momo number (paying wallet)",
 }: {
   momoConfigured?: boolean;
+  payButtonLabel?: string;
+  payerPhoneLabel?: string;
 }) {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -103,7 +107,7 @@ export default function CreateEventForm({
     setMomoError(null);
     const phone = subPhone.trim() || treasurerPhone.trim();
     if (!phone) {
-      setMomoError("Enter the MTN MoMo number that will pay.");
+      setMomoError("Enter the Mobile Money number that will pay.");
       return;
     }
     setLoading(true);
@@ -440,7 +444,7 @@ export default function CreateEventForm({
                   {momoConfigured && (
                     <div className="mb-4">
                       <label className="block text-xs text-muted mb-1" htmlFor="sub-phone">
-                        MTN MoMo number (paying wallet)
+                        {payerPhoneLabel}
                       </label>
                       <input
                         id="sub-phone"
@@ -471,7 +475,7 @@ export default function CreateEventForm({
                       onClick={() => void startSubMomoPay()}
                       className="w-full bg-accent hover:bg-accent/90 disabled:opacity-50 text-white font-bold py-4 rounded-lg transition-colors mb-2"
                     >
-                      {loading ? "Starting…" : `Pay UGX ${SUBSCRIPTION_FEE.toLocaleString()} with MTN MoMo`}
+                      {loading ? "Starting…" : payButtonLabel}
                     </button>
                   ) : (
                     <label className="flex items-start gap-3 cursor-pointer">
