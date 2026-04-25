@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { IconWallet, IconAdd } from "@/components/Icons";
+import { logout } from "@/app/actions/auth";
 
 export const metadata = {
   title: "Get started – CeremonyWallet",
@@ -9,6 +10,16 @@ export default function OnboardingPage() {
   return (
     <main className="min-h-screen bg-light flex flex-col">
       <div className="flex-1 max-w-lg mx-auto w-full px-4 py-12 flex flex-col justify-center">
+        <div className="flex justify-end mb-3">
+          <form action={logout}>
+            <button
+              type="submit"
+              className="text-sm text-muted hover:text-surface underline-offset-2 hover:underline"
+            >
+              Logout
+            </button>
+          </form>
+        </div>
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-accent/20 text-accent mb-6">
             <IconWallet className="w-8 h-8" />

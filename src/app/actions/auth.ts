@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { createHash, randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import {
@@ -31,6 +32,11 @@ export async function setSession(userId: string) {
 export async function clearSession() {
   const c = await cookies();
   c.delete(SESSION_COOKIE);
+}
+
+export async function logout() {
+  await clearSession();
+  redirect("/login");
 }
 
 /** Returns current user id if logged in. */
