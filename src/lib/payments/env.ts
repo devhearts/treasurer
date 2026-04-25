@@ -13,3 +13,12 @@ export function getPaymentProcessorType(): PaymentProcessorKind {
   }
   return "mtn_momo";
 }
+
+/**
+ * Feature flag for paid event activation step on create flow.
+ * Enabled only when explicitly set to `1` or `true`.
+ */
+export function isSubscriptionPaymentEnabled(): boolean {
+  const raw = process.env.FEATURE_SUBSCRIPTION_PAYMENT?.trim().toLowerCase();
+  return raw === "1" || raw === "true";
+}

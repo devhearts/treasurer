@@ -2,6 +2,7 @@ import CreateEventForm from "./CreateEventForm";
 import {
   getPaymentProcessor,
   isPaymentProcessorConfigured,
+  isSubscriptionPaymentEnabled,
   paymentCtaLabel,
   paymentNetworksText,
 } from "@/lib/payments";
@@ -17,6 +18,7 @@ export default function CreatePage() {
       <div className="max-w-lg mx-auto px-4 py-8">
         <CreateEventForm
           momoConfigured={isPaymentProcessorConfigured()}
+          subscriptionPaymentEnabled={isSubscriptionPaymentEnabled()}
           payButtonLabel={paymentCtaLabel(processor.kind)}
           payerPhoneLabel={`${paymentNetworksText(processor.supportedNetworks)} number (paying wallet)`}
         />

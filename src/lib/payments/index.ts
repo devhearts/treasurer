@@ -16,6 +16,7 @@ export type {
 } from "./types";
 
 export { getPaymentProcessorType } from "./env";
+export { isSubscriptionPaymentEnabled } from "./env";
 
 export function getPaymentProcessor(): PaymentProcessor {
   const t = getPaymentProcessorType();

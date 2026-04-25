@@ -27,10 +27,12 @@ const GRID = "gap-4";
 
 export default function CreateEventForm({
   momoConfigured = false,
+  subscriptionPaymentEnabled = false,
   payButtonLabel = "Pay with MTN Momo",
   payerPhoneLabel = "MTN Momo number (paying wallet)",
 }: {
   momoConfigured?: boolean;
+  subscriptionPaymentEnabled?: boolean;
   payButtonLabel?: string;
   payerPhoneLabel?: string;
 }) {
@@ -53,6 +55,7 @@ export default function CreateEventForm({
   const [momoRef, setMomoRef] = useState<string | null>(null);
   const [momoError, setMomoError] = useState<string | null>(null);
   const [subscriptionPaid, setSubscriptionPaid] = useState(false);
+  const totalSteps = subscriptionPaymentEnabled ? 3 : 2;
 
   useEffect(() => {
     if (!momoWait || !momoRef) return;
@@ -168,7 +171,7 @@ export default function CreateEventForm({
       {/* Single progress line + back when step > 1 */}
       <div className="flex items-center justify-between">
         <p className="text-muted text-sm">
-          Step {step} of 3
+          Step {step} of {totalSteps}
         </p>
         {step > 1 && (
           <button
@@ -239,7 +242,11 @@ export default function CreateEventForm({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            setStep(3);
+            if (subscriptionPaymentEnabled) {
+              setStep(3);
+              return;
+            }
+            void handleActivate(e);
           }}
           className={GRID}
         >
@@ -349,9 +356,14 @@ export default function CreateEventForm({
             <div className="p-4 border-t border-muted/20">
               <button
                 type="submit"
+                disabled={loading}
                 className="w-full bg-accent hover:bg-accent/90 text-white font-bold py-4 rounded-lg transition-colors"
               >
-                Continue
+                {loading
+                  ? "Activating…"
+                  : subscriptionPaymentEnabled
+                    ? "Continue"
+                    : "Activate my event"}
               </button>
             </div>
           </div>
@@ -359,7 +371,7 @@ export default function CreateEventForm({
       )}
 
       {/* Step 3: Confirm & Pay */}
-      {step === 3 && (
+      {subscriptionPaymentEnabled && step === 3 && (
         <form onSubmit={handleActivate} className={GRID}>
           {/* Collapsed Step 1 + 2 summaries */}
           <div className="space-y-2">
