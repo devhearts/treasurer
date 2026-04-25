@@ -8,7 +8,7 @@ import {
   getEventsByUserId as dbGetEventsByUserId,
   getEventBySlug as dbGetEventBySlug,
 } from "@/lib/db/queries";
-import { getCurrentUser } from "@/app/actions/auth";
+import { clearSession, getCurrentUser } from "@/app/actions/auth";
 
 /** Returns events owned by the current user (for app "My events"). */
 export async function getMyEvents(): Promise<CeremonyEvent[]> {
@@ -27,7 +27,11 @@ export async function addEvent(
   event: CeremonyEvent
 ): Promise<{ success: true; slug: string } | { success: false; error: string }> {
   const user = await getCurrentUser();
-  if (!user) return { success: false, error: "You must be signed in to create an event." };
+  if (!user) {
+    // Clear stale auth cookie if session points to a missing/invalid user.
+    await clearSession();
+    return { success: false, error: "You must be signed in to create an event." };
+  }
   try {
     const db = getDb();
     db.insert(events).values({

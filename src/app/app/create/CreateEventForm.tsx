@@ -161,6 +161,9 @@ export default function CreateEventForm({
       router.push(`/app/events/${result.slug}`);
     } else {
       alert(result.error ?? "Failed to create event.");
+      if (result.error === "You must be signed in to create an event.") {
+        router.push("/login");
+      }
     }
   }
 
