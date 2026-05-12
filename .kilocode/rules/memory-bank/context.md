@@ -73,6 +73,9 @@
 ## Recent: Create event — default event date
 - **`CreateEventForm`** ([`apps/web/src/app/app/create/CreateEventForm.tsx`](apps/web/src/app/app/create/CreateEventForm.tsx)): “Event date” pre-fills to **local calendar today + 30 days** as `YYYY-MM-DD` for `<input type="date">` (avoids UTC `toISOString()` day drift).
 
+## Recent: Event slug collision (API)
+- **`EventsService.addEvent`** ([`apps/api/src/events/events.service.ts`](apps/api/src/events/events.service.ts)): On MySQL **duplicate slug** (`ER_DUP_ENTRY` / errno **1062**), retries with suffixes `-<n>` (up to 8 attempts). Duplicate detection walks **`error.cause`** because Drizzle wraps the driver error (top-level message is “Failed query…”, not “Duplicate entry…”).
+
 ## Recent: Receipt/Invitation Print Includes Business Info
 - `src/components/ContributionReceipt.tsx` appends a business identity block (`Business: CeremonyWallet`, `Address: <event location>`, `Contact: <event treasurerPhone>` when available) to receipt text.
 - `src/app/app/events/[slug]/invite/InviteCardGenerator.tsx` similarly labels the event venue as `Address:` and adds `Business: CeremonyWallet` plus `Contact: <event treasurerPhone>` so printed/exported PDF content includes the available business/contact details.

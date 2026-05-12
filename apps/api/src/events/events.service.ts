@@ -52,6 +52,36 @@ export type CeremonyEventDto = {
   }[];
 };
 
+/** Drizzle wraps driver errors in `cause`; MySQL duplicate key uses errno 1062 there. */
+function isMysqlDuplicateKeyError(e: unknown): boolean {
+  let cur: unknown = e;
+  for (let i = 0; i < 12 && cur != null; i++) {
+    if (typeof cur === "object") {
+      const o = cur as {
+        errno?: number;
+        code?: string;
+        message?: string;
+        cause?: unknown;
+      };
+      if (o.errno === 1062 || o.code === "ER_DUP_ENTRY") return true;
+      if (
+        typeof o.message === "string" &&
+        o.message.includes("Duplicate entry")
+      ) {
+        return true;
+      }
+    }
+    cur =
+      typeof cur === "object" &&
+      cur !== null &&
+      "cause" in cur &&
+      (cur as { cause: unknown }).cause != null
+        ? (cur as { cause: unknown }).cause
+        : undefined;
+  }
+  return false;
+}
+
 @Injectable()
 export class EventsService {
   constructor(
@@ -162,6 +192,12 @@ export class EventsService {
     return out;
   }
 
+  private slugWithNumericSuffix(base: string, n: number, maxLen = 191): string {
+    const suffix = `-${n}`;
+    if (base.length + suffix.length <= maxLen) return `${base}${suffix}`;
+    return `${base.slice(0, Math.max(1, maxLen - suffix.length))}${suffix}`;
+  }
+
   async addEvent(
     userId: string,
     event: CeremonyEventDto,
@@ -246,11 +282,9 @@ export class EventsService {
 
         return { slug };
       } catch (e: unknown) {
-        const code = (e as { errno?: number })?.errno;
-        const msg = e instanceof Error ? e.message : "";
-        if (code === 1062 || msg.includes("Duplicate")) {
+        if (isMysqlDuplicateKeyError(e)) {
           attempt += 1;
-          slug = `${event.slug}-${attempt}`;
+          slug = this.slugWithNumericSuffix(event.slug, attempt);
           continue;
         }
         throw e;
