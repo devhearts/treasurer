@@ -65,26 +65,6 @@ export default async function AppHome() {
           <HomeEventsList events={featured} />
         </section>
       )}
-
-      <section className="max-w-lg mx-auto px-4 py-6">
-        <details open className="bg-light rounded-xl border border-muted/30 overflow-hidden group">
-          <summary className="p-4 cursor-pointer list-none font-bold text-surface flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <IconWallet className="w-5 h-5 text-accent" />
-              <span className="sm:hidden">Treasurers</span>
-              <span className="hidden sm:inline">For treasurers</span>
-            </span>
-            <span className="text-accent text-lg">50,000 UGX</span>
-          </summary>
-          <div className="px-4 pb-4 text-sm text-muted border-t border-muted/20 pt-4">
-            <p className="mb-2">One-time fee. No monthly costs. Unlimited contributors.</p>
-            <Link href="/app/create" className="cta-primary block text-center mt-4">
-              Get started
-            </Link>
-          </div>
-        </details>
-      </section>
-
       <footer className="bg-surface text-light/70 py-6 mt-8">
         <div className="max-w-lg mx-auto px-4 text-center text-sm">
           <span className="font-semibold text-light">CeremonyWallet</span>
