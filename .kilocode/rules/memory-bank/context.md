@@ -80,6 +80,11 @@
 - **Cause**: Client trees (`InviteCardGenerator`, `EventDetailContent`, contributions tab) could be **reused across navigations** while state stayed tied to the previous event; server `fetch` could also be cached unless opted out.
 - **Fix**: [`server-api.ts`](apps/web/src/lib/server-api.ts) uses **`cache: "no-store"`** for Nest calls. **`key={event.id}`** on `EventDetailContent`, `InviteCardGenerator`, `ContributionsPageContent`, and keyed children (`RecentContributionsCard`, `ContributionReceipt`, `ContributeForm`, `MilestoneItemsTab`) so switching events remounts clients. Contributor rows use **`key={\`${event.id}-${contributor.id}\`}`**. Invite page adds the same **owner check** as the event detail page ([`invite/page.tsx`](apps/web/src/app/app/events/[slug]/invite/page.tsx)).
 
+## Recent: Public event share copy + Open Graph (web)
+- **[`event-share.ts`](apps/web/src/lib/event-share.ts)**: `buildEventShareBlurb`, `eventShareTitle`, `buildEventOgDescription`, `absolutePublicEventUrl` (uses **`NEXT_PUBLIC_APP_URL`**).
+- **[`EventDetailContent`](apps/web/src/app/app/events/[slug]/EventDetailContent.tsx)**: Share and **Copy to share** put a **multi-line message** (title, type, date, location, raised/goal, optional description, public link) on the clipboard / Web Share API (`title`, `text`, `url`). Fallback dialog uses a **textarea** for the full message.
+- **Public event page** ([`app/events/[slug]/page.tsx`](apps/web/src/app/events/[slug]/page.tsx)): **`generateMetadata`** sets `title`, `description`, **`openGraph`**, **`twitter`**, **`alternates.canonical`**. **`load-public-event.ts`** wraps **`getEventBySlug`** in React **`cache()`** so metadata + page share one fetch. Root **[`layout.tsx`](apps/web/src/app/layout.tsx)** sets **`metadataBase`** from `NEXT_PUBLIC_APP_URL` for correct absolute OG URLs.
+
 ## Recent: Receipt/Invitation Print Includes Business Info
 - `src/components/ContributionReceipt.tsx` appends a business identity block (`Business: CeremonyWallet`, `Address: <event location>`, `Contact: <event treasurerPhone>` when available) to receipt text.
 - `src/app/app/events/[slug]/invite/InviteCardGenerator.tsx` similarly labels the event venue as `Address:` and adds `Business: CeremonyWallet` plus `Contact: <event treasurerPhone>` so printed/exported PDF content includes the available business/contact details.

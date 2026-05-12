@@ -20,6 +20,11 @@ import {
   IconCopy,
   IconInvite,
 } from "@/components/Icons";
+import {
+  buildEventShareBlurb,
+  eventShareTitle,
+  publicEventPath,
+} from "@/lib/event-share";
 
 interface EventDetailContentProps {
   event: CeremonyEvent;
@@ -72,7 +77,10 @@ export default function EventDetailContent({
 }: EventDetailContentProps) {
   const slug = event.slug;
   const [shareCopied, setShareCopied] = useState(false);
-  const [copyFallbackUrl, setCopyFallbackUrl] = useState<string | null>(null);
+  /** Full share message (context + link) when clipboard / share needs manual copy. */
+  const [copyFallbackContent, setCopyFallbackContent] = useState<string | null>(
+    null
+  );
   const [privateFlow, setPrivateFlow] = useState<PrivateFlow>("details");
   const contributeRef = useRef<HTMLDivElement>(null);
 
@@ -87,43 +95,62 @@ export default function EventDetailContent({
       }, 0);
     }
   }, [isPublicView]);
-  // Always use public link for share/copy so recipients can view and contribute without logging in
-  const publicEventUrl =
-    (typeof window !== "undefined" ? window.location.origin : "") + `/events/${slug}`;
+
+  function publicEventAbsoluteUrl(): string {
+    if (typeof window === "undefined") return "";
+    return `${window.location.origin}${publicEventPath(slug)}`;
+  }
+
+  /** Canonical public URL for this event (browser origin, or env base in edge cases). */
+  function resolvedPublicEventUrl(): string {
+    const fromWindow = publicEventAbsoluteUrl();
+    if (fromWindow) return fromWindow;
+    const env = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "").trim();
+    if (env) return `${env}${publicEventPath(slug)}`;
+    return `http://localhost:3000${publicEventPath(slug)}`;
+  }
+
+  function shareBlurb(): string {
+    return buildEventShareBlurb(event, resolvedPublicEventUrl());
+  }
 
   async function handleShare() {
+    const url = resolvedPublicEventUrl();
+    const text = buildEventShareBlurb(event, url);
+    const title = eventShareTitle(event);
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
-        await navigator.share({ title: event.title, url: publicEventUrl });
+        await navigator.share({ title, text, url });
         return;
       } catch {
         // User cancelled share or share failed — clipboard may not work (no focus / gesture).
-        const ok = await copyToClipboardSafe(publicEventUrl);
+        const ok = await copyToClipboardSafe(text);
         if (ok) {
           setShareCopied(true);
           setTimeout(() => setShareCopied(false), 2000);
         } else {
-          setCopyFallbackUrl(publicEventUrl);
+          setCopyFallbackContent(text);
         }
         return;
       }
     }
-    const ok = await copyToClipboardSafe(publicEventUrl);
+    const ok = await copyToClipboardSafe(text);
     if (ok) {
       setShareCopied(true);
       setTimeout(() => setShareCopied(false), 2000);
     } else {
-      setCopyFallbackUrl(publicEventUrl);
+      setCopyFallbackContent(text);
     }
   }
 
   async function copyEventLink() {
-    const ok = await copyToClipboardSafe(publicEventUrl);
+    const text = shareBlurb();
+    const ok = await copyToClipboardSafe(text);
     if (ok) {
       setShareCopied(true);
       setTimeout(() => setShareCopied(false), 2000);
     } else {
-      setCopyFallbackUrl(publicEventUrl);
+      setCopyFallbackContent(text);
     }
   }
 
@@ -179,7 +206,7 @@ export default function EventDetailContent({
         className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border border-muted/30 text-muted text-sm font-medium hover:bg-muted/10"
       >
         <IconCopy className="w-4 h-4" />
-        {shareCopied ? "Copied" : <><span className="sm:hidden">Copy</span><span className="hidden sm:inline">Copy link</span></>}
+        {shareCopied ? "Copied" : <><span className="sm:hidden">Copy</span><span className="hidden sm:inline">Copy to share</span></>}
       </button>
       <button
         type="button"
@@ -265,36 +292,37 @@ export default function EventDetailContent({
 
   return (
     <main className="min-h-screen bg-light pb-24">
-      {copyFallbackUrl && (
+      {copyFallbackContent && (
         <div
           className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 bg-surface/80"
           role="dialog"
           aria-modal="true"
           aria-labelledby="copy-fallback-title"
-          onClick={() => setCopyFallbackUrl(null)}
+          onClick={() => setCopyFallbackContent(null)}
         >
           <div
             className="bg-light rounded-xl border border-muted/30 shadow-lg max-w-lg w-full p-4 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="copy-fallback-title" className="font-bold text-surface mb-2">
-              Copy link
+              Copy to share
             </h2>
             <p className="text-sm text-muted mb-3">
-              Select and copy the link below, or use your browser&apos;s share menu.
+              Select the text below (event details and link), or use your
+              browser&apos;s share menu.
             </p>
-            <input
-              type="text"
+            <textarea
               readOnly
+              rows={10}
               autoFocus
-              value={copyFallbackUrl}
-              className="w-full text-sm font-mono border border-muted/50 rounded-lg px-3 py-2 text-surface mb-3"
+              value={copyFallbackContent}
+              className="w-full text-sm border border-muted/50 rounded-lg px-3 py-2 text-surface mb-3 font-sans resize-y min-h-[8rem]"
               onFocus={(e) => e.target.select()}
             />
             <div className="flex gap-2 justify-end">
               <button
                 type="button"
-                onClick={() => setCopyFallbackUrl(null)}
+                onClick={() => setCopyFallbackContent(null)}
                 className="px-4 py-2 text-sm text-muted font-medium"
               >
                 Close
@@ -302,9 +330,9 @@ export default function EventDetailContent({
               <button
                 type="button"
                 onClick={async () => {
-                  const ok = await copyToClipboardSafe(copyFallbackUrl);
+                  const ok = await copyToClipboardSafe(copyFallbackContent);
                   if (ok) {
-                    setCopyFallbackUrl(null);
+                    setCopyFallbackContent(null);
                     setShareCopied(true);
                     setTimeout(() => setShareCopied(false), 2000);
                   }

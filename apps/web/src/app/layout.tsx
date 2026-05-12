@@ -9,7 +9,11 @@ const montserrat = Montserrat({
   display: "swap",
 });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl.endsWith("/") ? siteUrl : `${siteUrl}/`),
   title: "CeremonyWallet – Digital Treasurer for Ugandan Social Events",
   description:
     "Manage contributions for weddings, introductions (kwanjula), and funerals (mabugo) transparently. Collect via Mobile Money, track pledges, and keep everyone informed.",
