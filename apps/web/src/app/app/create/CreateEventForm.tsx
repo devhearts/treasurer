@@ -31,6 +31,20 @@ const MOMO_MAX_POLLS = 48;
 
 const GRID = "gap-4";
 
+/** YYYY-MM-DD for `<input type="date">`, using local calendar date (not UTC). */
+function formatDateInputLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function defaultEventDateFromToday(daysAhead: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  return formatDateInputLocal(d);
+}
+
 export default function CreateEventForm({
   momoConfigured = false,
   subscriptionPaymentEnabled = false,
@@ -52,7 +66,7 @@ export default function CreateEventForm({
   const [title, setTitle] = useState("");
   const [organizer, setOrganizer] = useState("");
   const [treasurerPhone, setTreasurerPhone] = useState("");
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(() => defaultEventDateFromToday(30));
   const [location, setLocation] = useState("");
   const [targetAmount, setTargetAmount] = useState("");
   const [description, setDescription] = useState("");

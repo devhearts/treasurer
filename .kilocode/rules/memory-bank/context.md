@@ -70,6 +70,9 @@
 - Step 3 of `CreateEventForm` now shows a phone input + "Pay with MTN MoMo" button when MoMo is configured, with spinner while polling. Falls back to a manual "I have paid" checkbox when MoMo env vars are not set.
 - The "Activate my event" submit button is disabled until subscription payment succeeds (or manual checkbox is ticked in fallback mode).
 
+## Recent: Create event — default event date
+- **`CreateEventForm`** ([`apps/web/src/app/app/create/CreateEventForm.tsx`](apps/web/src/app/app/create/CreateEventForm.tsx)): “Event date” pre-fills to **local calendar today + 30 days** as `YYYY-MM-DD` for `<input type="date">` (avoids UTC `toISOString()` day drift).
+
 ## Recent: Receipt/Invitation Print Includes Business Info
 - `src/components/ContributionReceipt.tsx` appends a business identity block (`Business: CeremonyWallet`, `Address: <event location>`, `Contact: <event treasurerPhone>` when available) to receipt text.
 - `src/app/app/events/[slug]/invite/InviteCardGenerator.tsx` similarly labels the event venue as `Address:` and adds `Business: CeremonyWallet` plus `Contact: <event treasurerPhone>` so printed/exported PDF content includes the available business/contact details.
