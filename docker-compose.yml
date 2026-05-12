@@ -1,14 +1,136 @@
+# Full stack: MariaDB, Mailpit, Garage (S3 API), Nest API, Next web.
+# Schema: `db-migrate` runs `apps/api/scripts/docker-db-migrate.cjs` once before `api` on every `docker compose up`
+# (records `0000_init` in `__drizzle_migrations` if tables already exist from old `drizzle-kit push`, then `drizzle-kit migrate`).
+# Manual: `npm run docker:db-migrate`.
+# URLs: http://localhost:3000 (web), http://localhost:4000 (API), http://localhost:8025 (Mailpit)
+# Garage S3 endpoint (host): http://localhost:3900 — admin API :3903 (see docker/garage.toml)
+#
+# Environment: copy `env.example` → `.env` in this directory. Compose interpolates `${VAR}` from that file.
+# `api` / `web` load repo `.env` then `apps/*/.env` (later wins on duplicates). Explicit `environment:`
+# overrides both for Docker hostnames (e.g. DATABASE_URL → mysql). Do not set keys to "" here if you
+# want values from env_file to reach the container.
+
 services:
-  app:
-    build: .
+  mysql:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: treasurer
+      MARIADB_USER: treasurer
+      MARIADB_PASSWORD: treasurer
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+  # https://garagehq.deuxfleurs.fr/documentation/quick-start/
+  garage:
+    image: dxflrs/garage:v2.3.0
+    command: ["/garage", "server", "--single-node", "--default-bucket"]
+    environment:
+      RUST_LOG: warn
+      GARAGE_DEFAULT_ACCESS_KEY: ${GARAGE_ACCESS_KEY:-GK0123456789abcdef0123456789abcdef}
+      GARAGE_DEFAULT_SECRET_KEY: ${GARAGE_SECRET_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      GARAGE_DEFAULT_BUCKET: ${GARAGE_BUCKET:-treasurer}
+    volumes:
+      - ./docker/garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    ports:
+      - "3900:3900"
+      - "3903:3903"
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 300s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+
+  db-migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: migrator
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: mysql://treasurer:treasurer@mysql:3306/treasurer
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runner
+    ports:
+      - "4000:4000"
+    env_file:
+      - path: .env
+        required: false
+      - path: apps/api/.env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      INTERNAL_PROXY_SECRET: ${INTERNAL_PROXY_SECRET:-treasurer-docker-dev-secret}
+      DATABASE_URL: mysql://treasurer:treasurer@mysql:3306/treasurer
+      GARAGE_ENDPOINT: http://garage:3900
+      GARAGE_REGION: garage
+      GARAGE_ACCESS_KEY: ${GARAGE_ACCESS_KEY:-GK0123456789abcdef0123456789abcdef}
+      GARAGE_SECRET_KEY: ${GARAGE_SECRET_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      GARAGE_BUCKET: ${GARAGE_BUCKET:-treasurer}
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
+      garage:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_FEATURE_SUBSCRIPTION_PAYMENT: ${NEXT_PUBLIC_FEATURE_SUBSCRIPTION_PAYMENT:-0}
+        NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY:-MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
     ports:
       - "3000:3000"
+    env_file:
+      - path: .env
+        required: false
+      - path: apps/web/.env
+        required: false
     environment:
-      - NODE_ENV=production
-    # Persist SQLite DB if your app uses ./data or DATABASE_URL path
-    volumes:
-      - app-data:/app/data
-    restart: unless-stopped
+      NODE_ENV: production
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      API_INTERNAL_URL: http://api:4000
+      INTERNAL_PROXY_SECRET: ${INTERNAL_PROXY_SECRET:-treasurer-docker-dev-secret}
+      NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY:-MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+    depends_on:
+      - api
 
 volumes:
-  app-data:
+  mysql-data:
+  garage-meta:
+  garage-data:
