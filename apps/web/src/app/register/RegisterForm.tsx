@@ -7,15 +7,21 @@ import { register as registerUser } from "@/app/actions/auth";
 export default function RegisterForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
     setLoading(true);
-    const result = await registerUser(email, password);
+    const result = await registerUser(email, password, confirmPassword, phone);
     setLoading(false);
     if (result.success) {
       router.push(
@@ -34,7 +40,9 @@ export default function RegisterForm() {
         </p>
       )}
       <div>
-        <label htmlFor="reg-email" className="sr-only">Email</label>
+        <label htmlFor="reg-email" className="sr-only">
+          Email
+        </label>
         <input
           id="reg-email"
           type="email"
@@ -42,11 +50,29 @@ export default function RegisterForm() {
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Email"
           required
+          autoComplete="email"
           className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
         />
       </div>
       <div>
-        <label htmlFor="reg-password" className="sr-only">Password</label>
+        <label htmlFor="reg-phone" className="sr-only">
+          Mobile number
+        </label>
+        <input
+          id="reg-phone"
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="Mobile number (MTN or Airtel, e.g. 07… or 256…)"
+          required
+          autoComplete="tel"
+          className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
+        />
+      </div>
+      <div>
+        <label htmlFor="reg-password" className="sr-only">
+          Password
+        </label>
         <input
           id="reg-password"
           type="password"
@@ -55,6 +81,23 @@ export default function RegisterForm() {
           placeholder="Password"
           required
           minLength={6}
+          autoComplete="new-password"
+          className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
+        />
+      </div>
+      <div>
+        <label htmlFor="reg-confirm-password" className="sr-only">
+          Confirm password
+        </label>
+        <input
+          id="reg-confirm-password"
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          placeholder="Confirm password"
+          required
+          minLength={6}
+          autoComplete="new-password"
           className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
         />
       </div>

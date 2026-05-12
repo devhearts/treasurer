@@ -37,6 +37,7 @@ async function main() {
     passwordHash,
     createdAt,
     emailVerifiedAt: createdAt,
+    phone: "256771234567",
   });
   console.log(`Created demo user ${email} / demo1234`);
   await pool.end();

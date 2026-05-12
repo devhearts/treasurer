@@ -8,6 +8,13 @@
       "when": 1778598515738,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1778600000000,
+      "tag": "0001_users_phone",
+      "breakpoints": true
     }
   ]
 }

@@ -41,12 +41,19 @@ export type RegisterResult =
 
 export async function register(
   email: string,
-  password: string
+  password: string,
+  confirmPassword: string,
+  phone: string
 ): Promise<RegisterResult> {
   try {
     const res = await serverApiFetchInternal("auth/register", {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({
+        email,
+        password,
+        confirmPassword,
+        phone,
+      }),
     });
     const data = (await res.json()) as {
       message?: string;

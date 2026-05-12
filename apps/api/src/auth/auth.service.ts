@@ -14,6 +14,7 @@ import * as schema from "../database/schema";
 import { SessionService } from "./session.service";
 import { MailService } from "../integrations/mail.service";
 import { formatMysqlDateTimeUtc } from "../common/mysql-datetime";
+import { normalizeUgandaMsisdnForNetworks } from "../payments/phone";
 
 const SALT_ROUNDS = 10;
 const RESET_TOKEN_EXPIRY_HOURS = 1;
@@ -43,6 +44,8 @@ export class AuthService {
   async register(
     email: string,
     password: string,
+    confirmPassword: string,
+    phoneRaw: string,
     _ip?: string,
     _ua?: string
   ): Promise<{ userId: string; email: string }> {
@@ -50,8 +53,17 @@ export class AuthService {
     if (!trimmed || !password) {
       throw new BadRequestException("Email and password are required.");
     }
+    if (password !== confirmPassword) {
+      throw new BadRequestException("Passwords do not match.");
+    }
     if (password.length < 6) {
       throw new BadRequestException("Password must be at least 6 characters.");
+    }
+    const phone = normalizeUgandaMsisdnForNetworks(phoneRaw, ["mtn", "airtel"]);
+    if (!phone) {
+      throw new BadRequestException(
+        "Enter a valid MTN or Airtel Uganda number (e.g. 07… or 256…)."
+      );
     }
     const existing = await this.db
       .select()
@@ -69,6 +81,7 @@ export class AuthService {
       email: trimmed,
       passwordHash,
       createdAt,
+      phone,
     });
     await this.issueEmailVerification(id, trimmed);
     return { userId: id, email: trimmed };

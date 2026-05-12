@@ -19,7 +19,13 @@ export class AuthController {
 
   @Post("register")
   async register(
-    @Body() body: { email?: string; password?: string },
+    @Body()
+    body: {
+      email?: string;
+      password?: string;
+      confirmPassword?: string;
+      phone?: string;
+    },
     @Req() req: Request
   ) {
     const ip =
@@ -29,6 +35,8 @@ export class AuthController {
     const r = await this.auth.register(
       body.email ?? "",
       body.password ?? "",
+      body.confirmPassword ?? "",
+      body.phone ?? "",
       ip,
       ua
     );

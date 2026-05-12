@@ -22,6 +22,8 @@ export const users = mysqlTable(
       mode: "string",
       fsp: 3,
     }),
+    /** Uganda MSISDN (256…); null for legacy rows before this column existed. */
+    phone: varchar("phone", { length: 32 }),
   },
   (t) => [uniqueIndex("uq_users_email").on(t.email)]
 );
