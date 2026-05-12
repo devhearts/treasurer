@@ -5,10 +5,10 @@
 # URLs: http://localhost:3000 (web), http://localhost:4000 (API), http://localhost:8025 (Mailpit)
 # Garage S3 endpoint (host): http://localhost:3900 — admin API :3903 (see docker/garage.toml)
 #
-# Environment: copy `env.example` → `.env` in this directory. Compose interpolates `${VAR}` from that file.
-# `api` / `web` load repo `.env` then `apps/*/.env` (later wins on duplicates). Explicit `environment:`
-# overrides both for Docker hostnames (e.g. DATABASE_URL → mysql). Do not set keys to "" here if you
-# want values from env_file to reach the container.
+# Environment: copy `env.example` → `.env` in this directory for `${VAR}` interpolation. Services use
+# plain `env_file` paths (older `docker compose` rejects `{ path, required }`). If `docker compose`
+# errors on a missing file, add an empty `.env` or drop that `env_file` line. Later `env_file` wins on
+# duplicate keys; explicit `environment:` overrides both (e.g. DATABASE_URL → mysql).
 
 services:
   mysql:
@@ -63,9 +63,6 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
       target: migrator
-    env_file:
-      - path: .env
-        required: false
     environment:
       DATABASE_URL: mysql://treasurer:treasurer@mysql:3306/treasurer
     depends_on:
@@ -81,10 +78,8 @@ services:
     ports:
       - "4000:4000"
     env_file:
-      - path: .env
-        required: false
-      - path: apps/api/.env
-        required: false
+      - .env
+      - apps/api/.env
     environment:
       NODE_ENV: production
       PORT: "4000"
@@ -117,10 +112,8 @@ services:
     ports:
       - "3000:3000"
     env_file:
-      - path: .env
-        required: false
-      - path: apps/web/.env
-        required: false
+      - .env
+      - apps/web/.env
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
