@@ -9,7 +9,7 @@ Published **host** ports are centralized in [`ports.base.json`](ports.base.json)
 | staging    | +40    | `npm run docker:up:staging` |
 | production | +50    | `npm run docker:up:production` |
 
-**Inside** the Compose network, services still use the original container ports (`mysql:3306`, `api:4000`, `mailpit:1025`, `garage:3900`, etc.). Only the **host** side of `ports:` mappings and the default `WEB_ORIGIN` / `NEXT_PUBLIC_APP_URL` values change.
+**Inside** the Compose network, services still use the original container ports (`mysql:3306`, `api:4000`, `mailpit:1025`, `garage:3900`, etc.). The **host** side of `ports:` uses `HOST_PORT_*` offsets. **`WEB_ORIGIN` / `NEXT_PUBLIC_APP_URL`**: `default` and `dev` use `http://localhost:<HOST_PORT_WEB>`; **`staging`** uses `https://staging.ceremonywallet.com`; **`production`** uses `https://ceremonywallet.com` (set in [`generate-port-envs.mjs`](generate-port-envs.mjs)—expect TLS at the edge proxy in front of `HOST_PORT_WEB`).
 
 ## Regenerating env files
 
