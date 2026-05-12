@@ -35,6 +35,7 @@ COPY --from=builder --chown=nextjs:nodejs /repo/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/web/.next/static ./apps/web/.next/static
 
 USER nextjs
+# Container listens on 3000; compose maps "${HOST_PORT_WEB:-3000}:3000" (see docker/ports.base.json).
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"

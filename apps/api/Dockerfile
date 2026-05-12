@@ -37,6 +37,7 @@ COPY --from=builder /repo/apps/api/dist ./apps/api/dist
 WORKDIR /repo/apps/api
 USER nodejs
 
+# Container listens on 4000; compose maps "${HOST_PORT_API:-4000}:4000" (see docker/ports.base.json).
 EXPOSE 4000
 
 ENTRYPOINT ["dumb-init", "--"]

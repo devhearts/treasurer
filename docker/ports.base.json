@@ -1,0 +1,12 @@
+{
+  "description": "Canonical host-side port bases for Treasurer Docker. Published host port = base + offset (see docker/generate-port-envs.mjs).",
+  "base": {
+    "mysql": 3306,
+    "mailpitUi": 8025,
+    "mailpitSmtp": 1025,
+    "garageS3": 3900,
+    "garageAdmin": 3903,
+    "api": 4000,
+    "web": 3000
+  }
+}

@@ -88,6 +88,10 @@ src/
 | `npm run lint` / `bun lint` | Run ESLint |
 | `npm run typecheck` / `bun typecheck` | Run TypeScript type checking |
 
+### Docker Compose and host ports
+
+Full stack: `docker compose up --build`. Host ports are parameterized (`HOST_PORT_*`); defaults match the historical single-stack layout. When other containers already use those ports, use a profile (**dev +30**, **staging +40**, **production +50** on every published port): `npm run docker:up:dev` (or `docker:up:staging` / `docker:up:production`). See [`docker/README-ports.md`](docker/README-ports.md). Regenerate profile files after changing bases: `npm run docker:gen-ports`. CI / pre-push: `npm run docker:verify-ports`.
+
 The SQLite database file is created at `data/ceremonywallet.db` on first use. To load demo events, run `npm run db:seed` once after installation.
 
 ## How It Works

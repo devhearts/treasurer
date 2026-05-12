@@ -1,4 +1,8 @@
 # Dev / Docker Compose — single Garage node. Do not reuse these secrets in production.
+#
+# Container listen ports (fixed inside the image; host publishing uses docker-compose.yml HOST_PORT_*).
+# Published to host today: S3 API 3900, Admin API 3903 (see docker/ports.base.json → garageS3, garageAdmin).
+# Internal only (not in compose `ports:`): RPC 3901, S3 web UI 3902 — other services use garage:3900 / garage:3903 on the Docker network.
 metadata_dir = "/var/lib/garage/meta"
 data_dir = "/var/lib/garage/data"
 db_engine = "sqlite"
