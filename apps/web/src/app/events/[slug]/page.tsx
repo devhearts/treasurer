@@ -28,6 +28,7 @@ export default async function PublicEventPage({ params }: PageProps) {
 
   return (
     <EventDetailContent
+      key={event.id}
       event={event}
       isPublicView
       momoConfigured={cfg.paymentsConfigured}

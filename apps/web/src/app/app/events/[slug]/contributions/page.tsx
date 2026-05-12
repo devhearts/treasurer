@@ -21,5 +21,5 @@ export default async function EventContributionsPage({ params }: PageProps) {
     notFound();
   }
 
-  return <ContributionsPageContent event={event} />;
+  return <ContributionsPageContent key={event.id} event={event} />;
 }

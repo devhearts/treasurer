@@ -111,7 +111,7 @@ export default function InviteCardGenerator({ event }: { event: CeremonyEvent })
             const isCopied = copiedFor === contributor.id;
             return (
               <div
-                key={contributor.id}
+                key={`${event.id}-${contributor.id}`}
                 className="flex items-center justify-between gap-4 p-4 rounded-xl bg-light border border-muted/30"
               >
                 <p className="font-medium text-surface truncate">{contributor.name}</p>

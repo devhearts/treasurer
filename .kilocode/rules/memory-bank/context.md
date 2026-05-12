@@ -76,6 +76,10 @@
 ## Recent: Event slug collision (API)
 - **`EventsService.addEvent`** ([`apps/api/src/events/events.service.ts`](apps/api/src/events/events.service.ts)): On MySQL **duplicate slug** (`ER_DUP_ENTRY` / errno **1062**), retries with suffixes `-<n>` (up to 8 attempts). Duplicate detection walks **`error.cause`** because Drizzle wraps the driver error (top-level message is “Failed query…”, not “Duplicate entry…”).
 
+## Recent: Invitation cards / event UI across multiple events (web)
+- **Cause**: Client trees (`InviteCardGenerator`, `EventDetailContent`, contributions tab) could be **reused across navigations** while state stayed tied to the previous event; server `fetch` could also be cached unless opted out.
+- **Fix**: [`server-api.ts`](apps/web/src/lib/server-api.ts) uses **`cache: "no-store"`** for Nest calls. **`key={event.id}`** on `EventDetailContent`, `InviteCardGenerator`, `ContributionsPageContent`, and keyed children (`RecentContributionsCard`, `ContributionReceipt`, `ContributeForm`, `MilestoneItemsTab`) so switching events remounts clients. Contributor rows use **`key={\`${event.id}-${contributor.id}\`}`**. Invite page adds the same **owner check** as the event detail page ([`invite/page.tsx`](apps/web/src/app/app/events/[slug]/invite/page.tsx)).
+
 ## Recent: Receipt/Invitation Print Includes Business Info
 - `src/components/ContributionReceipt.tsx` appends a business identity block (`Business: CeremonyWallet`, `Address: <event location>`, `Contact: <event treasurerPhone>` when available) to receipt text.
 - `src/app/app/events/[slug]/invite/InviteCardGenerator.tsx` similarly labels the event venue as `Address:` and adds `Business: CeremonyWallet` plus `Contact: <event treasurerPhone>` so printed/exported PDF content includes the available business/contact details.

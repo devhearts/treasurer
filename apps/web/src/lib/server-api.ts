@@ -55,6 +55,7 @@ export async function serverApiFetch(
   }
   return fetch(`${internalBase()}/${path.replace(/^\//, "")}`, {
     ...init,
+    cache: "no-store",
     headers: hdr,
   });
 }
@@ -94,6 +95,7 @@ export async function serverApiFetchInternal(
   }
   return fetch(`${internalBase()}/${path.replace(/^\//, "")}`, {
     ...init,
+    cache: "no-store",
     headers: h,
   });
 }

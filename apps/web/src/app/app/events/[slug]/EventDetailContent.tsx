@@ -228,12 +228,14 @@ export default function EventDetailContent({
   const contributionsBlock = (
     <>
       <RecentContributionsCard
+        key={event.id}
         contributions={recentContributionsForCard}
         eventSlug={event.slug}
         hideAllLink={isPublicView}
       />
 
       <ContributionReceipt
+        key={event.id}
         eventTitle={event.title}
         eventDate={event.date}
         eventLocation={event.location}
@@ -245,6 +247,7 @@ export default function EventDetailContent({
 
       <div id="contribute" ref={contributeRef} className="mt-8">
         <ContributeForm
+          key={event.id}
           eventId={event.id}
           eventSlug={event.slug}
           eventTitle={event.title}
@@ -399,7 +402,7 @@ export default function EventDetailContent({
             )}
 
             {privateFlow === "milestones" && (
-              <MilestoneItemsTab event={event} />
+              <MilestoneItemsTab key={event.id} event={event} />
             )}
 
             {privateFlow === "contributions" && (

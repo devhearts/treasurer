@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getEventBySlug } from "@/app/actions/events";
+import { getCurrentUser } from "@/lib/auth-server";
 import InviteCardGenerator from "./InviteCardGenerator";
 import { IconBack } from "@/components/Icons";
 
@@ -10,9 +11,15 @@ interface PageProps {
 
 export default async function InvitePage({ params }: PageProps) {
   const { slug } = await params;
-  const event = await getEventBySlug(slug);
+  const [event, user] = await Promise.all([
+    getEventBySlug(slug),
+    getCurrentUser(),
+  ]);
 
   if (!event || event.type !== "wedding") {
+    notFound();
+  }
+  if (event.userId && user?.id !== event.userId) {
     notFound();
   }
 
@@ -20,7 +27,7 @@ export default async function InvitePage({ params }: PageProps) {
     <main className="min-h-screen bg-light">
       <div className="max-w-lg mx-auto px-4 py-6">
         <Link
-          href={`/app/events/${slug}`}
+          href={`/app/events/${event.slug}`}
           className="inline-flex items-center gap-1 text-muted hover:text-surface text-sm mb-4"
         >
           <IconBack className="w-4 h-4" />
@@ -32,7 +39,7 @@ export default async function InvitePage({ params }: PageProps) {
           <span className="hidden sm:inline">Invitation cards</span>
         </h1>
         <p className="text-muted text-sm mb-6">{event.title}</p>
-        <InviteCardGenerator event={event} />
+        <InviteCardGenerator key={event.id} event={event} />
       </div>
     </main>
   );
