@@ -87,6 +87,8 @@ export const events = mysqlTable(
     location: varchar("location", { length: 500 }).notNull(),
     createdAt: varchar("created_at", { length: 32 }).notNull(),
     subscriptionPaid: tinyint("subscription_paid").notNull().default(0),
+    /** Up to 3 Garage object keys (`events/{eventId}/{slot}.ext`); mysql2 may return this column as a JSON string — see `imageUrlsFromRow` in events.service. */
+    imageUrls: json("image_urls").$type<string[] | null>(),
   },
   (t) => [
     uniqueIndex("idx_events_slug").on(t.slug),

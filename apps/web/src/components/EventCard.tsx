@@ -5,6 +5,7 @@ import {
   getProgressPercent,
   getEventTypeLabel,
 } from "@/lib/data";
+import { firstEventImageSrc } from "@/lib/event-share";
 import { EventTypeIcon, IconLocation, IconCalendar } from "./Icons";
 
 interface EventCardProps {
@@ -14,15 +15,28 @@ interface EventCardProps {
 export default function EventCard({ event }: EventCardProps) {
   const progress = getProgressPercent(event.raisedAmount, event.targetAmount);
   const paidCount = event.contributions.filter((c) => c.status === "paid").length;
+  const thumbSrc = firstEventImageSrc(event);
 
   return (
     <Link href={`/app/events/${event.slug}`} className="block group">
       <div className="bg-light rounded-xl border border-muted/30 hover:border-accent/50 transition-all overflow-hidden">
         <div className="bg-surface p-5">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-lg bg-light/20 flex items-center justify-center text-light flex-shrink-0">
-              <EventTypeIcon type={event.type} className="w-5 h-5" />
-            </div>
+            {thumbSrc ? (
+              <div className="w-10 h-10 rounded-lg overflow-hidden border-2 border-light/25 flex-shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element -- API gallery URL */}
+                <img
+                  src={thumbSrc}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  draggable={false}
+                />
+              </div>
+            ) : (
+              <div className="w-10 h-10 rounded-lg bg-light/20 flex items-center justify-center text-light flex-shrink-0">
+                <EventTypeIcon type={event.type} className="w-5 h-5" />
+              </div>
+            )}
             <div className="min-w-0">
               <span className="inline-block text-light/90 text-xs font-medium mb-1">
                 {getEventTypeLabel(event.type)}

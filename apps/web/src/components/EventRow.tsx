@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { CeremonyEvent } from "@/lib/types";
 import { formatUGX, getProgressPercent, getEventTypeLabel } from "@/lib/data";
+import { firstEventImageSrc } from "@/lib/event-share";
 import { EventTypeIcon, IconPaid, IconPledge, IconPhone, IconLocation, IconCalendar } from "./Icons";
 
 interface EventRowProps {
@@ -15,6 +16,7 @@ export default function EventRow({ event }: EventRowProps) {
   const progress = getProgressPercent(event.raisedAmount, event.targetAmount);
   const paidCount = event.contributions.filter((c) => c.status === "paid").length;
   const pledgedCount = event.contributions.filter((c) => c.status === "pledged").length;
+  const thumbSrc = firstEventImageSrc(event);
 
   return (
     <div className="bg-light rounded-xl border border-muted/30 overflow-hidden">
@@ -23,9 +25,21 @@ export default function EventRow({ event }: EventRowProps) {
         onClick={() => setOpen(!open)}
         className="w-full flex items-center gap-4 p-4 text-left hover:bg-muted/5 transition-colors"
       >
-        <div className="w-10 h-10 rounded-lg bg-muted/30 flex items-center justify-center text-accent flex-shrink-0">
-          <EventTypeIcon type={event.type} className="w-5 h-5" />
-        </div>
+        {thumbSrc ? (
+          <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted/30 flex-shrink-0 ring-1 ring-muted/25">
+            {/* eslint-disable-next-line @next/next/no-img-element -- API gallery URL */}
+            <img
+              src={thumbSrc}
+              alt=""
+              className="h-full w-full object-cover"
+              draggable={false}
+            />
+          </div>
+        ) : (
+          <div className="w-10 h-10 rounded-lg bg-muted/30 flex items-center justify-center text-accent flex-shrink-0">
+            <EventTypeIcon type={event.type} className="w-5 h-5" />
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-surface truncate">{event.title}</p>
           <p className="text-xs text-muted">

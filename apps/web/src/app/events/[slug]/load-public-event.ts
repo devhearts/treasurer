@@ -1,9 +1,13 @@
 import "server-only";
 
-import { cache } from "react";
 import { getEventBySlug } from "@/app/actions/events";
 
-/** One fetch per request when both `generateMetadata` and the page need the event. */
-export const loadPublicEventBySlug = cache(async (slug: string) =>
-  getEventBySlug(slug)
-);
+/**
+ * Loads the public event by slug for `/events/[slug]` (page + `generateMetadata`).
+ *
+ * Intentionally **not** wrapped in `react` `cache()`: deduplication caused incorrect
+ * cross-event reuse in some deployments (wrong OG / preview image for a different slug).
+ */
+export async function loadPublicEventBySlug(slug: string) {
+  return getEventBySlug(slug);
+}

@@ -54,4 +54,9 @@ export interface CeremonyEvent {
   createdAt: string;
   slug: string;
   subscriptionPaid: boolean; // Has treasurer paid the subscription fee?
+  /**
+   * Public gallery image URLs (same-origin paths under `/api/v1/.../gallery/...`).
+   * Populated by the API from Garage keys stored in the database.
+   */
+  imageUrls?: string[];
 }

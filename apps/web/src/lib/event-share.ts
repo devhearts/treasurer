@@ -16,6 +16,36 @@ export function absolutePublicEventUrl(slug: string): string {
   return `${siteBaseUrl()}${publicEventPath(slug)}`;
 }
 
+/**
+ * Same-origin path for a public gallery slot (must match API `galleryPublicUrls` order).
+ * Always derive from `event.slug` — do not trust the first `imageUrls[]` string, which can
+ * be stale or wrong across navigations/caches and breaks OG / list thumbnails.
+ */
+export function publicEventGallerySlotPath(
+  slug: string,
+  slot: number
+): string {
+  return `/api/v1/events/by-slug/${encodeURIComponent(slug)}/gallery/${slot}`;
+}
+
+/** First gallery image path for lists (`<img src>`); same-origin `/api/v1/.../gallery/0`. */
+export function firstEventImageSrc(event: CeremonyEvent): string | undefined {
+  if (!event.imageUrls?.length) return undefined;
+  return publicEventGallerySlotPath(event.slug, 0);
+}
+
+/** Absolute URL for OG / Twitter cards (crawlers cannot use relative paths). */
+export function absoluteFirstEventImageUrl(
+  event: CeremonyEvent
+): string | undefined {
+  const rel = firstEventImageSrc(event);
+  if (!rel) return undefined;
+  const base = siteBaseUrl();
+  /** Per-event cache buster so link-preview CDNs never reuse another event’s image at `/gallery/0`. */
+  const v = encodeURIComponent(event.id);
+  return `${base}${rel}?v=${v}`;
+}
+
 /** Tab title / share sheet title (kept reasonably short). */
 export function eventShareTitle(event: CeremonyEvent): string {
   const suffix = " · CeremonyWallet";

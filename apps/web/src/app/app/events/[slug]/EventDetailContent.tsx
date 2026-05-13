@@ -11,6 +11,7 @@ import ContributeForm from "./ContributeForm";
 import MilestoneItemsTab from "./MilestoneItemsTab";
 import ContributionReceipt from "@/components/ContributionReceipt";
 import RecentContributionsCard from "@/components/RecentContributionsCard";
+import EventPhotoGallery from "@/components/EventPhotoGallery";
 import { CeremonyEvent } from "@/lib/types";
 import type { PaymentProcessorKind } from "@/lib/payments/types";
 import {
@@ -167,8 +168,8 @@ export default function EventDetailContent({
   const paidCount = event.contributions.filter((c) => c.status === "paid").length;
   const pledgedCount = event.contributions.filter((c) => c.status === "pledged").length;
 
-  const heroBlock = (
-    <div className="bg-surface text-light rounded-xl p-6 mb-4">
+  const heroInner = (
+    <>
       <div className="flex items-start gap-4">
         <div className="w-12 h-12 rounded-xl bg-light/20 flex items-center justify-center text-light flex-shrink-0">
           <EventTypeIcon type={event.type} className="w-6 h-6" />
@@ -195,8 +196,29 @@ export default function EventDetailContent({
           Contribute
         </button>
       )}
+    </>
+  );
+
+  const heroBlock = (
+    <div className="bg-surface text-light rounded-xl p-6 mb-4">
+      {heroInner}
     </div>
   );
+
+  const galleryMergeFooter = (
+    <div className="bg-surface text-light px-5 pt-4 pb-5">{heroInner}</div>
+  );
+
+  const hasEventPhotos = Boolean(event.imageUrls && event.imageUrls.length > 0);
+
+  const photoGallery = hasEventPhotos ? (
+    <div className="pt-2 mb-4">
+      <EventPhotoGallery
+        imageSources={event.imageUrls!}
+        mergeFooter={galleryMergeFooter}
+      />
+    </div>
+  ) : null;
 
   const shareRow = (
     <div className="flex gap-2 mb-4">
@@ -255,14 +277,14 @@ export default function EventDetailContent({
   const contributionsBlock = (
     <>
       <RecentContributionsCard
-        key={event.id}
+        key={`${event.id}-recent`}
         contributions={recentContributionsForCard}
         eventSlug={event.slug}
         hideAllLink={isPublicView}
       />
 
       <ContributionReceipt
-        key={event.id}
+        key={`${event.id}-receipt`}
         eventTitle={event.title}
         eventDate={event.date}
         eventLocation={event.location}
@@ -274,7 +296,7 @@ export default function EventDetailContent({
 
       <div id="contribute" ref={contributeRef} className="mt-8">
         <ContributeForm
-          key={event.id}
+          key={`${event.id}-contribute`}
           eventId={event.id}
           eventSlug={event.slug}
           eventTitle={event.title}
@@ -346,18 +368,29 @@ export default function EventDetailContent({
         </div>
       )}
       <div className="max-w-lg mx-auto px-4">
-        <Link
-          href={isPublicView ? "/" : "/app/events"}
-          className="inline-flex items-center gap-1 text-muted hover:text-surface text-sm py-4"
-        >
-          <IconBack className="w-4 h-4" />
-          <span className="sm:hidden">Back</span>
-          <span className="hidden sm:inline">{isPublicView ? "Back" : "Back to events"}</span>
-        </Link>
+        {!isPublicView ? (
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between pt-4 pb-2">
+            <Link
+              href="/app/events"
+              className="inline-flex items-center gap-1 text-muted hover:text-surface text-sm py-2"
+            >
+              <IconBack className="w-4 h-4" />
+              <span className="sm:hidden">Back</span>
+              <span className="hidden sm:inline">Back to events</span>
+            </Link>
+            <Link
+              href={`/app/events/${event.slug}/edit`}
+              className="inline-flex items-center justify-center sm:justify-end py-2.5 px-4 rounded-xl border border-accent/35 text-accent text-sm font-bold hover:bg-accent/5 transition-colors"
+            >
+              Edit event
+            </Link>
+          </div>
+        ) : null}
 
+        {photoGallery}
         {isPublicView ? (
           <>
-            {heroBlock}
+            {!hasEventPhotos ? heroBlock : null}
             {shareRow}
             {aboutBudget}
             {contributionsBlock}
@@ -408,7 +441,7 @@ export default function EventDetailContent({
 
             {privateFlow === "details" && (
               <div className="space-y-0">
-                {heroBlock}
+                {!hasEventPhotos ? heroBlock : null}
                 {shareRow}
                 {aboutBudget}
                 {event.type === "wedding" && (

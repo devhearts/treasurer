@@ -1,0 +1,53 @@
+# Merge with docker-compose.yml for Nest `--watch` + Next dev HMR, e.g.:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file docker/ports.host.dev.env up -d
+# Add `--build` after changing `docker/Dockerfile.dev` or `package-lock.json`.
+# or `npm run docker:up:dev`.
+#
+# Binds ./apps/api and ./apps/web over the image copies; node_modules stays from the image (Linux).
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    image: treasurer-dev:latest
+    volumes:
+      - ./apps/api:/repo/apps/api
+    environment:
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "true"
+    command:
+      [
+        "sh",
+        "-c",
+        "if [ ! -x /repo/apps/api/node_modules/.bin/nest ]; then cd /repo && npm ci; fi; exec npm run start:dev -w @treasurer/api",
+      ]
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    image: treasurer-dev:latest
+    volumes:
+      - ./apps/web:/repo/apps/web
+    environment:
+      NODE_ENV: development
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      # Required inside the stack (apps/web/.env often uses 127.0.0.1 for host-only dev).
+      API_INTERNAL_URL: http://api:4000
+      INTERNAL_PROXY_SECRET: ${INTERNAL_PROXY_SECRET:-treasurer-docker-dev-secret}
+    depends_on:
+      api:
+        condition: service_started
+    command:
+      [
+        "npm",
+        "run",
+        "dev",
+        "-w",
+        "@treasurer/web",
+        "--",
+        "--hostname",
+        "0.0.0.0",
+      ]

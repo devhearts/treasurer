@@ -1,5 +1,6 @@
 import { Logger, LogLevel } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import { NestExpressApplication } from "@nestjs/platform-express";
 import { ConfigService } from "@nestjs/config";
 import { AppModule } from "./app.module";
 import { resolveNestLogLevels } from "./common/log-levels";
@@ -8,10 +9,11 @@ async function bootstrap() {
   const logLevels = resolveNestLogLevels();
   const nestLogger: LogLevel[] | false =
     logLevels.length === 0 ? false : logLevels;
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: nestLogger,
     bufferLogs: true,
   });
+  app.useBodyParser("json", { limit: "2mb" });
   app.useLogger(nestLogger);
   const config = app.get(ConfigService);
   const origin = config.get<string>("app.webOrigin");

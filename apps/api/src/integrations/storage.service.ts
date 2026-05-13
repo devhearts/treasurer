@@ -4,8 +4,11 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
+  DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import type { Readable } from "node:stream";
 
 @Injectable()
 export class StorageService {
@@ -52,6 +55,52 @@ export class StorageService {
       c,
       new GetObjectCommand({ Bucket: bucket, Key: key }),
       { expiresIn: expiresSec }
+    );
+  }
+
+  async headObject(key: string): Promise<boolean> {
+    const c = this.client();
+    const bucket = this.config.get<string>("app.garage.bucket")?.trim();
+    if (!c || !bucket) return false;
+    try {
+      await c.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async getObjectStream(
+    key: string
+  ): Promise<{ body: Readable; contentType: string } | null> {
+    const c = this.client();
+    const bucket = this.config.get<string>("app.garage.bucket")?.trim();
+    if (!c || !bucket) return null;
+    try {
+      const out = await c.send(
+        new GetObjectCommand({ Bucket: bucket, Key: key })
+      );
+      if (!out.Body) return null;
+      return {
+        body: out.Body as Readable,
+        contentType: out.ContentType ?? "application/octet-stream",
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  async deleteObject(key: string): Promise<void> {
+    const c = this.client();
+    const bucket = this.config.get<string>("app.garage.bucket")?.trim();
+    if (!c || !bucket) return;
+    await c.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+  }
+
+  isConfigured(): boolean {
+    return !!(
+      this.config.get<string>("app.garage.endpoint")?.trim() &&
+      this.config.get<string>("app.garage.bucket")?.trim()
     );
   }
 }

@@ -42,6 +42,9 @@ export async function serverApiFetch(
   init?: RequestInit
 ): Promise<Response> {
   const hdr = await serverApiHeaders();
+  if (init?.body instanceof FormData) {
+    hdr.delete("Content-Type");
+  }
   if (init?.headers) {
     const extra = new Headers(init.headers as HeadersInit);
     extra.forEach((v, k) => hdr.set(k, v));
@@ -60,13 +63,23 @@ export async function serverApiFetch(
   });
 }
 
+function parseJsonBody(text: string): unknown | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  try {
+    return JSON.parse(trimmed) as unknown;
+  } catch {
+    return null;
+  }
+}
+
 export async function serverApiJson<T>(
   path: string,
   init?: RequestInit
 ): Promise<T> {
   const res = await serverApiFetch(path, init);
   const text = await res.text();
-  const data = text ? (JSON.parse(text) as unknown) : null;
+  const data = parseJsonBody(text);
   if (!res.ok) {
     const msg =
       typeof data === "object" &&
@@ -77,6 +90,7 @@ export async function serverApiJson<T>(
         : text || res.statusText;
     throw new ServerApiError(msg, res.status, data);
   }
+  /** 2xx with empty or non-JSON body (e.g. some proxies) — treat as null cast. */
   return data as T;
 }
 
@@ -106,7 +120,7 @@ export async function serverApiJsonInternal<T>(
 ): Promise<T> {
   const res = await serverApiFetchInternal(path, init);
   const text = await res.text();
-  const data = text ? (JSON.parse(text) as unknown) : null;
+  const data = parseJsonBody(text);
   if (!res.ok) {
     const msg =
       typeof data === "object" &&

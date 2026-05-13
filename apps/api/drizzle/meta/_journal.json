@@ -15,6 +15,13 @@
       "when": 1778600000000,
       "tag": "0001_users_phone",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1778700000000,
+      "tag": "0002_events_image_urls",
+      "breakpoints": true
     }
   ]
 }

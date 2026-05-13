@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { formatUGX, formatCalendarDate, isPublicContribution } from "@/lib/data";
 import { addContribution, setContributionVisibility } from "@/app/actions/events";
 import type { CeremonyEvent } from "@/lib/types";
+import EventPhotoGallery from "@/components/EventPhotoGallery";
 import {
   IconBack,
   IconAdd,
@@ -85,6 +86,12 @@ export default function ContributionsPageContent({
           <span className="sm:hidden">Back</span>
           <span className="hidden sm:inline">Back to event</span>
         </Link>
+
+        {event.imageUrls && event.imageUrls.length > 0 ? (
+          <div className="mb-4 rounded-xl border border-muted/30 overflow-hidden bg-light shadow-sm">
+            <EventPhotoGallery imageSources={event.imageUrls} />
+          </div>
+        ) : null}
 
         <div className="bg-light rounded-xl border border-muted/30 overflow-hidden">
           <div className="p-4 border-b border-muted/20 space-y-3">

@@ -11,6 +11,7 @@ import { loadPublicEventBySlug } from "./load-public-event";
 import {
   absolutePublicEventUrl,
   buildEventOgDescription,
+  absoluteFirstEventImageUrl,
   eventShareTitle,
 } from "@/lib/event-share";
 
@@ -30,6 +31,8 @@ export async function generateMetadata({
   const title = eventShareTitle(event);
   const description = buildEventOgDescription(event);
   const ogTitle = event.title.trim() || title;
+  const ogImage = absoluteFirstEventImageUrl(event);
+  const hasOgImage = Boolean(ogImage);
   return {
     title,
     description,
@@ -40,11 +43,15 @@ export async function generateMetadata({
       siteName: "CeremonyWallet",
       type: "website",
       locale: "en_UG",
+      ...(hasOgImage && ogImage
+        ? { images: [{ url: ogImage, alt: ogTitle }] }
+        : {}),
     },
     twitter: {
-      card: "summary",
+      card: hasOgImage ? "summary_large_image" : "summary",
       title: ogTitle,
       description,
+      ...(hasOgImage && ogImage ? { images: [ogImage] } : {}),
     },
     alternates: { canonical: url },
   };

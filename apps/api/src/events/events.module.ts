@@ -3,9 +3,10 @@ import { EventsController } from "./events.controller";
 import { EventsService } from "./events.service";
 import { PaymentsModule } from "../payments/payments.module";
 import { AuditModule } from "../audit/audit.module";
+import { IntegrationsModule } from "../integrations/integrations.module";
 
 @Module({
-  imports: [PaymentsModule, AuditModule],
+  imports: [PaymentsModule, AuditModule, IntegrationsModule],
   controllers: [EventsController],
   providers: [EventsService],
 })

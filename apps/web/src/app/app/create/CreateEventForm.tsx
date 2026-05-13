@@ -1,20 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { EventType } from "@/lib/types";
-import { addEvent } from "@/app/actions/events";
+import {
+  addEvent,
+  deleteEventDraftImage,
+  uploadEventDraftImage,
+} from "@/app/actions/events";
 import {
   initiateSubscriptionPayment,
   pollSubscriptionPayment,
 } from "@/app/actions/momo";
 import { EventTypeIcon, IconWallet } from "@/components/Icons";
 import FloatingLabelInput from "@/components/FloatingLabelInput";
+import EventPhotoGallery from "@/components/EventPhotoGallery";
 import type { PaymentProcessorKind } from "@/lib/payments/types";
 import {
   paymentPollingWaitLabel,
   paymentReceivedViaPhrase,
 } from "@/lib/payments";
+import { formatUGX, getEventTypeLabel } from "@/lib/data";
 
 const EVENT_TYPES: { value: EventType; label: string }[] = [
   { value: "wedding", label: "Wedding" },
@@ -44,6 +50,21 @@ function defaultEventDateFromToday(daysAhead: number): string {
   d.setDate(d.getDate() + daysAhead);
   return formatDateInputLocal(d);
 }
+
+function slotFromGarageImageKey(key: string): number {
+  const m = /\/([0-2])\./.exec(key);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+function nextFreeSlot(keys: string[]): number {
+  const used = new Set(keys.map(slotFromGarageImageKey));
+  for (let s = 0; s <= 2; s++) {
+    if (!used.has(s)) return s;
+  }
+  return 2;
+}
+
+type DraftPhoto = { previewUrl: string; key: string };
 
 export default function CreateEventForm({
   momoConfigured = false,
@@ -81,7 +102,13 @@ export default function CreateEventForm({
   const [subscriptionPaymentRef, setSubscriptionPaymentRef] = useState<
     string | null
   >(null);
-  const totalSteps = subscriptionPaymentEnabled ? 3 : 2;
+  const totalSteps = subscriptionPaymentEnabled ? 4 : 3;
+
+  const [draftEventId] = useState(() => crypto.randomUUID());
+  const [photos, setPhotos] = useState<DraftPhoto[]>([]);
+  const photosRef = useRef<DraftPhoto[]>([]);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   useEffect(() => {
     if (!momoWait || !momoRef) return;
@@ -155,9 +182,55 @@ export default function CreateEventForm({
     setMomoWait(true);
   }
 
+  async function addPhotoFilesFromInput(files: File[]) {
+    const picked = files.filter((f): f is File => f.type.startsWith("image/"));
+    for (const file of picked) {
+      if (photosRef.current.length >= 3) break;
+      setPhotoBusy(true);
+      const previewUrl = URL.createObjectURL(file);
+      const slot = nextFreeSlot(photosRef.current.map((p: DraftPhoto) => p.key));
+      const fd = new FormData();
+      fd.set("eventId", draftEventId);
+      fd.set("slot", String(slot));
+      fd.set("file", file);
+      const res = await uploadEventDraftImage(fd);
+      setPhotoBusy(false);
+      if (!res.success) {
+        URL.revokeObjectURL(previewUrl);
+        alert(res.error);
+        continue;
+      }
+      photosRef.current = [...photosRef.current, { previewUrl, key: res.key }].slice(
+        0,
+        3
+      );
+      setPhotos([...photosRef.current]);
+    }
+  }
+
+  function removePhotoAt(index: number) {
+    const p = photosRef.current[index];
+    if (!p) return;
+    void deleteEventDraftImage(p.key);
+    URL.revokeObjectURL(p.previewUrl);
+    photosRef.current = photosRef.current.filter(
+      (_p: DraftPhoto, i: number) => i !== index
+    );
+    setPhotos([...photosRef.current]);
+  }
+
   async function handleActivate(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    const imageUrls =
+      photosRef.current.length > 0
+        ? [...photosRef.current]
+            .sort(
+              (a: DraftPhoto, b: DraftPhoto) =>
+                slotFromGarageImageKey(a.key) - slotFromGarageImageKey(b.key)
+            )
+            .map((p: DraftPhoto) => p.key)
+        : undefined;
     const slug =
       title
         .toLowerCase()
@@ -166,7 +239,7 @@ export default function CreateEventForm({
         .slice(0, 50) || "new-event";
     const target = Number(targetAmount) || 0;
     const newEvent = {
-      id: String(Date.now()),
+      id: draftEventId,
       slug,
       title,
       type: type ?? "wedding",
@@ -189,6 +262,7 @@ export default function CreateEventForm({
       milestoneItems: [],
       contributions: [],
       createdAt: new Date().toISOString().split("T")[0],
+      ...(imageUrls?.length ? { imageUrls } : {}),
     };
     const result = await addEvent(
       newEvent,
@@ -208,6 +282,14 @@ export default function CreateEventForm({
   }
 
   const typeLabel = type ? EVENT_TYPES.find((t) => t.value === type)?.label : "";
+
+  const detailsDateLabel = date
+    ? new Date(`${date}T12:00:00`).toLocaleDateString("en-UG", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "—";
 
   return (
     <div className={GRID}>
@@ -252,9 +334,9 @@ export default function CreateEventForm({
                     onClick={() => setType(et.value)}
                     className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all text-left min-h-[56px] ${
                       type === et.value
-? "border-accent bg-accent/10 text-surface"
+                        ? "border-accent bg-accent/10 text-surface"
                         : "border-muted/30 hover:border-muted text-surface"
-                  }`}
+                    }`}
                 >
                   <EventTypeIcon
                     type={et.value}
@@ -285,11 +367,7 @@ export default function CreateEventForm({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (subscriptionPaymentEnabled) {
-              setStep(3);
-              return;
-            }
-            void handleActivate(e);
+            setStep(3);
           }}
           className={GRID}
         >
@@ -402,21 +480,23 @@ export default function CreateEventForm({
                 disabled={loading}
                 className="w-full bg-accent hover:bg-accent/90 text-white font-bold py-4 rounded-lg transition-colors"
               >
-                {loading
-                  ? "Activating…"
-                  : subscriptionPaymentEnabled
-                    ? "Continue"
-                    : "Activate my event"}
+                Continue
               </button>
             </div>
           </div>
         </form>
       )}
 
-      {/* Step 3: Confirm & Pay */}
-      {subscriptionPaymentEnabled && step === 3 && (
-        <form onSubmit={handleActivate} className={GRID}>
-          {/* Collapsed Step 1 + 2 summaries */}
+      {/* Step 3: Event photos + recap */}
+      {step === 3 && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (subscriptionPaymentEnabled) setStep(4);
+            else void handleActivate(e);
+          }}
+          className={GRID}
+        >
           <div className="space-y-2">
             <button
               type="button"
@@ -437,16 +517,152 @@ export default function CreateEventForm({
               <div className="text-left min-w-0">
                 <p className="font-medium text-surface truncate">{title || "Event"}</p>
                 <p className="text-muted text-sm">
-                  {date
-                    ? new Date(date).toLocaleDateString("en-UG", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })
-                    : "—"}{" "}
-                  · {location || "—"}
+                  {detailsDateLabel} · {location || "—"}
                 </p>
               </div>
+              <span className="text-sm text-accent flex-shrink-0 ml-2">Change</span>
+            </button>
+          </div>
+
+          <div className="bg-light rounded-xl border border-muted/30 overflow-hidden">
+            <div className="p-6 pb-4">
+              <h1 className="text-xl font-bold text-surface mb-1">
+                Add event photos
+              </h1>
+              <p className="text-muted text-sm">
+                Up to 3 pictures. Swipe to browse; tap a thumbnail to jump. Optional — skip if you prefer.
+              </p>
+            </div>
+
+            <EventPhotoGallery
+              imageSources={photos.map((p: DraftPhoto) => p.previewUrl)}
+              onEmptyMainClick={() => photoInputRef.current?.click()}
+              emptyMainClickDisabled={photoBusy || photos.length >= 3}
+              emptyMain={
+                <span>
+                  No photos yet — tap here or use <strong className="text-surface">Add photo</strong> below.
+                </span>
+              }
+              controls={
+                <div className="flex flex-wrap items-center gap-3">
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      const picked = Array.from(e.target.files ?? []).filter(
+                        (f): f is File => f.type.startsWith("image/")
+                      );
+                      e.target.value = "";
+                      if (picked.length === 0) return;
+                      void addPhotoFilesFromInput(picked);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={photos.length >= 3 || photoBusy}
+                    onClick={() => photoInputRef.current?.click()}
+                    className="text-sm font-semibold text-accent hover:underline disabled:opacity-40 disabled:pointer-events-none"
+                  >
+                    Add photo ({photos.length}/3)
+                  </button>
+                  {photos.length > 0 && (
+                    <span className="text-xs text-muted">JPEG, PNG, or WebP from your device</span>
+                  )}
+                </div>
+              }
+              renderThumbAction={(i) => (
+                <button
+                  type="button"
+                  className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-surface text-light text-xs font-bold shadow-md border border-muted/40 leading-none flex items-center justify-center hover:bg-surface/90"
+                  aria-label="Remove photo"
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    removePhotoAt(i);
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            />
+
+            <div className="px-6 py-5 border-t border-muted/20 space-y-3">
+              <h2 className="text-lg font-bold text-surface leading-tight">{title}</h2>
+              <p className="text-sm text-muted">
+                {getEventTypeLabel(type ?? "wedding")} · {detailsDateLabel}
+                {location ? ` · ${location}` : ""}
+              </p>
+              {Number(targetAmount) > 0 && (
+                <p className="text-sm text-surface font-semibold">
+                  Target {formatUGX(Number(targetAmount) || 0)}
+                </p>
+              )}
+              {description.trim().length > 0 && (
+                <p className="text-sm text-muted border-t border-muted/15 pt-3 leading-relaxed">
+                  {description}
+                </p>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-muted/20">
+              <button
+                type="submit"
+                disabled={loading || photoBusy}
+                className="w-full bg-accent hover:bg-accent/90 disabled:opacity-50 text-white font-bold py-4 rounded-lg transition-colors"
+              >
+                {loading
+                  ? "Activating…"
+                  : subscriptionPaymentEnabled
+                    ? "Continue"
+                    : "Activate my event"}
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
+
+      {/* Step 4: Confirm & Pay (subscription only) */}
+      {subscriptionPaymentEnabled && step === 4 && (
+        <form onSubmit={handleActivate} className={GRID}>
+          {/* Collapsed Step 1 + 2 + 3 summaries */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="w-full flex items-center justify-between p-4 rounded-xl bg-muted/10 border border-muted/20 text-left"
+            >
+              <span className="flex items-center gap-3">
+                <EventTypeIcon type={type ?? "wedding"} className="w-5 h-5 text-accent" />
+                <span className="font-medium text-surface">{typeLabel}</span>
+              </span>
+              <span className="text-sm text-accent">Change</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep(2)}
+              className="w-full flex items-center justify-between p-4 rounded-xl bg-muted/10 border border-muted/20 text-left"
+            >
+              <div className="text-left min-w-0">
+                <p className="font-medium text-surface truncate">{title || "Event"}</p>
+                <p className="text-muted text-sm">
+                  {detailsDateLabel} · {location || "—"}
+                </p>
+              </div>
+              <span className="text-sm text-accent flex-shrink-0 ml-2">Change</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep(3)}
+              className="w-full flex items-center justify-between p-4 rounded-xl bg-muted/10 border border-muted/20 text-left"
+            >
+              <span className="text-muted text-sm">
+                Photos:{" "}
+                <span className="text-surface font-medium">
+                  {photos.length ? `${photos.length} selected` : "None"}
+                </span>
+              </span>
               <span className="text-sm text-accent flex-shrink-0 ml-2">Change</span>
             </button>
           </div>

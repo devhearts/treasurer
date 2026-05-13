@@ -4,14 +4,28 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
+  NotFoundException,
   Param,
+  Patch,
   Post,
   Req,
+  StreamableFile,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import type { Request } from "express";
 import { EventsService, type CeremonyEventDto } from "./events.service";
 import { SessionGuard } from "../auth/session.guard";
+import { Public } from "../common/public.decorator";
+
+/** Multer in-memory file shape (avoid `Express.Multer.File` — not on Express 5 types). */
+type UploadedImageFile = {
+  buffer: Buffer;
+  mimetype: string;
+};
 
 @Controller("events")
 export class EventsController {
@@ -24,11 +38,108 @@ export class EventsController {
     return this.events.listMine(uid);
   }
 
+  @Get("by-slug/:slug/for-edit")
+  @UseGuards(SessionGuard)
+  async forEdit(
+    @Req() req: Request & { sessionUserId?: string },
+    @Param("slug") slug: string
+  ) {
+    const out = await this.events.getForEdit(req.sessionUserId!, slug);
+    if (!out) throw new NotFoundException();
+    return out;
+  }
+
+  @Patch("by-slug/:slug")
+  @UseGuards(SessionGuard)
+  async updateBySlug(
+    @Req() req: Request & { sessionUserId?: string },
+    @Param("slug") slug: string,
+    @Body()
+    body: {
+      title: string;
+      type: string;
+      organizer: string;
+      treasurerPhone: string;
+      description: string;
+      date: string;
+      location: string;
+      targetAmount: number;
+      imageUrls?: string[] | null;
+    }
+  ) {
+    await this.events.updateEventForOwner(req.sessionUserId!, slug, body);
+    return { success: true };
+  }
+
+  @Get("by-slug/:slug/gallery/:slot")
+  @Public()
+  @Header("Cache-Control", "public, max-age=86400")
+  async galleryImage(
+    @Param("slug") slug: string,
+    @Param("slot") slot: string
+  ): Promise<StreamableFile> {
+    const s = Number.parseInt(slot, 10);
+    if (!Number.isInteger(s) || s < 0 || s > 2) {
+      throw new BadRequestException("Invalid slot.");
+    }
+    const obj = await this.events.streamGalleryObject(slug, s);
+    if (!obj) {
+      throw new NotFoundException();
+    }
+    return new StreamableFile(obj.body, {
+      type: obj.contentType,
+      disposition: "inline",
+    });
+  }
+
   @Get("by-slug/:slug")
   async bySlug(@Param("slug") slug: string) {
     const ev = await this.events.getBySlug(slug);
     if (!ev) return null;
     return ev;
+  }
+
+  @Post("image")
+  @UseGuards(SessionGuard)
+  @UseInterceptors(
+    FileInterceptor("file", { limits: { fileSize: 5 * 1024 * 1024 } })
+  )
+  async uploadEventImage(
+    @Req() req: Request & { sessionUserId?: string },
+    @UploadedFile() file: UploadedImageFile | undefined,
+    @Body("eventId") eventId: string | undefined,
+    @Body("slug") slug: string | undefined,
+    @Body("slot") slotRaw: string
+  ): Promise<{ key: string }> {
+    if (!file?.buffer) {
+      throw new BadRequestException("Missing file.");
+    }
+    const slot = Number.parseInt(slotRaw, 10);
+    if (!Number.isInteger(slot) || slot < 0 || slot > 2) {
+      throw new BadRequestException("Invalid slot.");
+    }
+    const resolvedId = await this.events.resolveEventIdForImageUpload(
+      req.sessionUserId!,
+      eventId,
+      slug
+    );
+    return this.events.saveDraftEventImage(
+      resolvedId,
+      slot,
+      file.buffer,
+      file.mimetype
+    );
+  }
+
+  @Delete("image")
+  @UseGuards(SessionGuard)
+  async deleteEventImage(@Body() body: { key?: string }): Promise<{ success: true }> {
+    const key = body?.key?.trim();
+    if (!key) {
+      throw new BadRequestException("Missing key.");
+    }
+    await this.events.deleteDraftEventImage(key);
+    return { success: true };
   }
 
   @Post()

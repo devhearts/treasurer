@@ -25,7 +25,11 @@ export async function getCurrentUser(): Promise<{
 }
 
 export async function clearSession() {
-  await serverApiFetch("auth/logout", { method: "POST" });
+  try {
+    await serverApiFetch("auth/logout", { method: "POST" });
+  } catch {
+    /* API down or unreachable (e.g. Docker DNS if `api` is not running); still clear cookie. */
+  }
   const c = await cookies();
   c.delete(SESSION_COOKIE);
 }

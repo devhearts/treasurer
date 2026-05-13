@@ -3,7 +3,7 @@
 # (records `0000_init` in `__drizzle_migrations` if tables already exist from old `drizzle-kit push`, then `drizzle-kit migrate`).
 # Manual: `npm run docker:db-migrate`.
 # Host ports: see docker/README-ports.md — defaults match historical ports; use `docker/ports.host.{dev,staging,production}.env`
-# via `npm run docker:up:dev` (or `--env-file docker/ports.host.dev.env`) when other stacks use the same host ports.
+# via `npm run docker:up:dev` (merges `docker-compose.dev.yml`: Nest watch + Next dev HMR) when other stacks use the same host ports.
 #
 # Environment: copy `env.example` → `.env` in this directory for `${VAR}` interpolation. Services use
 # plain `env_file` paths (older `docker compose` rejects `{ path, required }`). If `docker compose`
