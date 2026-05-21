@@ -1,4 +1,5 @@
 import type { PawapayConfig } from "./pawapay.config";
+import { authHeaders, errorMessageFromResponse, readJson } from "./pawapay.http";
 
 export type PawapayDepositCreationStatus =
   | "ACCEPTED"
@@ -13,12 +14,6 @@ export interface PawapayDepositCreationResponse {
     rejectionCode?: string;
     rejectionMessage?: string;
   };
-}
-
-export interface PawapayErrorResponse {
-  errorId: string;
-  errorCode: number;
-  errorMessage: string;
 }
 
 export type PawapayDepositStatus =
@@ -42,34 +37,6 @@ export interface PawapayDeposit {
     failureCode?: string;
     failureMessage?: string;
   };
-}
-
-function authHeaders(token: string): Record<string, string> {
-  return {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-    Accept: "application/json",
-  };
-}
-
-async function readJson<T>(res: Response, context: string): Promise<T> {
-  const text = await res.text();
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    throw new Error(`${context}: invalid JSON (${res.status})`);
-  }
-}
-
-async function errorMessageFromResponse(res: Response): Promise<string> {
-  const text = await res.text();
-  try {
-    const err = JSON.parse(text) as PawapayErrorResponse;
-    if (err?.errorMessage) return err.errorMessage;
-  } catch {
-    /* ignore */
-  }
-  return text.slice(0, 200) || `HTTP ${res.status}`;
 }
 
 export interface PawapayCorrespondentPrediction {

@@ -32,4 +32,25 @@ export default registerAs("app", () => ({
     apiKey: process.env.AFRICASTALKING_API_KEY ?? "",
     senderId: process.env.AFRICASTALKING_SENDER_ID ?? "",
   },
+  fees: {
+    momoCollectionFeeRate: parseFloat(
+      process.env.MOMO_COLLECTION_FEE_RATE ??
+        process.env.WITHDRAW_MOMO_FEE_RATE ??
+        "0.032"
+    ),
+    platformFeeRate: parseFloat(
+      process.env.PLATFORM_FEE_RATE ?? "0.012"
+    ),
+    eventCreationFee: parseInt(
+      process.env.EVENT_CREATION_FEE ?? "10000",
+      10
+    ),
+  },
+  withdraw: {
+    enabled:
+      process.env.WITHDRAW_ENABLED === "1" ||
+      process.env.WITHDRAW_ENABLED === "true",
+    otpTtlSec: parseInt(process.env.WITHDRAW_OTP_TTL_SEC ?? "300", 10),
+    otpResendSec: parseInt(process.env.WITHDRAW_OTP_RESEND_SEC ?? "45", 10),
+  },
 }));

@@ -19,6 +19,7 @@ export default async function CreatePage() {
         <CreateEventForm
           momoConfigured={cfg.paymentsConfigured}
           subscriptionPaymentEnabled={cfg.subscriptionFeature}
+          subscriptionFee={cfg.eventCreationFee}
           paymentProcessorKind={cfg.processorKind}
           payButtonLabel={paymentCtaLabel(cfg.processorKind)}
           payerPhoneLabel={`${paymentNetworksText(networks)} number (paying wallet)`}

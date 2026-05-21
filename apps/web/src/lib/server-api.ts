@@ -73,6 +73,19 @@ function parseJsonBody(text: string): unknown | null {
   }
 }
 
+/** Nest / class-validator often returns `message` as a string or string[]. */
+export function apiErrorMessage(data: unknown, fallback: string): string {
+  if (typeof data === "object" && data !== null && "message" in data) {
+    const msg = (data as { message: unknown }).message;
+    if (typeof msg === "string" && msg.trim()) return msg;
+    if (Array.isArray(msg)) {
+      const parts = msg.filter((x): x is string => typeof x === "string");
+      if (parts.length) return parts.join(" ");
+    }
+  }
+  return fallback;
+}
+
 export async function serverApiJson<T>(
   path: string,
   init?: RequestInit
@@ -81,13 +94,7 @@ export async function serverApiJson<T>(
   const text = await res.text();
   const data = parseJsonBody(text);
   if (!res.ok) {
-    const msg =
-      typeof data === "object" &&
-      data !== null &&
-      "message" in data &&
-      typeof (data as { message: unknown }).message === "string"
-        ? (data as { message: string }).message
-        : text || res.statusText;
+    const msg = apiErrorMessage(data, text || res.statusText);
     throw new ServerApiError(msg, res.status, data);
   }
   /** 2xx with empty or non-JSON body (e.g. some proxies) — treat as null cast. */
@@ -122,13 +129,7 @@ export async function serverApiJsonInternal<T>(
   const text = await res.text();
   const data = parseJsonBody(text);
   if (!res.ok) {
-    const msg =
-      typeof data === "object" &&
-      data !== null &&
-      "message" in data &&
-      typeof (data as { message: unknown }).message === "string"
-        ? (data as { message: string }).message
-        : text || res.statusText;
+    const msg = apiErrorMessage(data, text || res.statusText);
     throw new ServerApiError(msg, res.status, data);
   }
   return data as T;

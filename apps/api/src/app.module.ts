@@ -9,8 +9,10 @@ import { SessionMiddleware } from "./auth/session.middleware";
 import { HttpLoggerMiddleware } from "./common/http-logger.middleware";
 import { IntegrationsModule } from "./integrations/integrations.module";
 import { AuditModule } from "./audit/audit.module";
+import { PaymentProcessorModule } from "./payments/payment-processor.module";
 import { PaymentsModule } from "./payments/payments.module";
 import { EventsModule } from "./events/events.module";
+import { WalletModule } from "./wallet/wallet.module";
 import { HealthController } from "./health/health.controller";
 import { PublicController } from "./public/public.controller";
 import { WebhooksController } from "./webhooks/webhooks.controller";
@@ -30,8 +32,10 @@ import { InternalProxyGuard } from "./common/internal-proxy.guard";
     IntegrationsModule,
     AuditModule,
     AuthModule,
+    PaymentProcessorModule,
     PaymentsModule,
     EventsModule,
+    WalletModule,
   ],
   controllers: [HealthController, PublicController, WebhooksController],
   providers: [

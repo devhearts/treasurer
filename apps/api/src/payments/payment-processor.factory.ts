@@ -13,6 +13,7 @@ import {
   pawapayPredictCorrespondent,
   pawapayRequestDeposit,
 } from "./pawapay.client";
+import { getPaymentProcessorType } from "./payment-processor-type";
 import type {
   PaymentProcessor,
   PaymentStatusBody,
@@ -34,12 +35,7 @@ export class PaymentProcessorFactory {
   constructor(private readonly config: ConfigService) {}
 
   getProcessorType(): "mtn_momo" | "pawapay" {
-    const raw = this.config
-      .get<string>("app.paymentProcessorType")
-      ?.trim()
-      .toLowerCase();
-    if (raw === "pawapay") return "pawapay";
-    return "mtn_momo";
+    return getPaymentProcessorType(this.config);
   }
 
   getProcessor(): PaymentProcessor {

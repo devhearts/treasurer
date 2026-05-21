@@ -26,5 +26,16 @@ export function normalizeProviderPollStatus(raw: string | undefined): {
   if (success.has(rawUpper)) return { bucket: "success", rawUpper };
   if (failed.has(rawUpper)) return { bucket: "failed", rawUpper };
 
+  // PawaPay payout in-flight statuses
+  const pending = new Set([
+    "ACCEPTED",
+    "PROCESSING",
+    "ENQUEUED",
+    "IN_RECONCILIATION",
+    "SUBMITTED",
+    "PENDING",
+  ]);
+  if (pending.has(rawUpper)) return { bucket: "pending", rawUpper };
+
   return { bucket: "pending", rawUpper };
 }

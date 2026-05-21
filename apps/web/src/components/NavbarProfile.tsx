@@ -3,15 +3,19 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { IconUser } from "./Icons";
+import { IconList, IconUser, IconWallet } from "./Icons";
 import { clearSession } from "@/app/actions/auth";
 
 interface NavbarProfileProps {
   /** Session value shown as profile label (e.g. email). */
   sessionLabel: string;
+  balanceCompact: string;
 }
 
-export default function NavbarProfile({ sessionLabel }: NavbarProfileProps) {
+export default function NavbarProfile({
+  sessionLabel,
+  balanceCompact,
+}: NavbarProfileProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -51,6 +55,26 @@ export default function NavbarProfile({ sessionLabel }: NavbarProfileProps) {
               {sessionLabel}
             </p>
           </div>
+          <Link
+            href="/app/events"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-4 py-2 text-sm text-surface hover:bg-muted/10 sm:hidden"
+          >
+            <IconList className="w-4 h-4 text-muted" aria-hidden />
+            My events
+          </Link>
+          <Link
+            href="/app/account"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-4 py-2 text-sm text-surface hover:bg-muted/10 sm:hidden"
+          >
+            <IconWallet className="w-4 h-4 text-accent" aria-hidden />
+            <span>
+              Account
+              <span className="text-accent font-medium ml-1">{balanceCompact}</span>
+            </span>
+          </Link>
+          <div className="border-t border-muted/20 my-1 sm:hidden" />
           <Link
             href="/app/profile"
             onClick={() => setOpen(false)}

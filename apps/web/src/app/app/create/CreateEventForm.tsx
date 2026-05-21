@@ -29,8 +29,6 @@ const EVENT_TYPES: { value: EventType; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
-const SUBSCRIPTION_FEE = 10000;
-
 const MOMO_POLL_MS = 2500;
 const MOMO_FIRST_POLL_MS = 1200;
 const MOMO_MAX_POLLS = 48;
@@ -69,12 +67,14 @@ type DraftPhoto = { previewUrl: string; key: string };
 export default function CreateEventForm({
   momoConfigured = false,
   subscriptionPaymentEnabled = false,
+  subscriptionFee = 10000,
   paymentProcessorKind = "mtn_momo",
   payButtonLabel = "Pay with MTN Momo",
   payerPhoneLabel = "MTN Momo number (paying wallet)",
 }: {
   momoConfigured?: boolean;
   subscriptionPaymentEnabled?: boolean;
+  subscriptionFee?: number;
   paymentProcessorKind?: PaymentProcessorKind;
   payButtonLabel?: string;
   payerPhoneLabel?: string;
@@ -682,7 +682,7 @@ export default function CreateEventForm({
                 </div>
                 <div className="min-w-0">
                   <p className="font-bold text-surface">
-                    UGX {SUBSCRIPTION_FEE.toLocaleString()}
+                    UGX {subscriptionFee.toLocaleString()}
                   </p>
                   <p className="text-muted text-sm">
                     CeremonyWallet subscription · Pay via Mobile Money
@@ -694,7 +694,7 @@ export default function CreateEventForm({
                 <div className="mb-4">
                   <p className="text-sm font-bold text-surface mb-1">Approve on your phone</p>
                   <p className="text-muted text-sm mb-4">
-                    We sent a Mobile Money request for UGX {SUBSCRIPTION_FEE.toLocaleString()}. Open the prompt on your phone and enter your PIN to pay.
+                    We sent a Mobile Money request for UGX {subscriptionFee.toLocaleString()}. Open the prompt on your phone and enter your PIN to pay.
                   </p>
                   <div className="flex items-center gap-3 py-4 justify-center">
                     <span className="inline-block h-8 w-8 border-2 border-accent border-t-transparent rounded-full animate-spin" aria-hidden />
@@ -759,7 +759,7 @@ export default function CreateEventForm({
                         className="mt-1 w-5 h-5 rounded border-muted text-accent focus:ring-accent"
                       />
                       <span className="text-sm text-muted">
-                        I have paid UGX {SUBSCRIPTION_FEE.toLocaleString()} to CeremonyWallet
+                        I have paid UGX {subscriptionFee.toLocaleString()} to CeremonyWallet
                       </span>
                     </label>
                   )}

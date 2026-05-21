@@ -206,3 +206,129 @@ export const processedWebhooks = mysqlTable("processed_webhooks", {
   id: varchar("id", { length: 128 }).primaryKey(),
   createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
 });
+
+/** Per-user wallet balance (custodial ledger). */
+export const userWallets = mysqlTable(
+  "user_wallets",
+  {
+    userId: varchar("user_id", { length: 36 }).primaryKey(),
+    balance: int("balance").notNull().default(0),
+    totalIn: int("total_in").notNull().default(0),
+    totalOut: int("total_out").notNull().default(0),
+    currency: varchar("currency", { length: 8 }).notNull().default("UGX"),
+    updatedAt: datetime("updated_at", { mode: "string", fsp: 3 }).notNull(),
+  },
+  (t) => [index("idx_user_wallets_updated").on(t.updatedAt)]
+);
+
+export const walletTransactions = mysqlTable(
+  "wallet_transactions",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    userId: varchar("user_id", { length: 36 }).notNull(),
+    direction: varchar("direction", { length: 8 }).notNull(), // in | out
+    kind: varchar("kind", { length: 32 }).notNull(),
+    amount: int("amount").notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    description: text("description"),
+    badge: varchar("badge", { length: 64 }),
+    eventId: varchar("event_id", { length: 36 }),
+    contributionId: varchar("contribution_id", { length: 36 }),
+    withdrawalId: varchar("withdrawal_id", { length: 36 }),
+    createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
+  },
+  (t) => [
+    index("idx_wallet_tx_user_created").on(t.userId, t.createdAt),
+    index("idx_wallet_tx_contribution").on(t.contributionId),
+  ]
+);
+
+export const payoutMethods = mysqlTable(
+  "payout_methods",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    userId: varchar("user_id", { length: 36 }).notNull(),
+    type: varchar("type", { length: 32 }).notNull(), // mtn_momo | airtel_momo | bank
+    label: varchar("label", { length: 255 }).notNull(),
+    msisdn: varchar("msisdn", { length: 32 }),
+    accountNumber: varchar("account_number", { length: 64 }),
+    bankName: varchar("bank_name", { length: 255 }),
+    branch: varchar("branch", { length: 255 }),
+    swift: varchar("swift", { length: 32 }),
+    isDefault: tinyint("is_default").notNull().default(0),
+    createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
+  },
+  (t) => [index("idx_payout_methods_user").on(t.userId)]
+);
+
+export const withdrawals = mysqlTable(
+  "withdrawals",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    reference: varchar("reference", { length: 64 }).notNull(),
+    userId: varchar("user_id", { length: 36 }).notNull(),
+    methodId: varchar("method_id", { length: 36 }).notNull(),
+    grossAmount: int("gross_amount").notNull(),
+    momoFee: int("momo_fee").notNull(),
+    platformFee: int("platform_fee").notNull(),
+    netAmount: int("net_amount").notNull(),
+    status: varchar("status", { length: 32 }).notNull(),
+    failureReason: varchar("failure_reason", { length: 512 }),
+    processorRef: varchar("processor_ref", { length: 64 }),
+    idempotencyKey: varchar("idempotency_key", { length: 64 }),
+    createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
+    updatedAt: datetime("updated_at", { mode: "string", fsp: 3 }).notNull(),
+  },
+  (t) => [
+    uniqueIndex("uq_withdrawals_reference").on(t.reference),
+    index("idx_withdrawals_user").on(t.userId),
+    uniqueIndex("uq_withdrawals_idempotency").on(t.userId, t.idempotencyKey),
+  ]
+);
+
+export const withdrawalOtps = mysqlTable(
+  "withdrawal_otps",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    withdrawalId: varchar("withdrawal_id", { length: 36 }).notNull(),
+    codeHash: varchar("code_hash", { length: 64 }).notNull(),
+    expiresAt: datetime("expires_at", { mode: "string", fsp: 3 }).notNull(),
+    attempts: int("attempts").notNull().default(0),
+    verifiedAt: datetime("verified_at", { mode: "string", fsp: 3 }),
+    createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
+  },
+  (t) => [index("idx_withdrawal_otps_withdrawal").on(t.withdrawalId)]
+);
+
+/** Draft payout method awaiting email OTP before insert. */
+export const payoutMethodPending = mysqlTable(
+  "payout_method_pending",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    userId: varchar("user_id", { length: 36 }).notNull(),
+    type: varchar("type", { length: 32 }).notNull(),
+    label: varchar("label", { length: 255 }).notNull(),
+    msisdn: varchar("msisdn", { length: 32 }),
+    accountNumber: varchar("account_number", { length: 64 }),
+    bankName: varchar("bank_name", { length: 255 }),
+    branch: varchar("branch", { length: 255 }),
+    swift: varchar("swift", { length: 32 }),
+    isDefault: tinyint("is_default").notNull().default(0),
+    createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
+  },
+  (t) => [index("idx_payout_method_pending_user").on(t.userId)]
+);
+
+export const payoutMethodOtps = mysqlTable(
+  "payout_method_otps",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    pendingId: varchar("pending_id", { length: 36 }).notNull(),
+    codeHash: varchar("code_hash", { length: 64 }).notNull(),
+    expiresAt: datetime("expires_at", { mode: "string", fsp: 3 }).notNull(),
+    attempts: int("attempts").notNull().default(0),
+    verifiedAt: datetime("verified_at", { mode: "string", fsp: 3 }),
+    createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
+  },
+  (t) => [index("idx_payout_method_otps_pending").on(t.pendingId)]
+);

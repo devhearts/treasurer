@@ -22,6 +22,13 @@ export class PublicController {
       subscriptionFeature:
         this.configService.get<boolean>("app.featureSubscriptionPayment") ??
         false,
+      eventCreationFee:
+        this.configService.get<number>("app.fees.eventCreationFee") ?? 10000,
+      momoCollectionFeeRate:
+        this.configService.get<number>("app.fees.momoCollectionFeeRate") ??
+        0.032,
+      platformFeeRate:
+        this.configService.get<number>("app.fees.platformFeeRate") ?? 0.012,
     };
   }
 }

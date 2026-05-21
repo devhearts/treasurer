@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-**CeremonyWallet** (repository name: **treasurer**) is a contribution management web application for Ugandan social events: weddings, introductions (kwanjula), and funerals (mabugo). It positions itself as a **digital treasurer**: treasurers pay a flat one-time subscription (50,000 UGX) to create and manage events; the platform **never holds money**—all contributions go directly to the treasurer via Mobile Money (MTN / Airtel).
+**CeremonyWallet** (repository name: **treasurer**) is a contribution management web application for Ugandan social events: weddings, introductions (kwanjula), and funerals (mabugo). It positions itself as a **digital treasurer**: treasurers pay a flat one-time subscription to create and manage events; MoMo contributions credit the event owner’s **CeremonyWallet balance**, which can be withdrawn to saved Mobile Money or bank payout methods (MTN / Airtel / bank).
 
 The application is a single-page-oriented Next.js site with client-side persistence (localStorage). There is no backend database or authentication in the current implementation.
 

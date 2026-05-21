@@ -10,10 +10,9 @@ import { normalizeUgandaMsisdnForNetworks } from "./phone";
 import { MOMO_PUBLIC_PAYMENT_START_FAILED } from "./momo.messages";
 import type { PaymentPollResult, PaymentProcessorKind } from "./payment.types";
 import { AuditService } from "../audit/audit.service";
+import { WalletService } from "../wallet/wallet.service";
 import { formatMysqlDateTimeUtc } from "../common/mysql-datetime";
 import { normalizeProviderPollStatus } from "./payment-status";
-
-const SUBSCRIPTION_AMOUNT = 10000;
 
 function paymentNotConfiguredMessage(kind: PaymentProcessorKind): string {
   if (kind === "pawapay") return "PawaPay payments are not configured.";
@@ -44,8 +43,13 @@ export class PaymentsService {
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
     private readonly processors: PaymentProcessorFactory,
     private readonly audit: AuditService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly walletService: WalletService
   ) {}
+
+  private eventCreationFee(): number {
+    return this.config.get<number>("app.fees.eventCreationFee") ?? 10000;
+  }
 
   private async appendStatus(
     referenceId: string,
@@ -291,6 +295,17 @@ export class PaymentsService {
         })
         .where(eq(schema.events.id, event.id));
 
+      if (event.userId) {
+        await this.walletService.creditFromContribution(tx, {
+          userId: event.userId,
+          eventId: event.id,
+          contributionId,
+          amount: row.amount,
+          title: "Contribution received",
+          description: `${row.name} · ${row.phone} · ${event.title}`,
+        });
+      }
+
       await tx
         .update(schema.paymentIntents)
         .set({ fulfilled: 1, updatedAt: formatMysqlDateTimeUtc(new Date()) })
@@ -335,7 +350,7 @@ export class PaymentsService {
       kind: "subscription",
       userId: input.userId,
       eventId: null,
-      amount: SUBSCRIPTION_AMOUNT,
+      amount: this.eventCreationFee(),
       name: "Subscription",
       anonymous: 0,
       phone: msisdn,
@@ -352,7 +367,7 @@ export class PaymentsService {
     try {
       await processor.requestToPay({
         referenceId,
-        amount: SUBSCRIPTION_AMOUNT,
+        amount: this.eventCreationFee(),
         externalId,
         payerMsisdn: msisdn,
         payerMessage: "CeremonyWallet event activation",

@@ -14,8 +14,6 @@ export class MailService {
     this.log.debug(`Creating SMTP transporter for host ${host}`);
     this.log.debug(`SMTP port: ${this.config.get<number>("app.smtp.port") ?? 587}`);
     this.log.debug(`SMTP secure: ${((this.config.get<number>("app.smtp.port") ?? 587) === 465) ? "true" : "false"}`);
-    this.log.debug(`SMTP user: ${this.config.get<string>("app.smtp.user") || undefined}`);
-    this.log.debug(`SMTP pass: ${this.config.get<string>("app.smtp.pass") || undefined}`);
     return nodemailer.createTransport({
       host,
       port: this.config.get<number>("app.smtp.port") ?? 587,
@@ -63,6 +61,70 @@ export class MailService {
         <p>Thanks for signing up. Please confirm your email address to activate your account.</p>
         <p><a href="${verifyLink}">Verify your email</a></p>
         <p>This link expires in 48 hours. If you didn't create an account, you can ignore this email.</p>
+      `,
+    });
+  }
+
+  async sendWithdrawalOtp(
+    to: string,
+    code: string,
+    summary: {
+      grossAmount: number;
+      netAmount: number;
+      methodLabel: string;
+      destination: string;
+    }
+  ): Promise<void> {
+    const t = this.transporter();
+    const from = this.config.get<string>("app.smtp.from") ?? "noreply@localhost";
+    const gross = summary.grossAmount.toLocaleString("en-UG");
+    const net = summary.netAmount.toLocaleString("en-UG");
+    if (!t) {
+      this.log.log(
+        `Withdrawal OTP (no SMTP) for ${to}: ${code} — UGX ${gross} to ${summary.methodLabel} (${summary.destination}), you receive UGX ${net}`
+      );
+      return;
+    }
+    await t.sendMail({
+      from,
+      to,
+      subject: "CeremonyWallet withdrawal confirmation code",
+      html: `
+        <p>Your CeremonyWallet withdrawal confirmation code is:</p>
+        <p style="font-size:24px;font-weight:bold;letter-spacing:4px;">${code}</p>
+        <p>This code expires in 5 minutes.</p>
+        <p><strong>Amount:</strong> UGX ${gross}<br/>
+        <strong>You receive:</strong> UGX ${net}<br/>
+        <strong>To:</strong> ${summary.methodLabel} · ${summary.destination}</p>
+        <p>If you did not request this withdrawal, secure your account immediately.</p>
+      `,
+    });
+  }
+
+  async sendPayoutMethodOtp(
+    to: string,
+    code: string,
+    summary: { methodLabel: string; destination: string }
+  ): Promise<void> {
+    const t = this.transporter();
+    const from = this.config.get<string>("app.smtp.from") ?? "noreply@localhost";
+    if (!t) {
+      this.log.log(
+        `Payout method OTP (no SMTP) for ${to}: ${code} — add ${summary.methodLabel} · ${summary.destination}`
+      );
+      return;
+    }
+    await t.sendMail({
+      from,
+      to,
+      subject: "CeremonyWallet — confirm new payout method",
+      html: `
+        <p>Your confirmation code to add a payout method is:</p>
+        <p style="font-size:24px;font-weight:bold;letter-spacing:4px;">${code}</p>
+        <p>This code expires in 5 minutes.</p>
+        <p><strong>Method:</strong> ${summary.methodLabel}<br/>
+        <strong>Destination:</strong> ${summary.destination}</p>
+        <p>If you did not request this, secure your account immediately.</p>
       `,
     });
   }

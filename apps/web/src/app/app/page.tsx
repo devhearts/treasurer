@@ -20,7 +20,7 @@ export default async function AppHome() {
             <span className="block text-accent">for Every Ceremony</span>
           </h1>
           <p className="text-light/80 text-sm mb-8">
-            Track contributions for weddings, kwanjula, and mabugo. We never hold your money.
+            Track contributions for weddings, kwanjula, and mabugo. Your wallet balance is ready to withdraw anytime.
           </p>
           <Link
             href="/app/create"
@@ -69,7 +69,7 @@ export default async function AppHome() {
         <div className="max-w-lg mx-auto px-4 text-center text-sm">
           <span className="font-semibold text-light">CeremonyWallet</span>
           <span className="mx-2">·</span>
-          <span>We never hold your money.</span>
+          <span>Making fundraising seamless.</span>
         </div>
       </footer>
     </main>

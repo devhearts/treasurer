@@ -21,6 +21,19 @@ export function formatUGX(amount: number): string {
   return `UGX ${amount.toLocaleString("en-UG")}`;
 }
 
+/** Compact balance for navbar pill (e.g. UGX 142K). */
+export function formatUGXCompact(amount: number): string {
+  if (amount >= 1_000_000) {
+    const m = amount / 1_000_000;
+    const s = m % 1 === 0 ? String(m) : m.toFixed(1).replace(/\.0$/, "");
+    return `UGX ${s}M`;
+  }
+  if (amount >= 1_000) {
+    return `UGX ${Math.round(amount / 1_000)}K`;
+  }
+  return formatUGX(amount);
+}
+
 /** Format YYYY-MM-DD (or ISO date) for display in Uganda locale. */
 export function formatCalendarDate(
   isoDate: string,
