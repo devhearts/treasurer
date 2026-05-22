@@ -8,108 +8,44 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { eq, and, desc } from "drizzle-orm";
 import { randomBytes, randomUUID } from "crypto";
+import type { Readable } from "stream";
 import type { DrizzleDb } from "../database/database.module";
 import { DRIZZLE } from "../database/database.module";
 import * as schema from "../database/schema";
 import { formatMysqlDateTimeUtc } from "../common/mysql-datetime";
+import { EventsService } from "../events/events.service";
+import { StorageService } from "../integrations/storage.service";
 import {
   inviteContentToJson,
   type InviteCardContent,
   type InvitationDetailDto,
   type InvitationListItemDto,
   type InvitationRecipientDto,
+  isInviteTemplateId,
   type InviteTemplateId,
   type PublicInviteDto,
   type RsvpStatus,
 } from "./invitations.types";
 
-function defaultHeadlineForType(type: string): string {
-  const labels: Record<string, string> = {
-    wedding: "Wedding",
-    introduction: "Introduction",
-    funeral: "Memorial",
-    other: "Celebration",
-  };
-  return labels[type] ?? "Celebration";
+import {
+  defaultContentFromEvent,
+  defaultTemplateForEvent,
+  eventGalleryPhotoUrl,
+  eventHasStoredImages,
+} from "./invite-content-defaults";
+
+const INVITATION_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function invitationPhotoKey(invitationId: string, ext: string): string {
+  return `invitations/${invitationId}/photo.${ext}`;
 }
 
-function defaultFooterForType(type: string): string {
-  const footers: Record<string, string> = {
-    wedding: "Reception to follow",
-    introduction: "Your presence is requested",
-    funeral: "Condolences and support welcome",
-    other: "We hope you can join us",
-  };
-  return footers[type] ?? "We hope you can join us";
-}
-
-function formatEventDateForCard(isoDate: string): string {
-  const s = isoDate.trim();
-  if (!s) return "";
-  const d = /^\d{4}-\d{2}-\d{2}$/.test(s)
-    ? new Date(`${s}T12:00:00Z`)
-    : new Date(s);
-  if (Number.isNaN(d.getTime())) return s;
-  return d.toLocaleDateString("en-UG", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function parseEventLocation(location: string): {
-  venue: string;
-  locationLine: string;
-} {
-  const raw = location.trim();
-  if (!raw) return { venue: "", locationLine: "" };
-  const parts = raw
-    .split(/[,;\n]+/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  if (parts.length <= 1) {
-    return { venue: parts[0] ?? "", locationLine: "" };
-  }
-  return { venue: parts[0], locationLine: parts.slice(1).join(", ") };
-}
-
-function defaultContentFromEvent(event: {
-  title: string;
-  organizer: string;
-  date: string;
-  location: string;
-  type: string;
-  description: string;
-}): InviteCardContent {
-  const parts = event.title.split(/\s*&\s*|\s+and\s+/i);
-  const name1 = parts[0]?.trim() || event.organizer.trim() || "Host";
-  const name2 = parts[1]?.trim() || "";
-  const { venue, locationLine } = parseEventLocation(event.location);
-  const desc = event.description.trim();
-  const footer =
-    desc.length > 0 && desc.length <= 120
-      ? desc
-      : defaultFooterForType(event.type);
-  const eventTitle = event.title.trim();
-
-  return {
-    name1,
-    name2,
-    headline: defaultHeadlineForType(event.type),
-    date: formatEventDateForCard(event.date),
-    time: "",
-    venue,
-    location: locationLine,
-    footer,
-    font: "serif",
-    accentColor: "#9A7432",
-    rsvpEnabled: true,
-    rsvpDeadline: event.date.trim().slice(0, 10) || undefined,
-    rsvpNote: eventTitle
-      ? `Please RSVP for ${eventTitle}.`
-      : "Please respond at your earliest convenience.",
-  };
+function isInvitationPhotoKey(key: string, invitationId: string): boolean {
+  if (!INVITATION_ID_RE.test(invitationId)) return false;
+  return /^invitations\/[0-9a-f-]{36}\/photo\.(jpg|jpeg|png|webp)$/i.test(
+    key
+  ) && key.startsWith(`invitations/${invitationId}/`);
 }
 
 /** mysql2 often returns JSON columns as a string; Drizzle passes that through unchanged. */
@@ -129,16 +65,75 @@ function coerceContentJson(raw: unknown): Record<string, unknown> {
   return {};
 }
 
+const CARD_STRING_KEYS = [
+  "name1",
+  "name2",
+  "headline",
+  "subtitle",
+  "tagline",
+  "hostLine",
+  "honoree",
+  "familyLine",
+  "date",
+  "time",
+  "venue",
+  "location",
+  "dressCode",
+  "ceremonyNote",
+  "receptionNote",
+  "footer",
+] as const;
+
+const META_KEYS = new Set([
+  "font",
+  "accentColor",
+  "customMessage",
+  "photoUrl",
+  "photoKey",
+  "rsvpEnabled",
+  "rsvpDeadline",
+  "rsvpNote",
+  "extra",
+]);
+
+function optionalStr(
+  o: Record<string, unknown>,
+  key: string
+): string | undefined {
+  const v = o[key];
+  if (v == null || String(v).trim() === "") return undefined;
+  return String(v);
+}
+
 function parseContent(raw: unknown): InviteCardContent {
   const o = coerceContentJson(raw);
+  const extra: Record<string, string> = {};
+  for (const [k, v] of Object.entries(o)) {
+    if (
+      META_KEYS.has(k) ||
+      (CARD_STRING_KEYS as readonly string[]).includes(k)
+    ) {
+      continue;
+    }
+    if (typeof v === "string" && v.trim()) extra[k] = v;
+  }
+
   return {
     name1: String(o.name1 ?? ""),
     name2: String(o.name2 ?? ""),
     headline: String(o.headline ?? "Celebration"),
+    subtitle: optionalStr(o, "subtitle"),
+    tagline: optionalStr(o, "tagline"),
+    hostLine: optionalStr(o, "hostLine"),
+    honoree: optionalStr(o, "honoree"),
+    familyLine: optionalStr(o, "familyLine"),
     date: String(o.date ?? ""),
     time: String(o.time ?? ""),
     venue: String(o.venue ?? ""),
     location: String(o.location ?? ""),
+    dressCode: optionalStr(o, "dressCode"),
+    ceremonyNote: optionalStr(o, "ceremonyNote"),
+    receptionNote: optionalStr(o, "receptionNote"),
     footer: String(o.footer ?? ""),
     font: (["serif", "sans-serif", "script", "monospace"].includes(
       String(o.font)
@@ -146,10 +141,13 @@ function parseContent(raw: unknown): InviteCardContent {
       ? o.font
       : "serif") as InviteCardContent["font"],
     accentColor: String(o.accentColor ?? "#9A7432"),
-    customMessage: o.customMessage ? String(o.customMessage) : undefined,
+    photoUrl: optionalStr(o, "photoUrl"),
+    photoKey: optionalStr(o, "photoKey"),
+    customMessage: optionalStr(o, "customMessage"),
     rsvpEnabled: o.rsvpEnabled !== false,
-    rsvpDeadline: o.rsvpDeadline ? String(o.rsvpDeadline) : undefined,
-    rsvpNote: o.rsvpNote ? String(o.rsvpNote) : undefined,
+    rsvpDeadline: optionalStr(o, "rsvpDeadline"),
+    rsvpNote: optionalStr(o, "rsvpNote"),
+    extra: Object.keys(extra).length > 0 ? extra : undefined,
   };
 }
 
@@ -161,7 +159,9 @@ function viewToken(): string {
 export class InvitationsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly storage: StorageService,
+    private readonly events: EventsService
   ) {}
 
   private appBaseUrl(): string {
@@ -256,7 +256,8 @@ export class InvitationsService {
 
   async createDraft(userId: string, slug: string): Promise<InvitationDetailDto> {
     const event = await this.getOwnedEvent(userId, slug);
-    const content = defaultContentFromEvent(event);
+    const templateId = defaultTemplateForEvent(event.type);
+    const content = defaultContentFromEvent(event, templateId);
     const now = formatMysqlDateTimeUtc(new Date());
     const id = randomUUID();
     const title =
@@ -269,7 +270,7 @@ export class InvitationsService {
       eventId: event.id,
       userId,
       title,
-      templateId: "royal",
+      templateId,
       contentJson: inviteContentToJson(content),
       status: "draft",
       publishedAt: null,
@@ -305,6 +306,9 @@ export class InvitationsService {
     }
   ): Promise<InvitationDetailDto> {
     const inv = await this.getOwnedInvitation(userId, invitationId);
+    if (body.templateId != null && !isInviteTemplateId(body.templateId)) {
+      throw new BadRequestException("Invalid invitation theme.");
+    }
     const content = parseContent(inv.contentJson);
     const merged: InviteCardContent = {
       ...content,
@@ -447,6 +451,20 @@ export class InvitationsService {
   async duplicate(userId: string, invitationId: string): Promise<InvitationDetailDto> {
     const inv = await this.getOwnedInvitation(userId, invitationId);
     const content = parseContent(inv.contentJson);
+    delete content.photoKey;
+    const slug = await this.eventSlugForId(inv.eventId);
+    const eventRows = slug
+      ? await this.db
+          .select({ imageUrls: schema.events.imageUrls })
+          .from(schema.events)
+          .where(eq(schema.events.id, inv.eventId))
+          .limit(1)
+      : [];
+    if (slug && eventHasStoredImages(eventRows[0]?.imageUrls)) {
+      content.photoUrl = eventGalleryPhotoUrl(slug);
+    } else {
+      delete content.photoUrl;
+    }
     const now = formatMysqlDateTimeUtc(new Date());
     const newId = randomUUID();
     await this.db.insert(schema.invitations).values({
@@ -660,5 +678,176 @@ export class InvitationsService {
         updatedAt: now,
       })
       .where(eq(schema.invitations.id, invitationId));
+  }
+
+  private async eventSlugForId(eventId: string): Promise<string | null> {
+    const rows = await this.db
+      .select({ slug: schema.events.slug })
+      .from(schema.events)
+      .where(eq(schema.events.id, eventId))
+      .limit(1);
+    return rows[0]?.slug ?? null;
+  }
+
+  private async resolvePhotoStorageKey(
+    content: InviteCardContent,
+    eventSlug: string,
+    invitationId: string
+  ): Promise<string | null> {
+    if (content.photoUrl?.trim() === "none") return null;
+    const key = content.photoKey?.trim();
+    if (key && isInvitationPhotoKey(key, invitationId)) {
+      return key;
+    }
+    return this.events.getEventImageKeyForGallerySlot(eventSlug, 0);
+  }
+
+  async saveInvitationPhoto(
+    userId: string,
+    invitationId: string,
+    buffer: Buffer,
+    mime: string
+  ): Promise<{ key: string; photoUrl: string }> {
+    await this.getOwnedInvitation(userId, invitationId);
+    if (!this.storage.isConfigured()) {
+      throw new BadRequestException("Image storage is not configured.");
+    }
+    const allowed = ["image/jpeg", "image/png", "image/webp"] as const;
+    if (!allowed.includes(mime as (typeof allowed)[number])) {
+      throw new BadRequestException(
+        "Only JPEG, PNG, or WebP images are allowed."
+      );
+    }
+    const ext =
+      mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
+    const key = invitationPhotoKey(invitationId, ext);
+    const inv = await this.getOwnedInvitation(userId, invitationId);
+    const content = parseContent(inv.contentJson);
+    const oldKey = content.photoKey?.trim();
+    if (oldKey && isInvitationPhotoKey(oldKey, invitationId)) {
+      await this.storage.deleteObject(oldKey);
+    }
+    await this.storage.putObject(key, buffer, mime);
+    const merged: InviteCardContent = {
+      ...content,
+      photoKey: key,
+      photoUrl: undefined,
+    };
+    const now = formatMysqlDateTimeUtc(new Date());
+    await this.db
+      .update(schema.invitations)
+      .set({
+        contentJson: inviteContentToJson(merged),
+        updatedAt: now,
+      })
+      .where(eq(schema.invitations.id, invitationId));
+    const photoUrl = `/api/v1/invitations/${invitationId}/photo`;
+    return { key, photoUrl };
+  }
+
+  async resetInvitationPhotoToEvent(
+    userId: string,
+    invitationId: string
+  ): Promise<InvitationDetailDto> {
+    const inv = await this.getOwnedInvitation(userId, invitationId);
+    const slug = await this.eventSlugForId(inv.eventId);
+    if (!slug) throw new NotFoundException("Event not found.");
+    const eventRows = await this.db
+      .select({ imageUrls: schema.events.imageUrls })
+      .from(schema.events)
+      .where(eq(schema.events.id, inv.eventId))
+      .limit(1);
+    const content = parseContent(inv.contentJson);
+    const oldKey = content.photoKey?.trim();
+    if (oldKey && isInvitationPhotoKey(oldKey, invitationId)) {
+      await this.storage.deleteObject(oldKey);
+    }
+    const merged: InviteCardContent = { ...content, photoKey: undefined };
+    if (eventHasStoredImages(eventRows[0]?.imageUrls)) {
+      merged.photoUrl = eventGalleryPhotoUrl(slug);
+    } else {
+      merged.photoUrl = "none";
+    }
+    const now = formatMysqlDateTimeUtc(new Date());
+    await this.db
+      .update(schema.invitations)
+      .set({
+        contentJson: inviteContentToJson(merged),
+        updatedAt: now,
+      })
+      .where(eq(schema.invitations.id, invitationId));
+    return this.getDetail(userId, invitationId);
+  }
+
+  async clearInvitationPhoto(
+    userId: string,
+    invitationId: string
+  ): Promise<InvitationDetailDto> {
+    const inv = await this.getOwnedInvitation(userId, invitationId);
+    const content = parseContent(inv.contentJson);
+    const oldKey = content.photoKey?.trim();
+    if (oldKey && isInvitationPhotoKey(oldKey, invitationId)) {
+      await this.storage.deleteObject(oldKey);
+    }
+    const merged: InviteCardContent = {
+      ...content,
+      photoKey: undefined,
+      photoUrl: "none",
+    };
+    const now = formatMysqlDateTimeUtc(new Date());
+    await this.db
+      .update(schema.invitations)
+      .set({
+        contentJson: inviteContentToJson(merged),
+        updatedAt: now,
+      })
+      .where(eq(schema.invitations.id, invitationId));
+    return this.getDetail(userId, invitationId);
+  }
+
+  async streamInvitationPhoto(
+    userId: string | null,
+    invitationId: string
+  ): Promise<{ body: Readable; contentType: string } | null> {
+    const invRows = await this.db
+      .select()
+      .from(schema.invitations)
+      .where(eq(schema.invitations.id, invitationId))
+      .limit(1);
+    const inv = invRows[0];
+    if (!inv) return null;
+    if (userId != null && inv.userId !== userId) {
+      throw new ForbiddenException("Not allowed.");
+    }
+    const slug = await this.eventSlugForId(inv.eventId);
+    if (!slug) return null;
+    const content = parseContent(inv.contentJson);
+    const key = await this.resolvePhotoStorageKey(
+      content,
+      slug,
+      invitationId
+    );
+    if (!key) return null;
+    return this.storage.getObjectStream(key);
+  }
+
+  async streamPublicInvitePhoto(
+    viewToken: string
+  ): Promise<{ body: Readable; contentType: string } | null> {
+    const recRows = await this.db
+      .select()
+      .from(schema.invitationRecipients)
+      .where(eq(schema.invitationRecipients.viewToken, viewToken))
+      .limit(1);
+    const rec = recRows[0];
+    if (!rec) return null;
+    const invRows = await this.db
+      .select()
+      .from(schema.invitations)
+      .where(eq(schema.invitations.id, rec.invitationId))
+      .limit(1);
+    const inv = invRows[0];
+    if (!inv || inv.status !== "published") return null;
+    return this.streamInvitationPhoto(null, inv.id);
   }
 }

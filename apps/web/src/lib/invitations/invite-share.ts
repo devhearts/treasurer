@@ -50,3 +50,15 @@ export function inviteOgDescription(
   if (c.footer?.trim()) s += `. ${c.footer.trim()}`;
   return s.length <= maxLen ? s : `${s.slice(0, Math.max(1, maxLen - 1))}…`;
 }
+
+/** Message body when sharing a personalized guest link (SMS, WhatsApp, etc.). */
+export function guestInviteShareBlurb(
+  guestName: string,
+  invitationTitle: string,
+  url: string
+): string {
+  const name = guestName.trim();
+  const invite = invitationTitle.trim() || "your invitation";
+  const greeting = name ? `Hi ${name},\n\n` : "";
+  return `${greeting}You're invited — ${invite}:\n${url}`;
+}

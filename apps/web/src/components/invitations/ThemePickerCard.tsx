@@ -2,7 +2,7 @@
 
 import InviteCardPreview from "@/components/invitations/InviteCardPreview";
 import type { InviteTemplateMeta } from "@/lib/invitations/templates";
-import { THEME_SAMPLE_CONTENT } from "@/lib/invitations/theme-sample-content";
+import { themeSampleContent } from "@/lib/invitations/theme-sample-content";
 import type { InviteTemplateId } from "@/lib/invitations/types";
 
 interface ThemePickerCardProps {
@@ -33,7 +33,7 @@ export default function ThemePickerCard({
       <div className="w-full bg-cream p-2 sm:p-2.5 pointer-events-none">
         <InviteCardPreview
           templateId={template.id}
-          content={THEME_SAMPLE_CONTENT}
+          content={themeSampleContent(template.id)}
           className="w-full"
         />
       </div>

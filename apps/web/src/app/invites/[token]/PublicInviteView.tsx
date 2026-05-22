@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import InviteCardPreview from "@/components/invitations/InviteCardPreview";
+import { eventHasGalleryPhoto } from "@/lib/invitations/invite-photo";
 import type { PublicInvitePayload, RsvpStatus } from "@/lib/invitations/types";
 import { normalizeInviteCardContent } from "@/lib/invitations/parse-invite-content";
 import { submitInvitationRsvp } from "@/app/actions/invitations";
@@ -105,6 +106,13 @@ export default function PublicInviteView({
           content={content}
           maxWidth={420}
           className="w-full"
+          eventSlug={event.slug}
+          invitationId={invitation.id}
+          viewToken={viewToken}
+          hasEventPhoto={
+            Boolean(content.photoUrl?.includes("/gallery/")) ||
+            Boolean(content.photoKey)
+          }
         />
 
         {content.rsvpEnabled ? (

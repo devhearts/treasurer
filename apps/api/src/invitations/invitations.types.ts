@@ -4,7 +4,30 @@ export type InviteTemplateId =
   | "pop"
   | "minimal"
   | "pastel"
-  | "cyber";
+  | "cyber"
+  | "memorial"
+  | "heritage"
+  | "celebrate"
+  | "savedate"
+  | "gala";
+
+export const INVITE_TEMPLATE_IDS: InviteTemplateId[] = [
+  "royal",
+  "botanical",
+  "pop",
+  "minimal",
+  "pastel",
+  "cyber",
+  "memorial",
+  "heritage",
+  "celebrate",
+  "savedate",
+  "gala",
+];
+
+export function isInviteTemplateId(id: string): id is InviteTemplateId {
+  return (INVITE_TEMPLATE_IDS as string[]).includes(id);
+}
 
 export type InvitationStatus = "draft" | "published";
 
@@ -14,17 +37,28 @@ export interface InviteCardContent {
   name1: string;
   name2: string;
   headline: string;
+  subtitle?: string;
+  tagline?: string;
+  hostLine?: string;
+  honoree?: string;
+  familyLine?: string;
   date: string;
   time: string;
   venue: string;
   location: string;
+  dressCode?: string;
+  ceremonyNote?: string;
+  receptionNote?: string;
   footer: string;
+  photoUrl?: string;
+  photoKey?: string;
   font: "serif" | "sans-serif" | "script" | "monospace";
   accentColor: string;
   customMessage?: string;
   rsvpEnabled: boolean;
   rsvpDeadline?: string;
   rsvpNote?: string;
+  extra?: Record<string, string>;
 }
 
 /** Satisfies Drizzle `json().$type<Record<string, unknown>>()` on insert/update. */

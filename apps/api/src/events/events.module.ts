@@ -9,5 +9,6 @@ import { IntegrationsModule } from "../integrations/integrations.module";
   imports: [PaymentsModule, AuditModule, IntegrationsModule],
   controllers: [EventsController],
   providers: [EventsService],
+  exports: [EventsService],
 })
 export class EventsModule {}

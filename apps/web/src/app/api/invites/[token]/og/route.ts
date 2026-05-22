@@ -15,7 +15,16 @@ export async function GET(
 
   const png = await inviteCardToPngBuffer(
     data.invitation.templateId,
-    data.invitation.content
+    data.invitation.content,
+    {
+      eventSlug: data.event.slug,
+      invitationId: data.invitation.id,
+      viewToken: token,
+      hasEventPhoto: Boolean(
+        data.invitation.content.photoUrl?.includes("/gallery/") ||
+          data.invitation.content.photoKey
+      ),
+    }
   );
 
   return new Response(new Uint8Array(png), {

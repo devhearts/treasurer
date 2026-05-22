@@ -6,7 +6,7 @@ import {
   inviteOgDescription,
   inviteShareTitle,
 } from "@/lib/invitations/invite-share";
-import { INVITE_OG_HEIGHT, INVITE_OG_WIDTH } from "@/lib/invitations/invite-og-image";
+import { inviteOgDimensions } from "@/lib/invitations/invite-og-image";
 import PublicInviteView from "./PublicInviteView";
 import { loadPublicInvitation } from "./load-public-invitation";
 
@@ -38,6 +38,7 @@ export async function generateMetadata({
     data.invitation.id
   );
   const ogAlt = ogTitle;
+  const ogSize = inviteOgDimensions(data.invitation.templateId);
 
   return {
     title,
@@ -52,8 +53,8 @@ export async function generateMetadata({
       images: [
         {
           url: ogImage,
-          width: INVITE_OG_WIDTH,
-          height: INVITE_OG_HEIGHT,
+          width: ogSize.width,
+          height: ogSize.height,
           alt: ogAlt,
         },
       ],

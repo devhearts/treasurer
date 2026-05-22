@@ -3,16 +3,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import StepIndicator from "@/components/wallet/StepIndicator";
+import InvitePhotoEditor from "@/components/invitations/InvitePhotoEditor";
 import InviteStepPreviewPanel from "@/components/invitations/InviteStepPreviewPanel";
+import { eventHasGalleryPhoto } from "@/lib/invitations/invite-photo";
 import ThemePickerCard from "@/components/invitations/ThemePickerCard";
 import { INVITE_TEMPLATES, getTemplateMeta } from "@/lib/invitations/templates";
-import {
-  inviteContentFieldLabels,
-  type InviteContentFieldKey,
-} from "@/lib/invitations/content-labels";
+import { getInviteFieldLabel } from "@/lib/invitations/content-labels";
+import { getInviteTemplate } from "@/lib/invitations/template-registry";
+import type { InviteCardFieldKey } from "@/lib/invitations/types";
+import { getCardField } from "@/lib/invitations/types";
 import {
   defaultInvitationTitle,
   mergeEventIntoInviteContent,
+  mergeTemplateDefaultsIntoContent,
 } from "@/lib/invitations/event-content-defaults";
 import { formatCalendarDate } from "@/lib/data";
 import type { CeremonyEvent } from "@/lib/types";
@@ -30,6 +33,7 @@ import {
   updateInvitation,
 } from "@/app/actions/invitations";
 import { filterPublicContributions } from "@/lib/data";
+import { guestInviteShareBlurb } from "@/lib/invitations/invite-share";
 import { IconBack } from "@/components/Icons";
 
 const STEPS = ["Theme", "Content", "Design", "Guests", "Publish"];
@@ -83,7 +87,11 @@ function initialEditorState(
   event: CeremonyEvent,
   initial: InvitationDetail
 ) {
-  const content = mergeEventIntoInviteContent(initial.content, event);
+  const content = mergeEventIntoInviteContent(
+    initial.content,
+    event,
+    initial.templateId
+  );
   const title = initial.title.trim()
     ? initial.title
     : defaultInvitationTitle(event, content);
@@ -109,6 +117,7 @@ export default function InvitationWizard({
   const [error, setError] = useState<string | null>(null);
   const [published, setPublished] = useState(isPublishedInitial);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [sharedToken, setSharedToken] = useState<string | null>(null);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<
     "idle" | "saving" | "saved" | "error"
@@ -117,17 +126,9 @@ export default function InvitationWizard({
   const contentRef = useRef(editorInit.content);
   const titleRef = useRef(editorInit.title);
   const templateIdRef = useRef(initial.templateId);
-  const fieldLabels = inviteContentFieldLabels(event.type);
-  const contentFields: InviteContentFieldKey[] = [
-    "name1",
-    "name2",
-    "headline",
-    "date",
-    "time",
-    "venue",
-    "location",
-    "footer",
-  ];
+  const templateDef = getInviteTemplate(templateId);
+  const contentFields = templateDef.fields;
+  const hasEventPhoto = eventHasGalleryPhoto(event.imageUrls);
 
   type SavePatch = {
     title?: string;
@@ -416,6 +417,36 @@ export default function InvitationWizard({
     }
   }
 
+  async function shareLink(
+    url: string,
+    guestName: string,
+    token: string
+  ) {
+    const text = guestInviteShareBlurb(guestName, title, url);
+    const shareTitle = title.trim() || event.title.trim() || "Invitation";
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text,
+          url,
+        });
+        setSharedToken(token);
+        setTimeout(() => setSharedToken(null), 2000);
+        return;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedToken(token);
+      setTimeout(() => setCopiedToken(null), 2000);
+    } catch {
+      setError("Could not share link. Try Copy link instead.");
+    }
+  }
+
   const localhostLinks = inv.recipients.some((r) =>
     /localhost|127\.0\.0\.1/i.test(r.publicUrl)
   );
@@ -447,7 +478,13 @@ export default function InvitationWizard({
               onSelect={(id) => {
                 templateIdRef.current = id;
                 setTemplateId(id);
-                scheduleSave({ templateId: id });
+                const merged = mergeTemplateDefaultsIntoContent(
+                  contentRef.current,
+                  event,
+                  id
+                );
+                applyContent(merged);
+                scheduleSave({ templateId: id, content: merged });
               }}
             />
           ))}
@@ -468,6 +505,8 @@ export default function InvitationWizard({
           templateId={templateId}
           content={content}
           slug={event.slug}
+          invitationId={inv.id}
+          hasEventPhoto={hasEventPhoto}
         />
         <div className="space-y-3">
           <h2 className="text-[15px] font-medium text-surface">Edit content</h2>
@@ -483,21 +522,44 @@ export default function InvitationWizard({
               scheduleSave({ title: e.target.value });
             }}
           />
-          {contentFields.map((key) => (
-            <div key={key}>
-              <label className="block text-xs font-medium text-muted mb-1">
-                {fieldLabels[key]}
-              </label>
-              <input
-                className="w-full border border-muted/40 rounded-lg px-3 py-2 text-sm"
-                value={content[key]}
-                onChange={(e) => {
-                  applyContent({ [key]: e.target.value });
-                  scheduleSave();
-                }}
-              />
-            </div>
-          ))}
+          {contentFields.map((field) => {
+            const key = field.key;
+            const label = getInviteFieldLabel(event.type, templateId, key);
+            const value = getCardField(content, key);
+            const inputClass =
+              "w-full border border-muted/40 rounded-lg px-3 py-2 text-sm";
+            return (
+              <div key={key}>
+                <label className="block text-xs font-medium text-muted mb-1">
+                  {label}
+                </label>
+                {field.multiline ? (
+                  <textarea
+                    className={`${inputClass} resize-none`}
+                    rows={2}
+                    value={value}
+                    onChange={(e) => {
+                      applyContent({ [key]: e.target.value } as Partial<
+                        InviteCardContent
+                      >);
+                      scheduleSave();
+                    }}
+                  />
+                ) : (
+                  <input
+                    className={inputClass}
+                    value={value}
+                    onChange={(e) => {
+                      applyContent({ [key]: e.target.value } as Partial<
+                        InviteCardContent
+                      >);
+                      scheduleSave();
+                    }}
+                  />
+                )}
+              </div>
+            );
+          })}
           <label className="flex items-center gap-2 text-sm text-surface">
             <input
               type="checkbox"
@@ -553,10 +615,25 @@ export default function InvitationWizard({
           templateId={templateId}
           content={content}
           slug={event.slug}
+          invitationId={inv.id}
+          hasEventPhoto={hasEventPhoto}
           showExport={false}
         />
         <div className="space-y-5 pt-1">
           <h2 className="text-[15px] font-medium text-surface">Customise design</h2>
+          {templateDef.supportsPhoto ? (
+            <InvitePhotoEditor
+              invitationId={inv.id}
+              eventSlug={event.slug}
+              hasEventPhoto={hasEventPhoto}
+              content={content}
+              disabled={loading || saveStatus === "saving"}
+              onContentChange={(patch) => {
+                applyContent(patch);
+                scheduleSave({ content: { ...contentRef.current, ...patch } });
+              }}
+            />
+          ) : null}
           <div>
             <p className="text-xs font-medium text-muted uppercase tracking-wide mb-2">
               Font
@@ -583,22 +660,47 @@ export default function InvitationWizard({
             <p className="text-xs font-medium text-muted uppercase tracking-wide mb-2">
               Accent colour
             </p>
-            <div className="grid grid-cols-6 gap-2.5 max-w-xs">
-              {ACCENTS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  disabled={loading}
-                  onClick={() => void patchContent({ accentColor: c }, true)}
-                  className={`aspect-square w-full max-w-[2.5rem] mx-auto rounded-full border-2 ${
-                    content.accentColor === c
+            <div className="flex flex-wrap items-end gap-3 max-w-md">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() =>
+                  void patchContent(
+                    { accentColor: templateDef.palette.accent },
+                    true
+                  )
+                }
+                className="flex flex-col items-center gap-1"
+                aria-pressed={content.accentColor === templateDef.palette.accent}
+              >
+                <span
+                  className={`block h-10 w-10 rounded-full border-2 ${
+                    content.accentColor === templateDef.palette.accent
                       ? "border-surface ring-2 ring-surface/30"
                       : "border-muted/40"
                   }`}
-                  style={{ background: c }}
-                  aria-label={`Accent ${c}`}
+                  style={{ background: templateDef.palette.accent }}
                 />
-              ))}
+                <span className="text-[10px] text-muted">Default</span>
+              </button>
+              <div className="grid grid-cols-6 gap-2.5">
+                {ACCENTS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => void patchContent({ accentColor: c }, true)}
+                    className={`aspect-square w-10 rounded-full border-2 ${
+                      content.accentColor === c
+                        ? "border-surface ring-2 ring-surface/30"
+                        : "border-muted/40"
+                    }`}
+                    style={{ background: c }}
+                    aria-label={`Accent ${c}`}
+                    aria-pressed={content.accentColor === c}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -668,7 +770,7 @@ export default function InvitationWizard({
         <div>
           <h2 className="text-[15px] font-medium text-surface">Guest links</h2>
           <p className="text-sm text-muted mt-1">
-            Copy each link and share via WhatsApp, SMS, or email.
+            Copy a guest link or use Share to send via WhatsApp, SMS, or email.
           </p>
         </div>
         {localhostLinks ? (
@@ -701,13 +803,24 @@ export default function InvitationWizard({
                   RSVP {RSVP_LABELS[r.rsvpStatus]}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => copyLink(r.publicUrl, r.viewToken)}
-                className="mt-2.5 w-full py-2 rounded-lg border border-accent/50 text-accent text-sm font-medium hover:bg-accent/10"
-              >
-                {copiedToken === r.viewToken ? "Copied!" : "Copy link"}
-              </button>
+              <div className="mt-2.5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void copyLink(r.publicUrl, r.viewToken)}
+                  className="flex-1 py-2 rounded-lg border border-accent/50 text-accent text-sm font-medium hover:bg-accent/10"
+                >
+                  {copiedToken === r.viewToken ? "Copied!" : "Copy link"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void shareLink(r.publicUrl, r.guestName, r.viewToken)
+                  }
+                  className="flex-1 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:opacity-90"
+                >
+                  {sharedToken === r.viewToken ? "Shared!" : "Share"}
+                </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -715,6 +828,8 @@ export default function InvitationWizard({
           templateId={templateId}
           content={content}
           slug={event.slug}
+          invitationId={inv.id}
+          hasEventPhoto={hasEventPhoto}
         />
         <Link
           href={`/app/events/${event.slug}/invite`}
@@ -735,6 +850,8 @@ export default function InvitationWizard({
           templateId={templateId}
           content={content}
           slug={event.slug}
+          invitationId={inv.id}
+          hasEventPhoto={hasEventPhoto}
           showExport
         />
         <div className="bg-light rounded-xl border border-muted/30 divide-y divide-muted/20">

@@ -9,6 +9,8 @@ interface InviteStepPreviewPanelProps {
   templateId: InviteTemplateId;
   content: InviteCardContent;
   slug?: string;
+  invitationId?: string;
+  hasEventPhoto?: boolean;
   showExport?: boolean;
 }
 
@@ -16,6 +18,8 @@ export default function InviteStepPreviewPanel({
   templateId,
   content,
   slug = "invitation",
+  invitationId,
+  hasEventPhoto,
   showExport = true,
 }: InviteStepPreviewPanelProps) {
   const [exportOpen, setExportOpen] = useState(false);
@@ -35,7 +39,14 @@ export default function InviteStepPreviewPanel({
         ) : null}
       </div>
       <div className="bg-cream px-3 py-3 w-full">
-        <InviteCardPreview templateId={templateId} content={content} maxWidth={400} />
+        <InviteCardPreview
+          templateId={templateId}
+          content={content}
+          maxWidth={400}
+          eventSlug={slug}
+          invitationId={invitationId}
+          hasEventPhoto={hasEventPhoto}
+        />
       </div>
       {showExport && exportOpen ? (
         <div className="px-3 pb-3 border-t border-muted/20 pt-2">

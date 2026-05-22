@@ -1,5 +1,6 @@
 import type { InviteCardContent, InviteTemplateId } from "./types";
 import { renderInviteCardSvg } from "./render-invite-card";
+import { getInviteTemplate } from "./template-registry";
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -10,8 +11,14 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+function exportDimensions(templateId: InviteTemplateId | string) {
+  const { width, height } = getInviteTemplate(templateId).format;
+  const scale = 2;
+  return { width, height, w: width * scale, h: height * scale };
+}
+
 export function downloadInviteSvg(
-  templateId: InviteTemplateId,
+  templateId: InviteTemplateId | string,
   content: InviteCardContent,
   filename = "invitation.svg"
 ) {
@@ -20,14 +27,12 @@ export function downloadInviteSvg(
 }
 
 export async function downloadInvitePng(
-  templateId: InviteTemplateId,
+  templateId: InviteTemplateId | string,
   content: InviteCardContent,
   filename = "invitation.png"
 ): Promise<void> {
-  const svg = renderInviteCardSvg(templateId, content, { width: 400, height: 560 });
-  const scale = 2;
-  const w = 400 * scale;
-  const h = 560 * scale;
+  const { width, height, w, h } = exportDimensions(templateId);
+  const svg = renderInviteCardSvg(templateId, content, { width, height });
   const img = new Image();
   const url = URL.createObjectURL(
     new Blob([svg], { type: "image/svg+xml;charset=utf-8" })
@@ -62,21 +67,22 @@ export async function downloadInvitePng(
 }
 
 export async function downloadInvitePdf(
-  templateId: InviteTemplateId,
+  templateId: InviteTemplateId | string,
   content: InviteCardContent,
   filename = "invitation.pdf"
 ): Promise<void> {
   const { default: jsPDF } = await import("jspdf");
+  const { width, height, w, h } = exportDimensions(templateId);
   const pngBlob = await new Promise<Blob>((resolve, reject) => {
-    const svg = renderInviteCardSvg(templateId, content, { width: 400, height: 560 });
+    const svg = renderInviteCardSvg(templateId, content, { width, height });
     const img = new Image();
     const url = URL.createObjectURL(
       new Blob([svg], { type: "image/svg+xml;charset=utf-8" })
     );
     img.onload = () => {
       const canvas = document.createElement("canvas");
-      canvas.width = 800;
-      canvas.height = 1120;
+      canvas.width = w;
+      canvas.height = h;
       const ctx = canvas.getContext("2d");
       if (!ctx) {
         URL.revokeObjectURL(url);
@@ -84,8 +90,8 @@ export async function downloadInvitePdf(
         return;
       }
       ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, 800, 1120);
-      ctx.drawImage(img, 0, 0, 800, 1120);
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
       canvas.toBlob((b) => {
         URL.revokeObjectURL(url);
         if (b) resolve(b);
@@ -107,9 +113,9 @@ export async function downloadInvitePdf(
   });
 
   const pdfW = 105;
-  const pdfH = (105 * 560) / 400;
+  const pdfH = (105 * height) / width;
   const doc = new jsPDF({
-    orientation: "portrait",
+    orientation: pdfH > pdfW ? "portrait" : "landscape",
     unit: "mm",
     format: [pdfW, pdfH],
   });
