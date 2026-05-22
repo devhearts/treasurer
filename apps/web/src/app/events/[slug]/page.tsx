@@ -13,10 +13,12 @@ import {
   buildEventOgDescription,
   absoluteFirstEventImageUrl,
   eventShareTitle,
+  resolveAllocateToMilestoneId,
 } from "@/lib/event-share";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ allocateTo?: string | string[] }>;
 }
 
 export async function generateMetadata({
@@ -61,8 +63,19 @@ export async function generateMetadata({
  * Public event page: accessible via shared link without logging in.
  * Copy link / Share from the app use this URL (/events/[slug]).
  */
-export default async function PublicEventPage({ params }: PageProps) {
+export default async function PublicEventPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { slug } = await params;
+  const sp = await searchParams;
+  const allocateRaw = sp.allocateTo;
+  const allocateParam =
+    typeof allocateRaw === "string"
+      ? allocateRaw
+      : Array.isArray(allocateRaw)
+        ? allocateRaw[0]
+        : undefined;
   const [event, cfg] = await Promise.all([
     loadPublicEventBySlug(slug),
     loadPublicPaymentConfig(),
@@ -71,15 +84,21 @@ export default async function PublicEventPage({ params }: PageProps) {
 
   if (!event) notFound();
 
+  const allocateToMilestoneId = resolveAllocateToMilestoneId(
+    event,
+    allocateParam
+  );
+
   return (
     <EventDetailContent
-      key={event.id}
+      key={`${event.id}-${allocateToMilestoneId ?? ""}`}
       event={event}
       isPublicView
       momoConfigured={cfg.paymentsConfigured}
       paymentProcessorKind={cfg.processorKind}
       payButtonLabel={paymentCtaLabel(cfg.processorKind)}
       payerPhoneLabel={`${paymentNetworksText(networks)} number (paying wallet)`}
+      allocateToMilestoneId={allocateToMilestoneId}
     />
   );
 }

@@ -29,6 +29,8 @@ interface ContributeFormProps {
   paymentProcessorKind?: PaymentProcessorKind;
   payButtonLabel?: string;
   payerPhoneLabel?: string;
+  /** From `?allocateTo=milestoneId` on the public event URL. */
+  initialMilestoneId?: string | null;
 }
 
 const PRESET_AMOUNTS = [50000, 100000, 200000, 500000];
@@ -48,10 +50,18 @@ export default function ContributeForm({
   paymentProcessorKind = "mtn_momo",
   payButtonLabel = "Pay with MTN Momo",
   payerPhoneLabel = "MTN Momo number (paying wallet)",
+  initialMilestoneId = null,
 }: ContributeFormProps) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null);
+  const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(
+    () => {
+      if (!initialMilestoneId) return null;
+      return milestoneItems.some((m) => m.id === initialMilestoneId)
+        ? initialMilestoneId
+        : null;
+    }
+  );
   const [amount, setAmount] = useState("");
   const [name, setName] = useState("");
   const [anonymous, setAnonymous] = useState(false);
@@ -76,6 +86,12 @@ export default function ContributeForm({
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
+
+  useEffect(() => {
+    if (!initialMilestoneId) return;
+    if (!milestoneItems.some((m) => m.id === initialMilestoneId)) return;
+    setSelectedMilestoneId(initialMilestoneId);
+  }, [initialMilestoneId, milestoneItems]);
 
   useEffect(() => {
     if (!momoWait || !momoRef) return;
@@ -226,8 +242,18 @@ export default function ContributeForm({
     );
   }
 
+  const allocatedMilestone =
+    selectedMilestoneId != null
+      ? milestoneItems.find((m) => m.id === selectedMilestoneId)
+      : undefined;
+
   return (
     <div className="bg-light rounded-xl border border-muted/30 overflow-hidden">
+      {allocatedMilestone && initialMilestoneId === selectedMilestoneId ? (
+        <p className="px-6 pt-4 text-xs text-accent font-medium">
+          You&apos;re contributing to: {allocatedMilestone.name}
+        </p>
+      ) : null}
       {milestoneItems.length > 0 && !momoWait && (
         <div className="px-6 pt-6 pb-0">
           <MilestoneCardsRow

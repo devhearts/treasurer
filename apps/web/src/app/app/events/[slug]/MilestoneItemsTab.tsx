@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { addMilestoneItem, deleteMilestoneItem } from "@/app/actions/events";
+import MilestoneContributeLink from "@/components/MilestoneContributeLink";
 import { formatUGX } from "@/lib/data";
 import type { CeremonyEvent } from "@/lib/types";
 
@@ -55,7 +56,7 @@ export default function MilestoneItemsTab({ event }: { event: CeremonyEvent }) {
         <div className="p-4 border-b border-muted/20">
           <h2 className="font-bold text-surface">Add milestone</h2>
           <p className="text-xs text-muted mt-1">
-            Sub-goals for this event. Contributors can tag payments to a milestone on the Contributions tab and contribute form.
+            Sub-goals for this event. Copy or share a link so contributors land on the pay form with this milestone pre-selected.
           </p>
         </div>
         <form onSubmit={handleAdd} className="p-4 space-y-3">
@@ -122,6 +123,7 @@ export default function MilestoneItemsTab({ event }: { event: CeremonyEvent }) {
                       />
                     </div>
                     <p className="text-xs text-muted mt-1">{pct}% toward target</p>
+                    <MilestoneContributeLink event={event} milestone={m} />
                   </li>
                 );
               })}

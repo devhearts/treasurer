@@ -14,6 +14,7 @@ import { PaymentProcessorFactory } from "../payments/payment-processor.factory";
 import { AuditService } from "../audit/audit.service";
 import { ConfigService } from "@nestjs/config";
 import { StorageService } from "../integrations/storage.service";
+import { ContributionNotificationsService } from "../integrations/contribution-notifications.service";
 import type { Readable } from "node:stream";
 
 export type CeremonyEventDto = {
@@ -166,7 +167,8 @@ export class EventsService {
     private readonly processors: PaymentProcessorFactory,
     private readonly audit: AuditService,
     private readonly config: ConfigService,
-    private readonly storage: StorageService
+    private readonly storage: StorageService,
+    private readonly contributionNotifications: ContributionNotificationsService
   ) {}
 
   private raisedForMilestone(
@@ -599,6 +601,20 @@ export class EventsService {
           .where(eq(schema.events.id, event.id));
       }
     });
+
+    if (contribution.status === "paid") {
+      this.contributionNotifications.notifyPaidContribution({
+        ownerUserId: event.userId,
+        eventSlug: event.slug,
+        eventTitle: event.title,
+        contributorName: contribution.name,
+        anonymous: contribution.anonymous,
+        amount: contribution.amount,
+        phone: contribution.phone,
+        message: contribution.message,
+        manual: contribution.manual,
+      });
+    }
   }
 
   async addMilestoneItem(

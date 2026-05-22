@@ -1,8 +1,47 @@
-import type { CeremonyEvent } from "@/lib/types";
+import type { CeremonyEvent, MilestoneItem } from "@/lib/types";
 import { formatCalendarDate, formatUGX, getEventTypeLabel } from "@/lib/data";
 
 export function publicEventPath(slug: string): string {
   return `/events/${encodeURIComponent(slug)}`;
+}
+
+/** Public contribute URL with milestone pre-selected (`allocateTo` query). */
+export function publicMilestoneContributePath(
+  slug: string,
+  milestoneId: string
+): string {
+  const base = publicEventPath(slug);
+  const q = new URLSearchParams({ allocateTo: milestoneId });
+  return `${base}?${q.toString()}`;
+}
+
+export function absoluteMilestoneContributeUrl(
+  slug: string,
+  milestoneId: string
+): string {
+  return `${siteBaseUrl()}${publicMilestoneContributePath(slug, milestoneId)}`;
+}
+
+/** If `allocateTo` matches a milestone on the event, return its id; else undefined. */
+export function resolveAllocateToMilestoneId(
+  event: CeremonyEvent,
+  allocateTo: string | undefined | null
+): string | undefined {
+  const id = allocateTo?.trim();
+  if (!id) return undefined;
+  return event.milestoneItems.some((m) => m.id === id) ? id : undefined;
+}
+
+export function buildMilestoneContributeShareBlurb(
+  event: CeremonyEvent,
+  milestone: MilestoneItem,
+  absoluteUrl: string
+): string {
+  const title = event.title.trim() || "this event";
+  return (
+    `Support "${milestone.name}" for ${title} on CeremonyWallet.\n\n` +
+    `Contribute here:\n${absoluteUrl}`
+  );
 }
 
 /** Public site base for OG / canonical URLs (no trailing slash). */
@@ -69,11 +108,7 @@ export function buildEventShareBlurb(
   let out = `${event.title.trim()}\n`;
   out += `${type}`;
   if (loc) out += ` · ${loc}`;
-  out += ` · ${when}\n`;
-  out += `${formatUGX(event.raisedAmount)} raised`;
-  if (event.targetAmount > 0) {
-    out += ` · goal ${formatUGX(event.targetAmount)}`;
-  }
+  out += ` · ${when}`;
   const desc = event.description.trim();
   if (desc) {
     const short = desc.length > 200 ? `${desc.slice(0, 197)}…` : desc;

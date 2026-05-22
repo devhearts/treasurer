@@ -2,6 +2,14 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as nodemailer from "nodemailer";
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 @Injectable()
 export class MailService {
   private readonly log = new Logger(MailService.name);
@@ -97,6 +105,65 @@ export class MailService {
         <strong>You receive:</strong> UGX ${net}<br/>
         <strong>To:</strong> ${summary.methodLabel} · ${summary.destination}</p>
         <p>If you did not request this withdrawal, secure your account immediately.</p>
+      `,
+    });
+  }
+
+  async sendContributionNotification(
+    to: string,
+    summary: {
+      eventTitle: string;
+      contributorName: string;
+      anonymous: boolean;
+      amount: number;
+      phone?: string;
+      message?: string;
+      manual?: boolean;
+      viaMobileMoney?: boolean;
+      contributionsUrl: string;
+    }
+  ): Promise<void> {
+    const t = this.transporter();
+    const from = this.config.get<string>("app.smtp.from") ?? "noreply@localhost";
+    const amount = summary.amount.toLocaleString("en-UG");
+    const who = summary.anonymous
+      ? "Anonymous"
+      : summary.contributorName.trim() || "Someone";
+    const method = summary.manual
+      ? "Recorded manually"
+      : summary.viaMobileMoney
+        ? "Mobile money"
+        : "Payment";
+    const phoneLine = summary.phone?.trim()
+      ? `<br/><strong>Phone:</strong> ${escapeHtml(summary.phone.trim())}`
+      : "";
+    const messageLine = summary.message?.trim()
+      ? `<p style="margin:12px 0 0;"><em>${escapeHtml(summary.message.trim())}</em></p>`
+      : "";
+    const eventTitle = escapeHtml(summary.eventTitle.trim() || "Your event");
+    const link = escapeHtml(summary.contributionsUrl);
+
+    if (!t) {
+      this.log.log(
+        `Contribution notification (no SMTP) for ${to}: UGX ${amount} from ${who} — ${summary.contributionsUrl}`
+      );
+      return;
+    }
+
+    await t.sendMail({
+      from,
+      to,
+      subject: `New contribution — ${summary.eventTitle.trim() || "your event"}`,
+      html: `
+        <p>You received a new contribution on <strong>${eventTitle}</strong>.</p>
+        <p style="margin:16px 0;padding:12px 16px;background:#f4f4f5;border-radius:8px;">
+          <strong>Amount:</strong> UGX ${amount}<br/>
+          <strong>From:</strong> ${escapeHtml(who)}<br/>
+          <strong>How:</strong> ${escapeHtml(method)}${phoneLine}
+        </p>
+        ${messageLine}
+        <p><a href="${link}">View all contributions</a></p>
+        <p style="color:#666;font-size:12px;">CeremonyWallet — contribution notification</p>
       `,
     });
   }

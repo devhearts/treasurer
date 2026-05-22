@@ -13,6 +13,7 @@ import { AuditService } from "../audit/audit.service";
 import { WalletService } from "../wallet/wallet.service";
 import { formatMysqlDateTimeUtc } from "../common/mysql-datetime";
 import { normalizeProviderPollStatus } from "./payment-status";
+import { ContributionNotificationsService } from "../integrations/contribution-notifications.service";
 
 function paymentNotConfiguredMessage(kind: PaymentProcessorKind): string {
   if (kind === "pawapay") return "PawaPay payments are not configured.";
@@ -44,7 +45,8 @@ export class PaymentsService {
     private readonly processors: PaymentProcessorFactory,
     private readonly audit: AuditService,
     private readonly config: ConfigService,
-    private readonly walletService: WalletService
+    private readonly walletService: WalletService,
+    private readonly contributionNotifications: ContributionNotificationsService
   ) {}
 
   private eventCreationFee(): number {
@@ -226,13 +228,24 @@ export class PaymentsService {
     });
 
     if (bucket === "success") {
-      const ok = await this.finalizeContribution(referenceId);
-      if (ok) {
+      const finalized = await this.finalizeContribution(referenceId);
+      if (finalized) {
         await this.audit.log({
           actorType: "system",
           action: "payment.contribution.completed",
           entityType: "payment_intent",
           entityId: referenceId,
+        });
+        this.contributionNotifications.notifyPaidContribution({
+          ownerUserId: finalized.ownerUserId,
+          eventSlug: finalized.eventSlug,
+          eventTitle: finalized.eventTitle,
+          contributorName: finalized.contributorName,
+          anonymous: finalized.anonymous,
+          amount: finalized.amount,
+          phone: finalized.phone,
+          message: finalized.message ?? undefined,
+          viaMobileMoney: true,
         });
       }
       return { status: "SUCCESSFUL" };
@@ -250,7 +263,16 @@ export class PaymentsService {
     return { status: "PENDING" };
   }
 
-  private async finalizeContribution(referenceId: string): Promise<boolean> {
+  private async finalizeContribution(referenceId: string): Promise<{
+    ownerUserId: string | null;
+    eventSlug: string;
+    eventTitle: string;
+    contributorName: string;
+    anonymous: boolean;
+    amount: number;
+    phone: string;
+    message: string | null;
+  } | null> {
     return this.db.transaction(async (tx) => {
       const rows = await tx
         .select()
@@ -258,7 +280,7 @@ export class PaymentsService {
         .where(eq(schema.paymentIntents.referenceId, referenceId))
         .limit(1);
       const row = rows[0];
-      if (!row || row.fulfilled || row.kind !== "contribution") return false;
+      if (!row || row.fulfilled || row.kind !== "contribution") return null;
 
       const evRows = await tx
         .select()
@@ -266,7 +288,7 @@ export class PaymentsService {
         .where(eq(schema.events.id, row.eventId!))
         .limit(1);
       const event = evRows[0];
-      if (!event) return false;
+      if (!event) return null;
 
       const contributionId = `c${Date.now()}`;
       const date = new Date().toISOString().split("T")[0]!;
@@ -311,7 +333,16 @@ export class PaymentsService {
         .set({ fulfilled: 1, updatedAt: formatMysqlDateTimeUtc(new Date()) })
         .where(eq(schema.paymentIntents.referenceId, referenceId));
 
-      return true;
+      return {
+        ownerUserId: event.userId,
+        eventSlug: event.slug,
+        eventTitle: event.title,
+        contributorName: row.name,
+        anonymous: !!row.anonymous,
+        amount: row.amount,
+        phone: row.phone,
+        message: row.message ?? null,
+      };
     });
   }
 

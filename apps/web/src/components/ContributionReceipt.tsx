@@ -16,6 +16,28 @@ interface ContributionReceiptProps {
   targetAmount: number;
 }
 
+function formatContributionLine(c: Contribution, index: number): string {
+  const name = c.anonymous ? "Anonymous" : c.name;
+  const status = c.status === "paid" ? "Paid" : "Pledged";
+  const manual = c.manual ? " (added by treasurer)" : "";
+  const hope =
+    c.status === "pledged" && c.pledgeHopeBy?.trim()
+      ? ` — hope to pay by ${formatCalendarDate(c.pledgeHopeBy, "long")}`
+      : "";
+  return `${index}. ${name} - ${formatUGX(c.amount)} - ${status}${manual}${hope}`;
+}
+
+function appendContributionSection(
+  lines: string[],
+  heading: string,
+  items: Contribution[]
+): void {
+  if (items.length === 0) return;
+  lines.push(heading);
+  items.forEach((c, i) => lines.push(formatContributionLine(c, i + 1)));
+  lines.push(``);
+}
+
 function buildReceiptText(
   eventTitle: string,
   eventDate: string,
@@ -30,6 +52,13 @@ function buildReceiptText(
     month: "long",
     year: "numeric",
   });
+  const paid = contributions.filter((c) => c.status === "paid");
+  const pledged = contributions.filter((c) => c.status === "pledged");
+  const progressPct =
+    targetAmount > 0
+      ? Math.min(Math.round((raisedAmount / targetAmount) * 100), 100)
+      : 0;
+
   const lines: string[] = [
     `CONTRIBUTION RECEIPT`,
     `Event: ${eventTitle}`,
@@ -39,24 +68,14 @@ function buildReceiptText(
     `CONTRIBUTIONS (${contributions.length}):`,
     ``,
   ];
-  contributions.forEach((c, i) => {
-    const name = c.anonymous ? "Anonymous" : c.name;
-    const status = c.status === "paid" ? "Paid" : "Pledged";
-    const manual = c.manual ? " (added by treasurer)" : "";
-    const hope =
-      c.status === "pledged" && c.pledgeHopeBy?.trim()
-        ? ` — hope to pay by ${formatCalendarDate(c.pledgeHopeBy, "long")}`
-        : "";
-    lines.push(
-      `${i + 1}. ${name} - ${formatUGX(c.amount)} - ${status}${manual}${hope}`
-    );
-  });
-  lines.push(``);
+
+  appendContributionSection(lines, `Cash Contributions:`, paid);
+  appendContributionSection(lines, `Pledged Contributions:`, pledged);
+
   lines.push(`Total Raised: ${formatUGX(raisedAmount)}`);
   lines.push(`Target: ${formatUGX(targetAmount)}`);
-  lines.push(`Progress: ${Math.min(Math.round((raisedAmount / targetAmount) * 100), 100)}%`);
+  lines.push(`Progress: ${progressPct}%`);
   lines.push(``);
-  // Business identity block (useful when the page is "Print -> Save as PDF")
   lines.push(`Business: CeremonyWallet`);
   if (treasurerPhone.trim()) lines.push(`Contact: ${treasurerPhone}`);
   return lines.join("\n");

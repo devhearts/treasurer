@@ -36,6 +36,8 @@ interface EventDetailContentProps {
   paymentProcessorKind?: PaymentProcessorKind;
   payButtonLabel?: string;
   payerPhoneLabel?: string;
+  /** Valid milestone id from `?allocateTo=` (public contribute links). */
+  allocateToMilestoneId?: string;
 }
 
 type PrivateFlow = "details" | "contributions" | "milestones";
@@ -75,6 +77,7 @@ export default function EventDetailContent({
   paymentProcessorKind = "mtn_momo",
   payButtonLabel = "Pay with MTN Momo",
   payerPhoneLabel = "MTN Momo number (paying wallet)",
+  allocateToMilestoneId,
 }: EventDetailContentProps) {
   const slug = event.slug;
   const [shareCopied, setShareCopied] = useState(false);
@@ -86,16 +89,32 @@ export default function EventDetailContent({
   const contributeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined" || isPublicView) return;
+    if (typeof window === "undefined") return;
     const hash = window.location.hash;
-    if (hash === "#contribute") {
-      // Defer state update to avoid cascading renders inside the effect body.
+    const scrollContribute = () => {
+      setTimeout(
+        () =>
+          contributeRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          }),
+        100
+      );
+    };
+    if (allocateToMilestoneId) {
+      setTimeout(() => {
+        if (!isPublicView) setPrivateFlow("contributions");
+        scrollContribute();
+      }, 0);
+      return;
+    }
+    if (!isPublicView && hash === "#contribute") {
       setTimeout(() => {
         setPrivateFlow("contributions");
-        setTimeout(() => contributeRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+        scrollContribute();
       }, 0);
     }
-  }, [isPublicView]);
+  }, [isPublicView, allocateToMilestoneId]);
 
   function publicEventAbsoluteUrl(): string {
     if (typeof window === "undefined") return "";
@@ -307,6 +326,7 @@ export default function EventDetailContent({
           paymentProcessorKind={paymentProcessorKind}
           payButtonLabel={payButtonLabel}
           payerPhoneLabel={payerPhoneLabel}
+          initialMilestoneId={allocateToMilestoneId ?? null}
         />
       </div>
     </>
