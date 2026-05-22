@@ -61,5 +61,6 @@ export const config = {
     "/app",
     "/app/:path*",
     "/events/:path*",
+    "/invites/:path*",
   ],
 };

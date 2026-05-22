@@ -332,3 +332,49 @@ export const payoutMethodOtps = mysqlTable(
   },
   (t) => [index("idx_payout_method_otps_pending").on(t.pendingId)]
 );
+
+export const invitations = mysqlTable(
+  "invitations",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    eventId: varchar("event_id", { length: 36 }).notNull(),
+    userId: varchar("user_id", { length: 36 }).notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    templateId: varchar("template_id", { length: 32 }).notNull(),
+    contentJson: json("content_json").$type<Record<string, unknown>>().notNull(),
+    status: varchar("status", { length: 16 }).notNull().default("draft"),
+    publishedAt: datetime("published_at", { mode: "string", fsp: 3 }),
+    recipientCount: int("recipient_count").notNull().default(0),
+    openCount: int("open_count").notNull().default(0),
+    rsvpYesCount: int("rsvp_yes_count").notNull().default(0),
+    rsvpNoCount: int("rsvp_no_count").notNull().default(0),
+    rsvpMaybeCount: int("rsvp_maybe_count").notNull().default(0),
+    createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
+    updatedAt: datetime("updated_at", { mode: "string", fsp: 3 }).notNull(),
+  },
+  (t) => [
+    index("idx_invitations_event").on(t.eventId),
+    index("idx_invitations_user").on(t.userId),
+  ]
+);
+
+export const invitationRecipients = mysqlTable(
+  "invitation_recipients",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    invitationId: varchar("invitation_id", { length: 36 }).notNull(),
+    guestName: varchar("guest_name", { length: 255 }).notNull(),
+    contact: varchar("contact", { length: 255 }),
+    viewToken: varchar("view_token", { length: 64 }).notNull(),
+    openedAt: datetime("opened_at", { mode: "string", fsp: 3 }),
+    rsvpStatus: varchar("rsvp_status", { length: 16 }).notNull().default("pending"),
+    rsvpAt: datetime("rsvp_at", { mode: "string", fsp: 3 }),
+    rsvpPartySize: int("rsvp_party_size"),
+    rsvpMessage: varchar("rsvp_message", { length: 500 }),
+    createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
+  },
+  (t) => [
+    index("idx_invitation_recipients_invitation").on(t.invitationId),
+    uniqueIndex("idx_invitation_recipients_token").on(t.viewToken),
+  ]
+);

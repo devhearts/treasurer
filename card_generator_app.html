@@ -1,0 +1,421 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); color: var(--color-text-primary); }
+.app { display: grid; grid-template-columns: 260px 1fr; gap: 0; min-height: 620px; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); overflow: hidden; background: var(--color-background-primary); }
+.sidebar { background: var(--color-background-secondary); border-right: 0.5px solid var(--color-border-tertiary); padding: 16px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+.sidebar-title { font-size: 11px; font-weight: 500; color: var(--color-text-secondary); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; padding: 0 4px; }
+.theme-btn { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--border-radius-md); border: 0.5px solid transparent; cursor: pointer; background: transparent; width: 100%; text-align: left; transition: all 0.15s; }
+.theme-btn:hover { background: var(--color-background-primary); border-color: var(--color-border-tertiary); }
+.theme-btn.active { background: var(--color-background-primary); border-color: var(--color-border-secondary); }
+.theme-dot { width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0; }
+.theme-label { font-size: 13px; font-weight: 500; color: var(--color-text-primary); line-height: 1.2; }
+.theme-sub { font-size: 11px; color: var(--color-text-secondary); margin-top: 1px; }
+.canvas-area { display: flex; flex-direction: column; }
+.canvas-toolbar { padding: 12px 16px; border-bottom: 0.5px solid var(--color-border-tertiary); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.toolbar-group { display: flex; flex-direction: column; gap: 3px; }
+.toolbar-label { font-size: 11px; color: var(--color-text-secondary); }
+.toolbar-input { font-size: 13px; padding: 4px 8px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary); color: var(--color-text-primary); width: 140px; }
+.toolbar-input.short { width: 90px; }
+.canvas-preview { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--color-background-tertiary); }
+.canvas-footer { padding: 10px 16px; border-top: 0.5px solid var(--color-border-tertiary); display: flex; gap: 8px; justify-content: flex-end; }
+.btn-dl { padding: 7px 16px; font-size: 13px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); cursor: pointer; background: var(--color-background-primary); color: var(--color-text-primary); display: flex; align-items: center; gap: 6px; }
+.btn-dl:hover { background: var(--color-background-secondary); }
+.btn-primary { background: var(--color-text-primary); color: var(--color-background-primary); border-color: var(--color-text-primary); }
+.btn-primary:hover { opacity: 0.85; background: var(--color-text-primary); }
+#card-svg { filter: drop-shadow(0 8px 32px rgba(0,0,0,0.18)); border-radius: 12px; }
+</style>
+
+<h2 class="sr-only">Interactive card generator with 6 design themes</h2>
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-title">Design themes</div>
+    <button class="theme-btn active" onclick="setTheme('royal')" id="btn-royal">
+      <div class="theme-dot" style="background:linear-gradient(135deg,#0f172a,#9A7432)"></div>
+      <div><div class="theme-label">Royal Luxury</div><div class="theme-sub">Weddings · Galas</div></div>
+    </button>
+    <button class="theme-btn" onclick="setTheme('botanical')" id="btn-botanical">
+      <div class="theme-dot" style="background:linear-gradient(135deg,#8B9E6B,#E8D5B2)"></div>
+      <div><div class="theme-label">Botanical Boho</div><div class="theme-sub">Showers · Outdoors</div></div>
+    </button>
+    <button class="theme-btn" onclick="setTheme('pop')" id="btn-pop">
+      <div class="theme-dot" style="background:linear-gradient(135deg,#FF3CAC,#784BA0,#2B86C5)"></div>
+      <div><div class="theme-label">Vibrant Pop</div><div class="theme-sub">Birthdays · Grad</div></div>
+    </button>
+    <button class="theme-btn" onclick="setTheme('minimal')" id="btn-minimal">
+      <div class="theme-dot" style="background:linear-gradient(135deg,#fff,#2d2d2d);border:0.5px solid #ccc"></div>
+      <div><div class="theme-label">Ultra Minimal</div><div class="theme-sub">Corporate · Gallery</div></div>
+    </button>
+    <button class="theme-btn" onclick="setTheme('pastel')" id="btn-pastel">
+      <div class="theme-dot" style="background:linear-gradient(135deg,#FADADD,#B5EAD7,#C7CEEA)"></div>
+      <div><div class="theme-label">Whimsical Pastel</div><div class="theme-sub">Kids · Gender reveal</div></div>
+    </button>
+    <button class="theme-btn" onclick="setTheme('cyber')" id="btn-cyber">
+      <div class="theme-dot" style="background:linear-gradient(135deg,#0a0a0a,#00f5ff55)"></div>
+      <div><div class="theme-label">Cyberpunk Neon</div><div class="theme-sub">Tech · Gaming</div></div>
+    </button>
+  </div>
+
+  <div class="canvas-area">
+    <div class="canvas-toolbar">
+      <div class="toolbar-group">
+        <div class="toolbar-label">Name 1</div>
+        <input class="toolbar-input" id="name1" value="Jonathan Bennett" oninput="render()">
+      </div>
+      <div class="toolbar-group">
+        <div class="toolbar-label">Name 2</div>
+        <input class="toolbar-input" id="name2" value="Clara Montgomery" oninput="render()">
+      </div>
+      <div class="toolbar-group">
+        <div class="toolbar-label">Date</div>
+        <input class="toolbar-input short" id="edate" value="October 17, 2026" oninput="render()">
+      </div>
+      <div class="toolbar-group">
+        <div class="toolbar-label">Venue</div>
+        <input class="toolbar-input" id="venue" value="The Grand Windsor Manor" oninput="render()">
+      </div>
+    </div>
+
+    <div class="canvas-preview">
+      <svg id="card-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 560" width="320" height="448"></svg>
+    </div>
+
+    <div class="canvas-footer">
+      <button class="btn-dl" onclick="downloadSVG()"><i class="ti ti-download" aria-hidden="true"></i> Download SVG</button>
+      <button class="btn-dl btn-primary" onclick="sendPrompt('Can you add a QR code element and RSVP section to this card design?')">Customize further ↗</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentTheme = 'royal';
+
+const themes = {
+  royal: {
+    bg: '#0f172a', bgEnd: '#1e293b', border: '#9A7432', borderDash: '8,4',
+    accent: '#F7E5A9', accentEnd: '#9A7432',
+    secondary: '#E2E8F0', muted: '#94A3B8',
+    titleFont: 'Georgia, serif', nameFont: 'Georgia, serif', bodyFont: 'sans-serif',
+    titleSize: 9, nameSize: 32, bodySize: 9,
+    titleStyle: 'normal', nameStyle: 'italic',
+    label: 'Royal Luxury',
+    renderBg: (s, w, h) => {
+      s.innerHTML = '';
+      const defs = svgEl('defs');
+      const lg1 = svgEl('linearGradient', {id:'bg1',x1:'0%',y1:'0%',x2:'100%',y2:'100%'});
+      addStop(lg1,'0%','#0f172a'); addStop(lg1,'100%','#1e293b');
+      const lg2 = svgEl('linearGradient', {id:'gold1',x1:'0%',y1:'100%',x2:'100%',y2:'0%'});
+      addStop(lg2,'0%','#9A7432'); addStop(lg2,'30%','#F7E5A9'); addStop(lg2,'100%','#9A7432');
+      defs.appendChild(lg1); defs.appendChild(lg2);
+      s.appendChild(defs);
+      // bg
+      s.appendChild(svgEl('rect',{width:w,height:h,rx:12,fill:'url(#bg1)',stroke:'url(#gold1)','stroke-width':2}));
+      s.appendChild(svgEl('rect',{x:16,y:16,width:w-32,height:h-32,rx:8,fill:'none',stroke:'url(#gold1)','stroke-width':0.8,'stroke-dasharray':'6,3'}));
+      // corners
+      const corners = [[16,40,40,16],[w-16,40,w-40,16],[16,h-40,40,h-16],[w-16,h-40,w-40,h-16]];
+      corners.forEach(([x1,y1,x2,y2]) => {
+        const p = svgEl('path',{d:`M${x1} ${y1} L${x2} ${y2}`,fill:'none',stroke:'url(#gold1)','stroke-width':1});
+        s.appendChild(p);
+      });
+      // ornament
+      const og = svgEl('g',{transform:`translate(${w/2},65) scale(0.7)`});
+      og.appendChild(svgEl('path',{d:'M0 -28 C12 -8,28 -4,0 22 C-28 -4,-12 -8,0 -28 Z',fill:'none',stroke:'url(#gold1)','stroke-width':1.5}));
+      og.appendChild(svgEl('circle',{cx:0,cy:-4,r:3,fill:'url(#gold1)'}));
+      og.appendChild(svgEl('path',{d:'M-36 -4 C-18 -18,-4 -18,0 -4',fill:'none',stroke:'url(#gold1)','stroke-width':1}));
+      og.appendChild(svgEl('path',{d:'M36 -4 C18 -18,4 -18,0 -4',fill:'none',stroke:'url(#gold1)','stroke-width':1}));
+      s.appendChild(og);
+      return {mainColor:'url(#gold1)', textColor:'#E2E8F0', mutedColor:'#94A3B8', divColor:'url(#gold1)'};
+    }
+  },
+  botanical: {
+    label: 'Botanical Boho',
+    renderBg: (s, w, h) => {
+      s.innerHTML = '';
+      s.appendChild(svgEl('rect',{width:w,height:h,rx:12,fill:'#F5EFE6',stroke:'#8B9E6B','stroke-width':1.5}));
+      // leaf clusters
+      const leafData = [
+        {tx:-10,ty:30,r:-20}, {tx:w-30,ty:20,r:15},
+        {tx:-15,ty:h-60,r:10}, {tx:w-20,ty:h-80,r:-25}
+      ];
+      leafData.forEach(({tx,ty,r}) => {
+        const g = svgEl('g',{transform:`translate(${tx},${ty}) rotate(${r})`});
+        for(let i=0;i<3;i++){
+          const lp = svgEl('ellipse',{cx:i*14,cy:-i*6,rx:18,ry:8,fill:'#8B9E6B',opacity:0.25+i*0.1,transform:`rotate(${-30+i*15} ${i*14} ${-i*6})`});
+          g.appendChild(lp);
+          const stem = svgEl('line',{x1:i*14,y1:-i*6,x2:i*14,y2:20+i*4,stroke:'#6B7F4A','stroke-width':0.8,opacity:0.5});
+          g.appendChild(stem);
+        }
+        s.appendChild(g);
+      });
+      // border dashes
+      s.appendChild(svgEl('rect',{x:20,y:20,width:w-40,height:h-40,rx:6,fill:'none',stroke:'#A67C5B','stroke-width':0.8,'stroke-dasharray':'4,6',opacity:0.5}));
+      // watercolor smudge
+      for(let i=0;i<3;i++){
+        s.appendChild(svgEl('ellipse',{cx:40+i*130,cy:h/2+30,rx:60,ry:30,fill:'#C9AF8A',opacity:0.06}));
+      }
+      return {mainColor:'#7A5C3A', textColor:'#4A3728', mutedColor:'#8B7355', divColor:'#A67C5B'};
+    }
+  },
+  pop: {
+    label: 'Vibrant Pop',
+    renderBg: (s, w, h) => {
+      s.innerHTML = '';
+      s.appendChild(svgEl('rect',{width:w,height:h,rx:12,fill:'#0F0F0F'}));
+      // checker strip top
+      for(let i=0;i<Math.ceil(w/20);i++){
+        s.appendChild(svgEl('rect',{x:i*20,y:0,width:10,height:12,fill:i%2===0?'#FF3CAC':'#FFDD00',rx:0}));
+      }
+      for(let i=0;i<Math.ceil(w/20);i++){
+        s.appendChild(svgEl('rect',{x:i*20,y:h-12,width:10,height:12,fill:i%2===0?'#FFDD00':'#00E5FF',rx:0}));
+      }
+      // confetti dots
+      const cols = ['#FF3CAC','#FFDD00','#00E5FF','#FF6B35','#B14AED'];
+      for(let i=0;i<30;i++){
+        const x=20+Math.random()*(w-40), y=30+Math.random()*(h-60);
+        s.appendChild(svgEl('rect',{x,y,width:6,height:6,rx:1,fill:cols[i%5],opacity:0.4,transform:`rotate(${Math.random()*60} ${x} ${y})`}));
+      }
+      // wavy side lines
+      s.appendChild(svgEl('path',{d:`M10 80 Q20 120,10 160 Q0 200,10 240 Q20 280,10 320 Q0 360,10 400`,fill:'none',stroke:'#FF3CAC','stroke-width':2,opacity:0.6}));
+      s.appendChild(svgEl('path',{d:`M${w-10} 80 Q${w-20} 120,${w-10} 160 Q${w} 200,${w-10} 240 Q${w-20} 280,${w-10} 320 Q${w} 360,${w-10} 400`,fill:'none',stroke:'#00E5FF','stroke-width':2,opacity:0.6}));
+      // bold border
+      s.appendChild(svgEl('rect',{x:2,y:2,width:w-4,height:h-4,rx:11,fill:'none',stroke:'#FF3CAC','stroke-width':2}));
+      return {mainColor:'#FFDD00', textColor:'#FFFFFF', mutedColor:'#94A3B8', divColor:'#FF3CAC'};
+    }
+  },
+  minimal: {
+    label: 'Ultra Minimal',
+    renderBg: (s, w, h) => {
+      s.innerHTML = '';
+      s.appendChild(svgEl('rect',{width:w,height:h,rx:12,fill:'#FAFAFA',stroke:'#E0E0E0','stroke-width':0.5}));
+      // single left accent bar
+      s.appendChild(svgEl('rect',{x:0,y:0,width:4,height:h,rx:0,fill:'#1a1a1a',opacity:0.9}));
+      // top thin line
+      s.appendChild(svgEl('line',{x1:4,y1:60,x2:w,y2:60,stroke:'#E0E0E0','stroke-width':0.5}));
+      s.appendChild(svgEl('line',{x1:4,y1:h-60,x2:w,y2:h-60,stroke:'#E0E0E0','stroke-width':0.5}));
+      // large typographic watermark
+      const wm = svgEl('text',{x:w-20,y:h-20,'text-anchor':'end','font-size':80,'font-weight':700,fill:'#1a1a1a',opacity:0.04,'font-family':'Helvetica Neue,Arial,sans-serif'});
+      wm.textContent = '&';
+      s.appendChild(wm);
+      return {mainColor:'#1a1a1a', textColor:'#1a1a1a', mutedColor:'#6b6b6b', divColor:'#1a1a1a'};
+    }
+  },
+  pastel: {
+    label: 'Whimsical Pastel',
+    renderBg: (s, w, h) => {
+      s.innerHTML = '';
+      s.appendChild(svgEl('rect',{width:w,height:h,rx:12,fill:'#FFF9FB',stroke:'#F4C7D0','stroke-width':1.5}));
+      // dotted border
+      s.appendChild(svgEl('rect',{x:12,y:12,width:w-24,height:h-24,rx:8,fill:'none',stroke:'#C7CEEA','stroke-width':1,'stroke-dasharray':'3,5'}));
+      // stars
+      const starPts = [[60,40],[w-60,40],[40,h-80],[w-40,h-80],[w/2-80,h/2+60],[w/2+80,h/2+60]];
+      starPts.forEach(([sx,sy]) => {
+        const g = svgEl('g',{transform:`translate(${sx},${sy})`});
+        for(let i=0;i<5;i++){
+          const a=i*72*Math.PI/180-Math.PI/2, r=8;
+          const x1=Math.cos(a)*r, y1=Math.sin(a)*r;
+          const a2=(i*72+36)*Math.PI/180-Math.PI/2, r2=3.5;
+          g.appendChild(svgEl('polygon',{points:Array.from({length:10},(_,k)=>{
+            const ang=(k*36-90)*Math.PI/180, rad=k%2===0?8:3.5;
+            return `${Math.cos(ang)*rad},${Math.sin(ang)*rad}`;
+          }).join(' '),fill:'#F4C7D0',opacity:0.7}));
+        }
+        s.appendChild(g);
+      });
+      // clouds
+      [[w/2-80,90],[w/2+60,75]].forEach(([cx,cy]) => {
+        [0,18,-15].forEach(dx => s.appendChild(svgEl('circle',{cx:cx+dx,cy,r:12+Math.abs(dx)*0.3,fill:'#E8F4FD',opacity:0.8})));
+      });
+      // moons
+      s.appendChild(svgEl('path',{d:`M${w-55} 50 a12 12 0 1 1 0 24 a9 9 0 1 0 0 -24`,fill:'#FFEAA7'}));
+      return {mainColor:'#D46B8A', textColor:'#5C4A6B', mutedColor:'#9B8AAA', divColor:'#C7CEEA'};
+    }
+  },
+  cyber: {
+    label: 'Cyberpunk Neon',
+    renderBg: (s, w, h) => {
+      s.innerHTML = '';
+      const defs = svgEl('defs');
+      const glow = svgEl('filter',{id:'glow',x:'-20%',y:'-20%',width:'140%',height:'140%'});
+      const fe = svgEl('feGaussianBlur',{stdDeviation:'3',result:'blur'});
+      const fec = svgEl('feComposite',{in:'SourceGraphic',in2:'blur',operator:'over'});
+      glow.appendChild(fe); glow.appendChild(fec);
+      defs.appendChild(glow);
+      s.appendChild(defs);
+      s.appendChild(svgEl('rect',{width:w,height:h,rx:12,fill:'#040810'}));
+      // grid
+      for(let i=0;i<w;i+=20) s.appendChild(svgEl('line',{x1:i,y1:0,x2:i,y2:h,stroke:'#00F5FF','stroke-width':0.2,opacity:0.15}));
+      for(let i=0;i<h;i+=20) s.appendChild(svgEl('line',{x1:0,y1:i,x2:w,y2:i,stroke:'#00F5FF','stroke-width':0.2,opacity:0.15}));
+      // circuit lines
+      const paths = [
+        `M0 ${h/3} L60 ${h/3} L80 ${h/3-20} L${w-80} ${h/3-20} L${w-60} ${h/3} L${w} ${h/3}`,
+        `M0 ${2*h/3} L50 ${2*h/3} L70 ${2*h/3+20} L${w-70} ${2*h/3+20} L${w-50} ${2*h/3} L${w} ${2*h/3}`
+      ];
+      paths.forEach(d => {
+        s.appendChild(svgEl('path',{d,fill:'none',stroke:'#7B2FBE','stroke-width':1,opacity:0.5}));
+        s.appendChild(svgEl('circle',{cx:d.includes('M0')?60:50,cy:d.includes('h/3-')?h/3-20:2*h/3+20,r:3,fill:'#00F5FF',opacity:0.8}));
+      });
+      // neon border
+      s.appendChild(svgEl('rect',{x:2,y:2,width:w-4,height:h-4,rx:11,fill:'none',stroke:'#00F5FF','stroke-width':1,opacity:0.7}));
+      s.appendChild(svgEl('rect',{x:8,y:8,width:w-16,height:h-16,rx:8,fill:'none',stroke:'#7B2FBE','stroke-width':0.5,opacity:0.8}));
+      // corner brackets
+      const blen=20;
+      [[8,8],[w-8,8],[8,h-8],[w-8,h-8]].forEach(([cx,cy],i) => {
+        const dx=i%2===0?blen:-blen, dy=i<2?blen:-blen;
+        s.appendChild(svgEl('path',{d:`M${cx+dx} ${cy} L${cx} ${cy} L${cx} ${cy+dy}`,fill:'none',stroke:'#00F5FF','stroke-width':1.5}));
+      });
+      return {mainColor:'#00F5FF', textColor:'#E0F0FF', mutedColor:'#8899AA', divColor:'#7B2FBE'};
+    }
+  }
+};
+
+function svgEl(tag, attrs={}) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k,v));
+  return el;
+}
+function addStop(grad, offset, color) {
+  const s = svgEl('stop',{offset,'stop-color':color});
+  grad.appendChild(s);
+}
+function svgText(content, attrs={}) {
+  const el = svgEl('text', attrs);
+  el.textContent = content;
+  return el;
+}
+
+function setTheme(name) {
+  currentTheme = name;
+  document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-'+name).classList.add('active');
+  render();
+}
+
+function render() {
+  const svg = document.getElementById('card-svg');
+  const w=400, h=560;
+  const theme = themes[currentTheme];
+  const n1 = document.getElementById('name1').value || 'Name One';
+  const n2 = document.getElementById('name2').value || 'Name Two';
+  const dt = document.getElementById('edate').value || 'Date';
+  const vn = document.getElementById('venue').value || 'Venue';
+
+  const {mainColor, textColor, mutedColor, divColor} = theme.renderBg(svg, w, h);
+
+  const themeConfigs = {
+    royal: {tf:'Georgia,serif',nf:'Georgia,serif',bf:'Helvetica,sans-serif',ts:9,ns:26,bs:9,nstyle:'italic',tbold:false},
+    botanical: {tf:'Georgia,serif',nf:'Georgia,serif',bf:'Helvetica,sans-serif',ts:9,ns:26,bs:9,nstyle:'italic',tbold:false},
+    pop: {tf:'Impact,Arial Black,sans-serif',nf:'Impact,Arial Black,sans-serif',bf:'Helvetica,sans-serif',ts:11,ns:28,bs:9,nstyle:'normal',tbold:true},
+    minimal: {tf:'Helvetica Neue,Arial,sans-serif',nf:'Helvetica Neue,Arial,sans-serif',bf:'Helvetica Neue,Arial,sans-serif',ts:8,ns:30,bs:8,nstyle:'normal',tbold:true},
+    pastel: {tf:'Georgia,serif',nf:'Georgia,serif',bf:'Helvetica,sans-serif',ts:9,ns:24,bs:9,nstyle:'italic',tbold:false},
+    cyber: {tf:'Courier New,monospace',nf:'Courier New,monospace',bf:'Courier New,monospace',ts:8,ns:22,bs:8,nstyle:'normal',tbold:true}
+  };
+  const c = themeConfigs[currentTheme];
+  const cx = w/2;
+
+  const headerTexts = {
+    royal: 'THE PLEASURE OF YOUR COMPANY IS REQUESTED FOR',
+    botanical: 'please join us to celebrate the union of',
+    pop: 'YOU ARE INVITED TO CELEBRATE!',
+    minimal: 'you are invited',
+    pastel: 'come celebrate with us ✦',
+    cyber: 'YOU HAVE BEEN SELECTED TO ATTEND'
+  };
+  const footerTexts = {
+    royal: 'RECEPTION TO FOLLOW · RSVP BY SEPTEMBER 1',
+    botanical: 'reception to follow · kindly rsvp',
+    pop: 'AND THE PARTY AFTER!',
+    minimal: 'reception follows',
+    pastel: 'with fun and cake for all!',
+    cyber: 'TRANSMISSION CONFIRMED · RSVP REQUIRED'
+  };
+
+  const isMinimal = currentTheme==='minimal';
+  const startX = isMinimal ? 28 : cx;
+  const ta = isMinimal ? 'start' : 'middle';
+
+  // header text
+  const ht = svgText(headerTexts[currentTheme], {
+    x: startX, y: 130, 'text-anchor': ta,
+    'font-family': c.tf, 'font-size': c.ts, fill: mutedColor,
+    'letter-spacing': currentTheme==='cyber'?4:2
+  });
+  svg.appendChild(ht);
+
+  // name 1
+  const n1el = svgText(n1, {
+    x: startX, y: 200, 'text-anchor': ta,
+    'font-family': c.nf, 'font-size': c.ns, fill: mainColor,
+    'font-style': c.nstyle, 'font-weight': c.tbold?'bold':'normal'
+  });
+  svg.appendChild(n1el);
+
+  // ampersand
+  const amp = svgText('&', {
+    x: startX, y: 240, 'text-anchor': ta,
+    'font-family': c.tf, 'font-size': c.ns*0.7, fill: textColor, opacity: 0.6
+  });
+  svg.appendChild(amp);
+
+  // name 2
+  const n2el = svgText(n2, {
+    x: startX, y: 290, 'text-anchor': ta,
+    'font-family': c.nf, 'font-size': c.ns, fill: mainColor,
+    'font-style': c.nstyle, 'font-weight': c.tbold?'bold':'normal'
+  });
+  svg.appendChild(n2el);
+
+  // divider line
+  const divW = isMinimal ? w-28 : w*0.6;
+  const divX1 = isMinimal ? 28 : cx - divW/2;
+  svg.appendChild(svgEl('line',{x1:divX1,y1:330,x2:isMinimal?divW:cx+divW/2,y2:330,stroke:divColor,'stroke-width':0.8,opacity:0.7}));
+
+  // date
+  const dte = svgText(dt.toUpperCase(), {
+    x: startX, y: 366, 'text-anchor': ta,
+    'font-family': c.tf, 'font-size': c.ts+1, fill: textColor,
+    'letter-spacing': 3, 'font-weight': 'bold'
+  });
+  svg.appendChild(dte);
+
+  // time
+  const tme = svgText('AT FOUR O\'CLOCK IN THE AFTERNOON', {
+    x: startX, y: 388, 'text-anchor': ta,
+    'font-family': c.bf, 'font-size': c.bs, fill: mutedColor, 'letter-spacing': 1.5
+  });
+  svg.appendChild(tme);
+
+  // venue
+  const vne = svgText(vn.toUpperCase(), {
+    x: startX, y: 430, 'text-anchor': ta,
+    'font-family': c.nf, 'font-size': c.ts+1, fill: mainColor,
+    'font-weight': 'bold', 'letter-spacing': 1.5
+  });
+  svg.appendChild(vne);
+
+  // location sub
+  const loc = svgText('CHARLESTON, SC', {
+    x: startX, y: 452, 'text-anchor': ta,
+    'font-family': c.bf, 'font-size': c.bs, fill: mutedColor, 'letter-spacing': 1.5
+  });
+  svg.appendChild(loc);
+
+  svg.appendChild(svgEl('line',{x1:divX1,y1:490,x2:isMinimal?divW:cx+divW/2,y2:490,stroke:divColor,'stroke-width':0.8,opacity:0.4}));
+
+  // footer
+  const ftr = svgText(footerTexts[currentTheme], {
+    x: startX, y: 520, 'text-anchor': ta,
+    'font-family': c.bf, 'font-size': c.bs, fill: mutedColor, 'letter-spacing': 1.5
+  });
+  svg.appendChild(ftr);
+}
+
+function downloadSVG() {
+  const svg = document.getElementById('card-svg');
+  const blob = new Blob([svg.outerHTML], {type:'image/svg+xml'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='card.svg'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+render();
+</script>

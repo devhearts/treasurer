@@ -13,6 +13,7 @@ import { PaymentProcessorModule } from "./payments/payment-processor.module";
 import { PaymentsModule } from "./payments/payments.module";
 import { EventsModule } from "./events/events.module";
 import { WalletModule } from "./wallet/wallet.module";
+import { InvitationsModule } from "./invitations/invitations.module";
 import { HealthController } from "./health/health.controller";
 import { PublicController } from "./public/public.controller";
 import { WebhooksController } from "./webhooks/webhooks.controller";
@@ -36,6 +37,7 @@ import { InternalProxyGuard } from "./common/internal-proxy.guard";
     PaymentsModule,
     EventsModule,
     WalletModule,
+    InvitationsModule,
   ],
   controllers: [HealthController, PublicController, WebhooksController],
   providers: [

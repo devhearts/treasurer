@@ -1,0 +1,639 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font-sans);}
+
+.wrap{display:flex;flex-direction:column;align-items:center;gap:0;background:var(--color-background-secondary);padding:16px 0 24px;}
+
+.phone{background:#f5f5f0;border-radius:40px;border:1.5px solid #B4B2A9;width:360px;overflow:hidden;display:flex;flex-direction:column;}
+
+.topbar{background:#2C3A1E;padding:13px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.logo{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:500;color:#fff;}
+.logo-icon{width:26px;height:26px;border-radius:6px;background:#3B6D11;display:flex;align-items:center;justify-content:center;}
+.logo span{color:#7BC142;}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.save-pill{background:transparent;border:0.5px solid #7BC142;color:#7BC142;font-size:12px;padding:5px 12px;border-radius:16px;cursor:pointer;}
+
+.progress-bar{background:#2C3A1E;padding:10px 18px 14px;flex-shrink:0;}
+.step-dots{display:flex;align-items:center;gap:6px;}
+.step-dot{height:4px;border-radius:2px;background:#ffffff30;transition:all .25s;}
+.step-dot.done{background:#7BC142;}
+.step-dot.active{background:#7BC142;flex:2;}
+.step-label{font-size:11px;color:#7BC14299;margin-top:7px;}
+.step-label b{color:#7BC142;font-weight:500;}
+
+.screen-body{flex:1;display:flex;flex-direction:column;}
+.screen-inner{padding:16px;display:flex;flex-direction:column;gap:14px;}
+
+.nav-row{display:flex;align-items:center;gap:8px;margin-bottom:2px;}
+.back-btn{width:32px;height:32px;border-radius:8px;border:0.5px solid #D3D1C7;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#5F5E5A;font-size:16px;}
+.screen-title{font-size:17px;font-weight:500;color:#1a1a18;}
+.screen-sub{font-size:12px;color:#888780;margin-top:1px;}
+
+.section-label{font-size:11px;font-weight:500;color:#5F5E5A;letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px;}
+
+.theme-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.theme-card{border-radius:12px;border:2px solid transparent;cursor:pointer;overflow:hidden;transition:all .2s;}
+.theme-card.selected{border-color:#3B6D11;}
+.theme-preview{height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px;}
+.theme-name{font-size:12px;font-weight:500;padding:6px 8px;background:#fff;color:#1a1a18;border-top:0.5px solid #D3D1C7;}
+.theme-tag{font-size:10px;color:#888780;padding:0 8px 6px;background:#fff;}
+
+.field-group{display:flex;flex-direction:column;gap:4px;}
+.field-label{font-size:12px;color:#5F5E5A;font-weight:500;}
+.field-input{width:100%;padding:9px 11px;border-radius:8px;border:0.5px solid #D3D1C7;background:#fff;font-size:14px;color:#1a1a18;outline:none;}
+.field-input:focus{border-color:#3B6D11;}
+.field-textarea{resize:none;height:64px;line-height:1.5;}
+.field-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+
+.card-preview-wrap{border-radius:12px;overflow:hidden;border:0.5px solid #D3D1C7;}
+.preview-label-row{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#fff;border-bottom:0.5px solid #D3D1C7;}
+.preview-label{font-size:12px;color:#5F5E5A;font-weight:500;}
+.preview-edit-btn{font-size:11px;color:#3B6D11;cursor:pointer;}
+
+.preview-svg-wrap{display:flex;align-items:center;justify-content:center;padding:12px;background:#f0ede6;}
+
+.font-row{display:flex;gap:8px;flex-wrap:wrap;}
+.font-pill{padding:6px 12px;border-radius:16px;border:0.5px solid #D3D1C7;background:#fff;font-size:12px;color:#5F5E5A;cursor:pointer;transition:all .15s;}
+.font-pill.selected{background:#2C3A1E;color:#fff;border-color:#2C3A1E;}
+
+.color-row{display:flex;gap:8px;align-items:center;}
+.color-dot{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;}
+.color-dot.selected{border-color:#1a1a18;}
+
+.recipients-list{display:flex;flex-direction:column;gap:8px;}
+.recipient-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border-radius:10px;border:0.5px solid #D3D1C7;}
+.rec-avatar{width:34px;height:34px;border-radius:50%;background:#EAF3DE;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:#27500A;flex-shrink:0;}
+.rec-info{flex:1;}
+.rec-name{font-size:13px;font-weight:500;color:#1a1a18;}
+.rec-contact{font-size:11px;color:#888780;}
+.rec-check{width:20px;height:20px;border-radius:50%;border:0.5px solid #D3D1C7;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;}
+.rec-check.on{background:#3B6D11;border-color:#3B6D11;color:#fff;}
+
+.add-rec-row{display:flex;gap:8px;}
+.add-rec-input{flex:1;padding:8px 11px;border-radius:8px;border:0.5px solid #D3D1C7;background:#fff;font-size:13px;color:#1a1a18;outline:none;}
+.add-rec-btn{padding:8px 14px;border-radius:8px;background:#2C3A1E;color:#fff;font-size:13px;border:none;cursor:pointer;}
+
+.schedule-opts{display:flex;flex-direction:column;gap:8px;}
+.sched-opt{padding:12px 14px;border-radius:10px;border:0.5px solid #D3D1C7;background:#fff;cursor:pointer;display:flex;align-items:center;gap:12px;transition:all .15s;}
+.sched-opt.selected{border-color:#3B6D11;background:#EAF3DE;}
+.sched-radio{width:18px;height:18px;border-radius:50%;border:1.5px solid #D3D1C7;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.sched-radio.on{border-color:#3B6D11;background:#3B6D11;}
+.sched-radio.on::after{content:'';display:block;width:7px;height:7px;border-radius:50%;background:#fff;}
+.sched-title{font-size:14px;font-weight:500;color:#1a1a18;}
+.sched-sub{font-size:12px;color:#888780;margin-top:1px;}
+
+.date-picker-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:4px;}
+
+.review-card{background:#fff;border-radius:12px;border:0.5px solid #D3D1C7;overflow:hidden;}
+.review-header{background:#2C3A1E;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;}
+.review-header-title{font-size:13px;font-weight:500;color:#fff;}
+.review-badge{font-size:11px;padding:3px 8px;border-radius:10px;background:#7BC14230;color:#7BC142;}
+.review-rows{display:flex;flex-direction:column;}
+.review-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:0.5px solid #F1EFE8;}
+.review-row:last-child{border-bottom:none;}
+.review-key{font-size:12px;color:#888780;display:flex;align-items:center;gap:6px;}
+.review-val{font-size:12px;font-weight:500;color:#1a1a18;text-align:right;max-width:60%;}
+.edit-link{font-size:11px;color:#3B6D11;cursor:pointer;}
+
+.success-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:40px 24px;text-align:center;}
+.success-icon{width:64px;height:64px;border-radius:32px;background:#EAF3DE;display:flex;align-items:center;justify-content:center;font-size:28px;color:#27500A;}
+.success-title{font-size:18px;font-weight:500;color:#1a1a18;}
+.success-sub{font-size:13px;color:#888780;line-height:1.6;}
+.success-actions{display:flex;flex-direction:column;gap:8px;width:100%;margin-top:8px;}
+
+.bottom-bar{padding:12px 16px;background:#fff;border-top:0.5px solid #D3D1C7;display:flex;gap:10px;flex-shrink:0;}
+.btn-secondary{flex:1;padding:12px;border-radius:10px;border:0.5px solid #D3D1C7;background:#fff;font-size:14px;color:#5F5E5A;cursor:pointer;font-weight:500;}
+.btn-primary{flex:2;padding:12px;border-radius:10px;border:none;background:#2C3A1E;color:#fff;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;}
+.btn-primary:active,.btn-secondary:active{opacity:.8;}
+.btn-danger{flex:1;padding:12px;border-radius:10px;border:0.5px solid #F09595;background:#FCEBEB;font-size:14px;color:#791F1F;cursor:pointer;font-weight:500;}
+
+.tab-bar{background:#fff;border-top:0.5px solid #D3D1C7;display:flex;padding:8px 0 6px;flex-shrink:0;}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:#888780;cursor:pointer;}
+.tab.active{color:#2C3A1E;}
+.tab i{font-size:19px;}
+
+.step-nav-pills{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;}
+.snp{padding:5px 12px;border-radius:14px;font-size:11px;border:0.5px solid #D3D1C7;background:#fff;color:#5F5E5A;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.snp.active{background:#2C3A1E;color:#fff;border-color:#2C3A1E;}
+.snp.done{background:#EAF3DE;color:#27500A;border-color:#C0DD97;}
+</style>
+
+<h2 class="sr-only">CeremonyWallet create invitation full mobile flow — 5 steps</h2>
+
+<div class="wrap">
+
+<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;justify-content:center;padding:0 8px;">
+  <button class="snp active" id="pill0" onclick="goStep(0)">1 · Theme</button>
+  <button class="snp" id="pill1" onclick="goStep(1)">2 · Content</button>
+  <button class="snp" id="pill2" onclick="goStep(2)">3 · Design</button>
+  <button class="snp" id="pill3" onclick="goStep(3)">4 · Guests</button>
+  <button class="snp" id="pill4" onclick="goStep(4)">5 · Send</button>
+  <button class="snp" id="pill5" onclick="goStep(5)">Preview</button>
+</div>
+
+<div class="phone" id="phone">
+
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-icon"><i class="ti ti-credit-card" style="font-size:14px;color:#7BC142;" aria-hidden="true"></i></div>
+      Ceremony<span>Wallet</span>
+    </div>
+    <div class="topbar-right">
+      <button class="save-pill" onclick="goStep(5)">Preview</button>
+      <i class="ti ti-x" style="font-size:18px;color:#ffffff80;cursor:pointer;" aria-hidden="true"></i>
+    </div>
+  </div>
+
+  <div class="progress-bar">
+    <div class="step-dots" id="dots"></div>
+    <div class="step-label" id="step-label"></div>
+  </div>
+
+  <div class="screen-body" id="screen-body"></div>
+
+</div>
+</div>
+
+<script>
+let step = 0;
+const totalSteps = 5;
+const state = {
+  theme: 'royal',
+  name1: 'Jonathan Bennett',
+  name2: 'Clara Montgomery',
+  eventType: 'Wedding',
+  date: 'October 17, 2026',
+  time: 'Four o\'clock',
+  venue: 'The Grand Windsor Manor',
+  location: 'Charleston, SC',
+  footer: 'Reception to follow',
+  font: 'serif',
+  accentColor: '#9A7432',
+  schedule: 'now',
+  schedDate: '',
+  guests: [
+    {id:1,name:'Margaret & Robert Chen',contact:'mchen@mail.com',on:true},
+    {id:2,name:'Sophie Laurent',contact:'+1 404 555 0192',on:true},
+    {id:3,name:'David Okafor',contact:'dokafor@mail.com',on:false},
+    {id:4,name:'The Williams Family',contact:'+1 678 555 0234',on:true},
+  ]
+};
+
+const themes = [
+  {id:'royal',name:'Royal Luxury',tag:'Weddings · Galas',bg:'#0f172a',accent:'#F7E5A9',label:'ROYAL',labelColor:'#F7E5A9'},
+  {id:'botanical',name:'Botanical Boho',tag:'Outdoors · Showers',bg:'#F5EFE6',accent:'#6B7F4A',label:'BOTANIC',labelColor:'#4A5E2A'},
+  {id:'pop',name:'Vibrant Pop',tag:'Birthdays · Parties',bg:'#0F0F0F',accent:'#FF3CAC',label:'POP',labelColor:'#FF3CAC'},
+  {id:'minimal',name:'Ultra Minimal',tag:'Corporate · Gallery',bg:'#FAFAFA',accent:'#1a1a1a',label:'MINIMAL',labelColor:'#1a1a1a'},
+  {id:'pastel',name:'Whimsical Pastel',tag:'Kids · Reveals',bg:'#FFF0F5',accent:'#D46B8A',label:'PASTEL',labelColor:'#993556'},
+  {id:'cyber',name:'Cyberpunk Neon',tag:'Tech · Gaming',bg:'#040810',accent:'#00F5FF',label:'CYBER',labelColor:'#00F5FF'},
+];
+
+const fonts = ['Serif','Sans-serif','Script','Monospace'];
+const accents = ['#9A7432','#3B6D11','#185FA5','#993556','#7B2FBE','#D85A30'];
+
+function updateDots(){
+  const d=document.getElementById('dots');
+  d.innerHTML='';
+  for(let i=0;i<totalSteps;i++){
+    const s=document.createElement('div');
+    s.className='step-dot'+(i<step?' done':i===step?' active':'');
+    s.style.flex=i===step?'2':'1';
+    d.appendChild(s);
+  }
+  const labels=['Choose theme','Edit content','Customise design','Add guests','Review & send'];
+  const sl=document.getElementById('step-label');
+  if(step<totalSteps) sl.innerHTML=`Step <b>${step+1} of ${totalSteps}</b> · ${labels[step]}`;
+  else sl.innerHTML=`<b>Sent!</b>`;
+}
+
+function updatePills(){
+  for(let i=0;i<6;i++){
+    const p=document.getElementById('pill'+i);
+    if(!p)return;
+    p.className='snp'+(i===step?' active':i<step?' done':'');
+  }
+}
+
+function goStep(n){
+  step=n;
+  updateDots();
+  updatePills();
+  renderScreen();
+}
+
+function renderScreen(){
+  const body=document.getElementById('screen-body');
+  body.innerHTML='';
+  if(step===0) renderTheme(body);
+  else if(step===1) renderContent(body);
+  else if(step===2) renderDesign(body);
+  else if(step===3) renderGuests(body);
+  else if(step===4) renderSend(body);
+  else renderSuccess(body);
+}
+
+function makeCardSVG(w,h,mini){
+  const t=themes.find(x=>x.id===state.theme)||themes[0];
+  const fs=mini?6:9; const nfs=mini?11:18;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
+    <rect width="${w}" height="${h}" rx="8" fill="${t.bg}"/>
+    <rect x="6" y="6" width="${w-12}" height="${h-12}" rx="5" fill="none" stroke="${t.accent}" stroke-width="0.6" stroke-dasharray="4,3"/>
+    <text x="${w/2}" y="${h*0.22}" text-anchor="middle" font-size="${fs}" fill="${t.accent}" font-family="Georgia,serif" letter-spacing="1">${state.eventType.toUpperCase()}</text>
+    <text x="${w/2}" y="${h*0.45}" text-anchor="middle" font-size="${nfs}" fill="${t.labelColor}" font-family="${state.font==='serif'?'Georgia,serif':state.font==='monospace'?'Courier New,monospace':'Helvetica,sans-serif'}" font-style="${state.font==='serif'?'italic':'normal'}">${state.name1}</text>
+    <text x="${w/2}" y="${h*0.55}" text-anchor="middle" font-size="${fs+1}" fill="${t.accent}" font-family="Georgia,serif">&amp;</text>
+    <text x="${w/2}" y="${h*0.67}" text-anchor="middle" font-size="${nfs}" fill="${t.labelColor}" font-family="${state.font==='serif'?'Georgia,serif':state.font==='monospace'?'Courier New,monospace':'Helvetica,sans-serif'}" font-style="${state.font==='serif'?'italic':'normal'}">${state.name2}</text>
+    <line x1="${w*0.2}" y1="${h*0.74}" x2="${w*0.8}" y2="${h*0.74}" stroke="${t.accent}" stroke-width="0.5"/>
+    <text x="${w/2}" y="${h*0.82}" text-anchor="middle" font-size="${fs}" fill="${t.labelColor}" font-family="Georgia,serif">${state.date}</text>
+    <text x="${w/2}" y="${h*0.9}" text-anchor="middle" font-size="${fs-1}" fill="${t.accent}" font-family="Helvetica,sans-serif">${state.venue}</text>
+  </svg>`;
+  return svg;
+}
+
+function renderTheme(body){
+  const inner=document.createElement('div');
+  inner.className='screen-inner';
+  inner.style.paddingTop='4px';
+
+  const nav=document.createElement('div');
+  nav.className='nav-row';
+  nav.innerHTML=`<div class="back-btn" onclick=""><i class="ti ti-x" aria-hidden="true"></i></div><div><div class="screen-title">Choose a theme</div><div class="screen-sub">Sets the look of your invitation</div></div>`;
+  inner.appendChild(nav);
+
+  const grid=document.createElement('div');
+  grid.className='theme-grid';
+  themes.forEach(t=>{
+    const card=document.createElement('div');
+    card.className='theme-card'+(state.theme===t.id?' selected':'');
+    card.innerHTML=`
+      <div class="theme-preview" style="background:${t.bg};">
+        <div style="font-size:10px;font-weight:500;color:${t.labelColor};letter-spacing:1px;">${t.label}</div>
+        <div style="width:60%;height:1.5px;background:${t.accent};opacity:0.7;margin:3px 0;"></div>
+        <div style="font-size:8px;color:${t.accent};opacity:0.8;">A &amp; B</div>
+      </div>
+      <div class="theme-name">${t.name}</div>
+      <div class="theme-tag">${t.tag}</div>`;
+    card.onclick=()=>{state.theme=t.id;document.querySelectorAll('.theme-card').forEach(c=>c.classList.remove('selected'));card.classList.add('selected');};
+    grid.appendChild(card);
+  });
+  inner.appendChild(grid);
+  body.appendChild(inner);
+
+  const bb=document.createElement('div');
+  bb.className='bottom-bar';
+  bb.innerHTML=`<button class="btn-primary" onclick="goStep(1)"><i class="ti ti-arrow-right" style="font-size:15px;" aria-hidden="true"></i> Next: Content</button>`;
+  body.appendChild(bb);
+  addTabBar(body);
+}
+
+function renderContent(body){
+  const inner=document.createElement('div');
+  inner.className='screen-inner';
+  inner.style.overflowY='auto';
+  inner.style.flex='1';
+
+  inner.innerHTML=`
+    <div class="nav-row">
+      <div class="back-btn" onclick="goStep(0)"><i class="ti ti-arrow-left" aria-hidden="true"></i></div>
+      <div><div class="screen-title">Edit content</div><div class="screen-sub">Fill in the invitation details</div></div>
+    </div>
+
+    <div class="card-preview-wrap">
+      <div class="preview-label-row">
+        <span class="preview-label"><i class="ti ti-eye" style="font-size:13px;vertical-align:-1px;margin-right:4px;" aria-hidden="true"></i>Live preview</span>
+        <span class="preview-edit-btn" onclick="goStep(2)">Customise style</span>
+      </div>
+      <div class="preview-svg-wrap" id="live-preview"></div>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">Name 1</div>
+      <input class="field-input" id="f-name1" value="${state.name1}" oninput="state.name1=this.value;refreshPreview()">
+    </div>
+    <div class="field-group">
+      <div class="field-label">Name 2</div>
+      <input class="field-input" id="f-name2" value="${state.name2}" oninput="state.name2=this.value;refreshPreview()">
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <div class="field-label">Event type</div>
+        <input class="field-input" id="f-evt" value="${state.eventType}" oninput="state.eventType=this.value;refreshPreview()">
+      </div>
+      <div class="field-group">
+        <div class="field-label">Date</div>
+        <input class="field-input" id="f-date" value="${state.date}" oninput="state.date=this.value;refreshPreview()">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <div class="field-label">Time</div>
+        <input class="field-input" id="f-time" value="${state.time}" oninput="state.time=this.value;">
+      </div>
+      <div class="field-group">
+        <div class="field-label">Location</div>
+        <input class="field-input" id="f-loc" value="${state.location}" oninput="state.location=this.value;refreshPreview()">
+      </div>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Venue name</div>
+      <input class="field-input" id="f-venue" value="${state.venue}" oninput="state.venue=this.value;refreshPreview()">
+    </div>
+    <div class="field-group">
+      <div class="field-label">Footer note</div>
+      <textarea class="field-input field-textarea" id="f-footer" oninput="state.footer=this.value;">${state.footer}</textarea>
+    </div>
+  `;
+  body.appendChild(inner);
+
+  setTimeout(()=>{
+    const pv=document.getElementById('live-preview');
+    if(pv) pv.innerHTML=makeCardSVG(200,130,false);
+  },10);
+
+  const bb=document.createElement('div');
+  bb.className='bottom-bar';
+  bb.innerHTML=`<button class="btn-secondary" onclick="goStep(0)">Back</button><button class="btn-primary" onclick="goStep(2)"><i class="ti ti-arrow-right" style="font-size:15px;" aria-hidden="true"></i> Design</button>`;
+  body.appendChild(bb);
+  addTabBar(body);
+}
+
+function refreshPreview(){
+  const pv=document.getElementById('live-preview');
+  if(pv) pv.innerHTML=makeCardSVG(200,130,false);
+}
+
+function renderDesign(body){
+  const inner=document.createElement('div');
+  inner.className='screen-inner';
+  inner.style.overflowY='auto';
+  inner.style.flex='1';
+
+  const accDots=accents.map(c=>`<div class="color-dot${state.accentColor===c?' selected':''}" style="background:${c};" onclick="state.accentColor='${c}';document.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('selected'));this.classList.add('selected');refreshDesignPreview();"></div>`).join('');
+  const fontPills=fonts.map(f=>`<div class="font-pill${state.font===f.toLowerCase().replace('-','')?' selected':''}" onclick="state.font='${f.toLowerCase().replace('-','')}';document.querySelectorAll('.font-pill').forEach(p=>p.classList.remove('selected'));this.classList.add('selected');refreshDesignPreview();">${f}</div>`).join('');
+
+  inner.innerHTML=`
+    <div class="nav-row">
+      <div class="back-btn" onclick="goStep(1)"><i class="ti ti-arrow-left" aria-hidden="true"></i></div>
+      <div><div class="screen-title">Customise design</div><div class="screen-sub">Typography, colour & layout</div></div>
+    </div>
+
+    <div class="card-preview-wrap">
+      <div class="preview-label-row">
+        <span class="preview-label"><i class="ti ti-eye" style="font-size:13px;vertical-align:-1px;margin-right:4px;" aria-hidden="true"></i>Live preview</span>
+        <span class="preview-edit-btn" onclick="goStep(0)">Change theme</span>
+      </div>
+      <div class="preview-svg-wrap" id="design-preview"></div>
+    </div>
+
+    <div>
+      <div class="section-label">Font style</div>
+      <div class="font-row">${fontPills}</div>
+    </div>
+
+    <div>
+      <div class="section-label">Accent colour</div>
+      <div class="color-row">${accDots}</div>
+    </div>
+
+    <div>
+      <div class="section-label">Card size</div>
+      <div class="font-row">
+        <div class="font-pill selected">Standard A5</div>
+        <div class="font-pill">Square</div>
+        <div class="font-pill">DL Envelope</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Layout</div>
+      <div class="font-row">
+        <div class="font-pill selected">Centred</div>
+        <div class="font-pill">Left-aligned</div>
+      </div>
+    </div>
+  `;
+  body.appendChild(inner);
+
+  setTimeout(()=>{
+    const pv=document.getElementById('design-preview');
+    if(pv) pv.innerHTML=makeCardSVG(200,130,false);
+  },10);
+
+  const bb=document.createElement('div');
+  bb.className='bottom-bar';
+  bb.innerHTML=`<button class="btn-secondary" onclick="goStep(1)">Back</button><button class="btn-primary" onclick="goStep(3)"><i class="ti ti-arrow-right" style="font-size:15px;" aria-hidden="true"></i> Add guests</button>`;
+  body.appendChild(bb);
+  addTabBar(body);
+}
+
+function refreshDesignPreview(){
+  const pv=document.getElementById('design-preview');
+  if(pv) pv.innerHTML=makeCardSVG(200,130,false);
+}
+
+function renderGuests(body){
+  const inner=document.createElement('div');
+  inner.className='screen-inner';
+  inner.style.overflowY='auto';
+  inner.style.flex='1';
+
+  const selected=state.guests.filter(g=>g.on).length;
+
+  const guestRows=state.guests.map(g=>`
+    <div class="recipient-row">
+      <div class="rec-avatar">${g.name.split(' ').map(w=>w[0]).slice(0,2).join('')}</div>
+      <div class="rec-info">
+        <div class="rec-name">${g.name}</div>
+        <div class="rec-contact">${g.contact}</div>
+      </div>
+      <div class="rec-check${g.on?' on':''}" onclick="toggleGuest(${g.id})">
+        ${g.on?'<i class="ti ti-check" style="font-size:12px;" aria-hidden="true"></i>':''}
+      </div>
+    </div>`).join('');
+
+  inner.innerHTML=`
+    <div class="nav-row">
+      <div class="back-btn" onclick="goStep(2)"><i class="ti ti-arrow-left" aria-hidden="true"></i></div>
+      <div><div class="screen-title">Add guests</div><div class="screen-sub">${selected} of ${state.guests.length} selected</div></div>
+    </div>
+
+    <div class="add-rec-row">
+      <input class="add-rec-input" placeholder="Name, email or phone…" id="new-guest-input">
+      <button class="add-rec-btn" onclick="addGuest()">Add</button>
+    </div>
+
+    <div>
+      <div class="section-label" style="margin-bottom:8px;">Guest list</div>
+      <div class="recipients-list" id="guest-list">${guestRows}</div>
+    </div>
+
+    <div style="background:#EAF3DE;border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:8px;">
+      <i class="ti ti-users" style="font-size:16px;color:#27500A;" aria-hidden="true"></i>
+      <div style="font-size:12px;color:#27500A;">${selected} invitation${selected!==1?'s':''} will be sent · <span style="font-weight:500;">Import from contacts</span></div>
+    </div>
+  `;
+  body.appendChild(inner);
+
+  const bb=document.createElement('div');
+  bb.className='bottom-bar';
+  bb.innerHTML=`<button class="btn-secondary" onclick="goStep(2)">Back</button><button class="btn-primary" onclick="goStep(4)"><i class="ti ti-arrow-right" style="font-size:15px;" aria-hidden="true"></i> Review & send</button>`;
+  body.appendChild(bb);
+  addTabBar(body);
+}
+
+function toggleGuest(id){
+  const g=state.guests.find(x=>x.id===id);
+  if(g) g.on=!g.on;
+  renderScreen();
+}
+
+function addGuest(){
+  const inp=document.getElementById('new-guest-input');
+  const val=inp?inp.value.trim():'';
+  if(!val)return;
+  state.guests.push({id:Date.now(),name:val,contact:'',on:true});
+  renderScreen();
+}
+
+function renderSend(body){
+  const inner=document.createElement('div');
+  inner.className='screen-inner';
+  inner.style.overflowY='auto';
+  inner.style.flex='1';
+
+  const t=themes.find(x=>x.id===state.theme)||themes[0];
+  const selCount=state.guests.filter(g=>g.on).length;
+
+  inner.innerHTML=`
+    <div class="nav-row">
+      <div class="back-btn" onclick="goStep(3)"><i class="ti ti-arrow-left" aria-hidden="true"></i></div>
+      <div><div class="screen-title">Review & send</div><div class="screen-sub">Everything looks good?</div></div>
+    </div>
+
+    <div class="review-card">
+      <div class="review-header">
+        <span class="review-header-title">Invitation summary</span>
+        <span class="review-badge">Ready</span>
+      </div>
+      <div class="review-rows">
+        <div class="review-row">
+          <span class="review-key"><i class="ti ti-palette" style="font-size:13px;" aria-hidden="true"></i> Theme</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="review-val">${t.name}</span>
+            <span class="edit-link" onclick="goStep(0)">Edit</span>
+          </div>
+        </div>
+        <div class="review-row">
+          <span class="review-key"><i class="ti ti-heart" style="font-size:13px;" aria-hidden="true"></i> Couple</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="review-val" style="font-size:11px;">${state.name1} &amp; ${state.name2}</span>
+            <span class="edit-link" onclick="goStep(1)">Edit</span>
+          </div>
+        </div>
+        <div class="review-row">
+          <span class="review-key"><i class="ti ti-calendar" style="font-size:13px;" aria-hidden="true"></i> Date</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="review-val">${state.date}</span>
+            <span class="edit-link" onclick="goStep(1)">Edit</span>
+          </div>
+        </div>
+        <div class="review-row">
+          <span class="review-key"><i class="ti ti-map-pin" style="font-size:13px;" aria-hidden="true"></i> Venue</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="review-val" style="font-size:11px;">${state.venue}</span>
+            <span class="edit-link" onclick="goStep(1)">Edit</span>
+          </div>
+        </div>
+        <div class="review-row">
+          <span class="review-key"><i class="ti ti-users" style="font-size:13px;" aria-hidden="true"></i> Recipients</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="review-val">${selCount} guests</span>
+            <span class="edit-link" onclick="goStep(3)">Edit</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="preview-svg-wrap" style="background:#f0ede6;border-radius:12px;border:0.5px solid #D3D1C7;">${makeCardSVG(200,130,false)}</div>
+
+    <div>
+      <div class="section-label">Delivery</div>
+      <div class="schedule-opts">
+        <div class="sched-opt${state.schedule==='now'?' selected':''}" onclick="state.schedule='now';renderScreen();">
+          <div class="sched-radio${state.schedule==='now'?' on':''}"></div>
+          <div>
+            <div class="sched-title">Send now</div>
+            <div class="sched-sub">Delivered immediately to all ${selCount} guests</div>
+          </div>
+        </div>
+        <div class="sched-opt${state.schedule==='later'?' selected':''}" onclick="state.schedule='later';renderScreen();">
+          <div class="sched-radio${state.schedule==='later'?' on':''}"></div>
+          <div>
+            <div class="sched-title">Schedule for later</div>
+            <div class="sched-sub">Pick a date and time to send</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    ${state.schedule==='later'?`<div class="date-picker-row">
+      <div class="field-group"><div class="field-label">Send date</div><input type="date" class="field-input" id="sched-date" oninput="state.schedDate=this.value"></div>
+      <div class="field-group"><div class="field-label">Send time</div><input type="time" class="field-input" id="sched-time" value="10:00"></div>
+    </div>`:''}
+
+    <div style="background:#FAEEDA;border-radius:10px;padding:10px 12px;display:flex;align-items:flex-start;gap:8px;">
+      <i class="ti ti-info-circle" style="font-size:15px;color:#633806;margin-top:1px;flex-shrink:0;" aria-hidden="true"></i>
+      <div style="font-size:12px;color:#633806;line-height:1.5;">Recipients will receive a digital invitation link. You can track opens and RSVPs from the Stats tab.</div>
+    </div>
+  `;
+  body.appendChild(inner);
+
+  const bb=document.createElement('div');
+  bb.className='bottom-bar';
+  bb.innerHTML=`
+    <button class="btn-secondary" onclick="goStep(3)">Back</button>
+    <button class="btn-primary" onclick="goStep(5)">
+      <i class="ti ti-send" style="font-size:15px;" aria-hidden="true"></i>
+      ${state.schedule==='now'?`Send to ${selCount}`:'Schedule'}
+    </button>`;
+  body.appendChild(bb);
+  addTabBar(body);
+}
+
+function renderSuccess(body){
+  const selCount=state.guests.filter(g=>g.on).length;
+  const ss=document.createElement('div');
+  ss.className='success-screen';
+  ss.style.flex='1';
+  ss.innerHTML=`
+    <div class="success-icon"><i class="ti ti-send" aria-hidden="true"></i></div>
+    <div class="success-title">${state.schedule==='now'?'Invitations sent!':'Invitations scheduled!'}</div>
+    <div class="success-sub">${selCount} invitation${selCount!==1?'s':''} ${state.schedule==='now'?'have been delivered':'are scheduled'} for <b>${state.name1} &amp; ${state.name2}'s</b> ${state.eventType}.</div>
+    <div class="preview-svg-wrap" style="background:#f0ede6;border-radius:12px;border:0.5px solid #D3D1C7;width:100%;">${makeCardSVG(200,130,false)}</div>
+    <div class="success-actions">
+      <button class="btn-primary" style="border-radius:10px;padding:12px;width:100%;border:none;background:#2C3A1E;color:#fff;font-size:14px;font-weight:500;cursor:pointer;" onclick="sendPrompt('Show me the RSVP tracking dashboard for this invitation')">
+        <i class="ti ti-chart-bar" style="font-size:15px;" aria-hidden="true"></i> Track RSVPs ↗
+      </button>
+      <button class="btn-secondary" style="border-radius:10px;padding:12px;width:100%;font-size:14px;cursor:pointer;" onclick="goStep(0);state.theme='royal';">
+        <i class="ti ti-plus" style="font-size:15px;" aria-hidden="true"></i> Create another
+      </button>
+    </div>
+  `;
+  body.appendChild(ss);
+  addTabBar(body);
+}
+
+function addTabBar(body){
+  const tb=document.createElement('div');
+  tb.className='tab-bar';
+  tb.innerHTML=`
+    <div class="tab"><i class="ti ti-home" aria-hidden="true"></i><span>Home</span></div>
+    <div class="tab active"><i class="ti ti-mail" aria-hidden="true"></i><span>Invites</span></div>
+    <div class="tab"><i class="ti ti-users" aria-hidden="true"></i><span>Guests</span></div>
+    <div class="tab"><i class="ti ti-chart-bar" aria-hidden="true"></i><span>Stats</span></div>
+    <div class="tab"><i class="ti ti-settings" aria-hidden="true"></i><span>Settings</span></div>`;
+  body.appendChild(tb);
+}
+
+goStep(0);
+</script>
