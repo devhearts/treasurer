@@ -5,8 +5,14 @@ const EVENT_ID_PATH_SEGMENT_RE = /^[-a-zA-Z0-9_]{1,36}$/;
 
 export const EVENT_OG_WIDTH = 1200;
 export const EVENT_OG_HEIGHT = 630;
-export const EVENT_OG_WEBP_QUALITY = 82;
-export const EVENT_OG_CONTENT_TYPE = "image/webp";
+/** PNG compression level 0–9 (higher = smaller, slower). */
+export const EVENT_OG_PNG_COMPRESSION = 9;
+export const EVENT_OG_CONTENT_TYPE = "image/png";
+
+/** Legacy WebP OG objects from an earlier format — removed on next slot-0 sync. */
+export function legacyEventOgWebpKey(eventId: string): string {
+  return `events/${eventId}/og.webp`;
+}
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -27,7 +33,7 @@ export function slotFromEventImageKey(key: string): number {
 }
 
 export function eventOgImageKey(eventId: string): string {
-  return `events/${eventId}/og.webp`;
+  return `events/${eventId}/og.png`;
 }
 
 export function isEventOgImageKey(key: string, eventId: string): boolean {
@@ -56,6 +62,6 @@ export async function compressEventOgImage(source: Buffer): Promise<Buffer> {
       fit: "cover",
       position: "centre",
     })
-    .webp({ quality: EVENT_OG_WEBP_QUALITY })
+    .png({ compressionLevel: EVENT_OG_PNG_COMPRESSION })
     .toBuffer();
 }

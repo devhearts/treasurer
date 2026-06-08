@@ -1,5 +1,5 @@
 /**
- * One-time backfill: compress slot-0 gallery images into events/{eventId}/og.webp.
+ * One-time backfill: compress slot-0 gallery images into events/{eventId}/og.png.
  *
  * Run after deploying OG upload code and `db:migrate`:
  *   npm run db:backfill-event-og -w @treasurer/api
@@ -16,6 +16,7 @@ import { StorageService } from "../integrations/storage.service";
 import {
   compressEventOgImage,
   eventOgImageKey,
+  legacyEventOgWebpKey,
   slot0KeyFromGarageKeys,
   EVENT_OG_CONTENT_TYPE,
 } from "../events/event-og-image";
@@ -96,6 +97,7 @@ async function main() {
       }
       const og = await compressEventOgImage(source);
       await storage.putObject(ogKey, og, EVENT_OG_CONTENT_TYPE);
+      await storage.deleteObject(legacyEventOgWebpKey(row.id)).catch(() => undefined);
       processed++;
       console.log(`[ok] ${row.slug} → ${ogKey}`);
     } catch (e) {

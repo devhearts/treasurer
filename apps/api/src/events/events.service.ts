@@ -22,6 +22,7 @@ import {
   isEventImageGarageKey,
   slot0KeyFromGarageKeys,
   slotFromEventImageKey,
+  legacyEventOgWebpKey,
   EVENT_OG_CONTENT_TYPE,
 } from "./event-og-image";
 
@@ -798,11 +799,17 @@ export class EventsService {
       og,
       EVENT_OG_CONTENT_TYPE
     );
+    await this.storage
+      .deleteObject(legacyEventOgWebpKey(eventId))
+      .catch(() => undefined);
   }
 
   private async deleteEventOgImage(eventId: string): Promise<void> {
     if (!this.storage.isConfigured()) return;
     await this.storage.deleteObject(eventOgImageKey(eventId)).catch(() => undefined);
+    await this.storage
+      .deleteObject(legacyEventOgWebpKey(eventId))
+      .catch(() => undefined);
   }
 
   private async syncEventOgFromSlot0(

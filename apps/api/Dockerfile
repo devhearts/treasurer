@@ -18,7 +18,7 @@ FROM builder AS migrator
 WORKDIR /repo
 CMD ["node", "apps/api/scripts/docker-db-migrate.cjs"]
 
-# One-shot OG image backfill: compress slot-0 gallery images to events/{id}/og.webp.
+# One-shot OG image backfill: compress slot-0 gallery images to events/{id}/og.png.
 FROM builder AS backfill
 WORKDIR /repo/apps/api
 CMD ["npx", "tsx", "src/database/backfill-event-og-images.ts"]
