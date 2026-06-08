@@ -12,6 +12,7 @@
     "db:push": "npm run db:push -w @treasurer/api",
     "db:migrate": "npm run db:migrate -w @treasurer/api",
     "db:seed": "npm run db:seed -w @treasurer/api",
+    "db:backfill-event-og": "npm run db:backfill-event-og -w @treasurer/api",
     "momo:provision": "npm run momo:provision -w @treasurer/web",
     "docker:gen-ports": "node docker/generate-port-envs.mjs",
     "docker:verify-ports": "node docker/verify-ports.mjs",

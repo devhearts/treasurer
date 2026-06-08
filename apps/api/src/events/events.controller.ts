@@ -92,6 +92,20 @@ export class EventsController {
     });
   }
 
+  @Get("by-slug/:slug/og")
+  @Public()
+  @Header("Cache-Control", "public, max-age=86400")
+  async ogImage(@Param("slug") slug: string): Promise<StreamableFile> {
+    const obj = await this.events.streamEventOgObject(slug);
+    if (!obj) {
+      throw new NotFoundException();
+    }
+    return new StreamableFile(obj.body, {
+      type: obj.contentType,
+      disposition: "inline",
+    });
+  }
+
   @Get("by-slug/:slug")
   async bySlug(@Param("slug") slug: string) {
     const ev = await this.events.getBySlug(slug);

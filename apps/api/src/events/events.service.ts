@@ -16,6 +16,14 @@ import { ConfigService } from "@nestjs/config";
 import { StorageService } from "../integrations/storage.service";
 import { ContributionNotificationsService } from "../integrations/contribution-notifications.service";
 import type { Readable } from "node:stream";
+import {
+  compressEventOgImage,
+  eventOgImageKey,
+  isEventImageGarageKey,
+  slot0KeyFromGarageKeys,
+  slotFromEventImageKey,
+  EVENT_OG_CONTENT_TYPE,
+} from "./event-og-image";
 
 export type CeremonyEventDto = {
   id: string;
@@ -68,24 +76,6 @@ const MAX_EVENT_IMAGES = 3;
 
 /** Matches `events.id` (varchar 36): single Garage path segment, no slashes. */
 const EVENT_ID_PATH_SEGMENT_RE = /^[-a-zA-Z0-9_]{1,36}$/;
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function isEventImageGarageKey(key: string, eventId: string): boolean {
-  if (!EVENT_ID_PATH_SEGMENT_RE.test(eventId)) return false;
-  const re = new RegExp(
-    `^events/${escapeRegExp(eventId)}/[0-2]\\.(jpg|jpeg|png|webp)$`,
-    "i"
-  );
-  return re.test(key);
-}
-
-function slotFromEventImageKey(key: string): number {
-  const m = /\/([0-2])\./.exec(key);
-  return m ? parseInt(m[1], 10) : 0;
-}
 
 function normalizeIncomingImageKeys(
   eventId: string,
@@ -419,6 +409,7 @@ export class EventsService {
           await this.storage.deleteObject(old).catch(() => undefined);
         }
       }
+      await this.syncEventOgAfterImageKeysChange(row.id, imageKeys);
     }
 
     await this.audit.log({
@@ -772,6 +763,9 @@ export class EventsService {
       mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
     const key = `events/${eventId}/${slot}.${ext}`;
     await this.storage.putObject(key, buffer, mime);
+    if (slot === 0) {
+      await this.writeEventOgFromBuffer(eventId, buffer);
+    }
     return { key };
   }
 
@@ -784,7 +778,78 @@ export class EventsService {
     ) {
       throw new BadRequestException("Invalid image key.");
     }
+    const slot0Match = /^events\/([-a-zA-Z0-9_]{1,36})\/0\.(jpg|jpeg|png|webp)$/i.exec(
+      key
+    );
     await this.storage.deleteObject(key);
+    if (slot0Match) {
+      await this.deleteEventOgImage(slot0Match[1]);
+    }
+  }
+
+  private async writeEventOgFromBuffer(
+    eventId: string,
+    source: Buffer
+  ): Promise<void> {
+    if (!this.storage.isConfigured()) return;
+    const og = await compressEventOgImage(source);
+    await this.storage.putObject(
+      eventOgImageKey(eventId),
+      og,
+      EVENT_OG_CONTENT_TYPE
+    );
+  }
+
+  private async deleteEventOgImage(eventId: string): Promise<void> {
+    if (!this.storage.isConfigured()) return;
+    await this.storage.deleteObject(eventOgImageKey(eventId)).catch(() => undefined);
+  }
+
+  private async syncEventOgFromSlot0(
+    eventId: string,
+    slot0Key: string
+  ): Promise<void> {
+    if (!this.storage.isConfigured()) return;
+    const source = await this.storage.getObjectBuffer(slot0Key);
+    if (!source) return;
+    await this.writeEventOgFromBuffer(eventId, source);
+  }
+
+  private async syncEventOgAfterImageKeysChange(
+    eventId: string,
+    imageKeys: string[] | null
+  ): Promise<void> {
+    if (!this.storage.isConfigured()) return;
+    const keys = imageKeys ?? [];
+    const slot0Key = slot0KeyFromGarageKeys(keys, eventId);
+    if (!slot0Key) {
+      await this.deleteEventOgImage(eventId);
+      return;
+    }
+    await this.syncEventOgFromSlot0(eventId, slot0Key);
+  }
+
+  async streamEventOgObject(
+    slug: string
+  ): Promise<{ body: Readable; contentType: string } | null> {
+    const rows = await this.db
+      .select({
+        id: schema.events.id,
+        imageUrls: schema.events.imageUrls,
+      })
+      .from(schema.events)
+      .where(eq(schema.events.slug, slug))
+      .limit(1);
+    const row = rows[0];
+    if (!row) return null;
+
+    const ogKey = eventOgImageKey(row.id);
+    if (await this.storage.headObject(ogKey)) {
+      const obj = await this.storage.getObjectStream(ogKey);
+      if (obj) return obj;
+    }
+
+    return this.streamGalleryObject(slug, 0);
   }
 
   async getEventImageKeyForGallerySlot(
