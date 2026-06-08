@@ -1,0 +1,30 @@
+# Dev / Docker Compose — single Garage node. Do not reuse these secrets in production.
+#
+# Container listen ports (fixed inside the image; host publishing uses docker-compose.yml HOST_PORT_*).
+# Published to host today: S3 API 3900, Admin API 3903 (see docker/ports.base.json → garageS3, garageAdmin).
+# Internal only (not in compose `ports:`): RPC 3901, S3 web UI 3902 — other services use garage:3900 / garage:3903 on the Docker network.
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "sqlite"
+
+replication_factor = 1
+
+rpc_bind_addr = "[::]:3901"
+rpc_public_addr = "garage:3901"
+rpc_secret = "a7f2c9e1b4d586a3f0e92c74d6851a302b9f8e6c451d237a90e4b6c851d29340"
+
+[s3_api]
+s3_region = "garage"
+api_bind_addr = "[::]:3900"
+root_domain = ".s3.garage.localhost"
+
+[s3_web]
+bind_addr = "[::]:3902"
+root_domain = ".web.garage.localhost"
+index = "index.html"
+
+[admin]
+api_bind_addr = "[::]:3903"
+admin_token = "treasurer-dev-garage-admin-token-min-32-chars-ok"
+metrics_token = "treasurer-dev-garage-metrics-token-min-32-chars-ok"
+metrics_require_token = false

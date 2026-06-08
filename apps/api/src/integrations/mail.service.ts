@@ -1,0 +1,198 @@
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import * as nodemailer from "nodemailer";
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+@Injectable()
+export class MailService {
+  private readonly log = new Logger(MailService.name);
+
+  constructor(private readonly config: ConfigService) {}
+
+  private transporter() {
+    const host = this.config.get<string>("app.smtp.host");
+    if (!host) return null;
+    this.log.debug(`Creating SMTP transporter for host ${host}`);
+    this.log.debug(`SMTP port: ${this.config.get<number>("app.smtp.port") ?? 587}`);
+    this.log.debug(`SMTP secure: ${((this.config.get<number>("app.smtp.port") ?? 587) === 465) ? "true" : "false"}`);
+    return nodemailer.createTransport({
+      host,
+      port: this.config.get<number>("app.smtp.port") ?? 587,
+      secure: (this.config.get<number>("app.smtp.port") ?? 587) === 465,
+      auth: {
+        user: this.config.get<string>("app.smtp.user") || undefined,
+        pass: this.config.get<string>("app.smtp.pass") || undefined,
+      },
+    });
+  }
+
+  async sendPasswordReset(to: string, resetLink: string): Promise<void> {
+    const t = this.transporter();
+    const from = this.config.get<string>("app.smtp.from") ?? "noreply@localhost";
+    if (!t) {
+      this.log.log(`Password reset link (no SMTP): ${resetLink}`);
+      return;
+    }
+    this.log.debug(`Sending password reset link to ${to}: ${resetLink}`);
+    await t.sendMail({
+      from,
+      to,
+      subject: "Reset your CeremonyWallet password",
+      html: `
+        <p>You requested a password reset for your CeremonyWallet account.</p>
+        <p><a href="${resetLink}">Reset your password</a></p>
+        <p>This link expires in 1 hour. If you didn't request this, you can ignore this email.</p>
+      `,
+    });
+  }
+
+  async sendEmailVerification(to: string, verifyLink: string): Promise<void> {
+    const t = this.transporter();
+    const from = this.config.get<string>("app.smtp.from") ?? "noreply@localhost";
+    if (!t) {
+      this.log.log(`Email verification link (no SMTP): ${verifyLink}`);
+      return;
+    }
+    this.log.debug(`Sending email verification link to ${to}: ${verifyLink} using smtp user ${from}`);
+    await t.sendMail({
+      from,
+      to,
+      subject: "Verify your CeremonyWallet email",
+      html: `
+        <p>Thanks for signing up. Please confirm your email address to activate your account.</p>
+        <p><a href="${verifyLink}">Verify your email</a></p>
+        <p>This link expires in 48 hours. If you didn't create an account, you can ignore this email.</p>
+      `,
+    });
+  }
+
+  async sendWithdrawalOtp(
+    to: string,
+    code: string,
+    summary: {
+      grossAmount: number;
+      netAmount: number;
+      methodLabel: string;
+      destination: string;
+    }
+  ): Promise<void> {
+    const t = this.transporter();
+    const from = this.config.get<string>("app.smtp.from") ?? "noreply@localhost";
+    const gross = summary.grossAmount.toLocaleString("en-UG");
+    const net = summary.netAmount.toLocaleString("en-UG");
+    if (!t) {
+      this.log.log(
+        `Withdrawal OTP (no SMTP) for ${to}: ${code} — UGX ${gross} to ${summary.methodLabel} (${summary.destination}), you receive UGX ${net}`
+      );
+      return;
+    }
+    await t.sendMail({
+      from,
+      to,
+      subject: "CeremonyWallet withdrawal confirmation code",
+      html: `
+        <p>Your CeremonyWallet withdrawal confirmation code is:</p>
+        <p style="font-size:24px;font-weight:bold;letter-spacing:4px;">${code}</p>
+        <p>This code expires in 5 minutes.</p>
+        <p><strong>Amount:</strong> UGX ${gross}<br/>
+        <strong>You receive:</strong> UGX ${net}<br/>
+        <strong>To:</strong> ${summary.methodLabel} · ${summary.destination}</p>
+        <p>If you did not request this withdrawal, secure your account immediately.</p>
+      `,
+    });
+  }
+
+  async sendContributionNotification(
+    to: string,
+    summary: {
+      eventTitle: string;
+      contributorName: string;
+      anonymous: boolean;
+      amount: number;
+      phone?: string;
+      message?: string;
+      manual?: boolean;
+      viaMobileMoney?: boolean;
+      contributionsUrl: string;
+    }
+  ): Promise<void> {
+    const t = this.transporter();
+    const from = this.config.get<string>("app.smtp.from") ?? "noreply@localhost";
+    const amount = summary.amount.toLocaleString("en-UG");
+    const who = summary.anonymous
+      ? "Anonymous"
+      : summary.contributorName.trim() || "Someone";
+    const method = summary.manual
+      ? "Recorded manually"
+      : summary.viaMobileMoney
+        ? "Mobile money"
+        : "Payment";
+    const phoneLine = summary.phone?.trim()
+      ? `<br/><strong>Phone:</strong> ${escapeHtml(summary.phone.trim())}`
+      : "";
+    const messageLine = summary.message?.trim()
+      ? `<p style="margin:12px 0 0;"><em>${escapeHtml(summary.message.trim())}</em></p>`
+      : "";
+    const eventTitle = escapeHtml(summary.eventTitle.trim() || "Your event");
+    const link = escapeHtml(summary.contributionsUrl);
+
+    if (!t) {
+      this.log.log(
+        `Contribution notification (no SMTP) for ${to}: UGX ${amount} from ${who} — ${summary.contributionsUrl}`
+      );
+      return;
+    }
+
+    await t.sendMail({
+      from,
+      to,
+      subject: `New contribution — ${summary.eventTitle.trim() || "your event"}`,
+      html: `
+        <p>You received a new contribution on <strong>${eventTitle}</strong>.</p>
+        <p style="margin:16px 0;padding:12px 16px;background:#f4f4f5;border-radius:8px;">
+          <strong>Amount:</strong> UGX ${amount}<br/>
+          <strong>From:</strong> ${escapeHtml(who)}<br/>
+          <strong>How:</strong> ${escapeHtml(method)}${phoneLine}
+        </p>
+        ${messageLine}
+        <p><a href="${link}">View all contributions</a></p>
+        <p style="color:#666;font-size:12px;">CeremonyWallet — contribution notification</p>
+      `,
+    });
+  }
+
+  async sendPayoutMethodOtp(
+    to: string,
+    code: string,
+    summary: { methodLabel: string; destination: string }
+  ): Promise<void> {
+    const t = this.transporter();
+    const from = this.config.get<string>("app.smtp.from") ?? "noreply@localhost";
+    if (!t) {
+      this.log.log(
+        `Payout method OTP (no SMTP) for ${to}: ${code} — add ${summary.methodLabel} · ${summary.destination}`
+      );
+      return;
+    }
+    await t.sendMail({
+      from,
+      to,
+      subject: "CeremonyWallet — confirm new payout method",
+      html: `
+        <p>Your confirmation code to add a payout method is:</p>
+        <p style="font-size:24px;font-weight:bold;letter-spacing:4px;">${code}</p>
+        <p>This code expires in 5 minutes.</p>
+        <p><strong>Method:</strong> ${summary.methodLabel}<br/>
+        <strong>Destination:</strong> ${summary.destination}</p>
+        <p>If you did not request this, secure your account immediately.</p>
+      `,
+    });
+  }
+}

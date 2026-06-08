@@ -47,12 +47,14 @@ bun start
 ```
 src/
 ├── app/                    # Next.js App Router pages
-│   ├── page.tsx           # Home page
-│   ├── create/            # Create event wizard
-│   └── events/            # Events listing and details
-│       └── [slug]/invite/ # Wedding invitation cards
-├── components/            # Reusable React components
-└── lib/                   # Utilities, types, and data
+│   ├── actions/            # Server actions (events, contributions)
+│   ├── page.tsx            # Home page
+│   ├── create/             # Create event wizard
+│   └── events/             # Events listing and details
+│       └── [slug]/invite/   # Wedding invitation cards
+├── components/             # Reusable React components
+└── lib/                    # Utilities, types, and data
+    └── db/                 # SQLite schema, queries, seed
 ```
 
 ## Available Routes
@@ -71,18 +73,26 @@ src/
 - **React 19**
 - **TypeScript** (strict mode)
 - **Tailwind CSS 4**
-- **Bun** (package manager)
+- **SQLite** (better-sqlite3) + **Drizzle ORM** for persistence
+- **Bun** or **Node.js 20+** (package manager)
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `bun install` | Install dependencies |
-| `bun dev` | Start development server |
-| `bun build` | Build for production |
-| `bun start` | Start production server |
-| `bun lint` | Run ESLint |
-| `bun typecheck` | Run TypeScript type checking |
+| `npm install` / `bun install` | Install dependencies |
+| `npm run dev` / `bun dev` | Start development server |
+| `npm run build` / `bun build` | Build for production |
+| `npm run start` / `bun start` | Start production server |
+| `npm run db:seed` | Create DB and seed with demo events (run once) |
+| `npm run lint` / `bun lint` | Run ESLint |
+| `npm run typecheck` / `bun typecheck` | Run TypeScript type checking |
+
+### Docker Compose and host ports
+
+Full stack: `docker compose up --build`. Host ports are parameterized (`HOST_PORT_*`); defaults match the historical single-stack layout. When other containers already use those ports, use a profile (**dev +30**, **staging +40**, **production +50** on every published port): `npm run docker:up:dev` (or `docker:up:staging` / `docker:up:production`). See [`docker/README-ports.md`](docker/README-ports.md). Regenerate profile files after changing bases: `npm run docker:gen-ports`. CI / pre-push: `npm run docker:verify-ports`.
+
+The SQLite database file is created at `data/ceremonywallet.db` on first use. To load demo events, run `npm run db:seed` once after installation.
 
 ## How It Works
 

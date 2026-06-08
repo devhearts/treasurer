@@ -1,0 +1,190 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+.phone{background:#f5f5f0;border-radius:40px;border:1.5px solid var(--color-border-secondary);width:360px;min-height:720px;margin:0 auto;overflow:hidden;display:flex;flex-direction:column;}
+.topbar{background:#2C3A1E;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.logo{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;color:#fff;}
+.logo-icon{width:28px;height:28px;border-radius:6px;background:#3B6D11;display:flex;align-items:center;justify-content:center;}
+.logo span{color:#7BC142;}
+.add-btn{background:#7BC142;color:#1a2e0a;font-size:13px;font-weight:500;padding:7px 14px;border-radius:20px;border:none;cursor:pointer;display:flex;align-items:center;gap:4px;}
+.screen{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.subbar{background:#f5f5f0;padding:12px 18px 0;flex-shrink:0;}
+.back-link{font-size:13px;color:#5F5E5A;display:flex;align-items:center;gap:4px;margin-bottom:10px;}
+.page-title{font-size:22px;font-weight:500;color:#1a1a18;margin-bottom:2px;}
+.event-name{font-size:14px;color:#888780;margin-bottom:14px;}
+.filter-row{display:flex;gap:8px;padding-bottom:12px;border-bottom:0.5px solid #D3D1C7;}
+.filter-pill{font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #B4B2A9;background:transparent;color:#5F5E5A;cursor:pointer;white-space:nowrap;}
+.filter-pill.active{background:#2C3A1E;color:#fff;border-color:#2C3A1E;}
+.scroll-area{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
+.card{background:#fff;border-radius:14px;border:0.5px solid #D3D1C7;padding:14px 14px 12px;display:flex;flex-direction:column;gap:8px;cursor:pointer;}
+.card:active{background:#f8f8f6;}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.card-names{font-size:15px;font-weight:500;color:#1a1a18;line-height:1.3;}
+.card-event{font-size:12px;color:#888780;margin-top:2px;}
+.badge{font-size:11px;padding:3px 9px;border-radius:10px;font-weight:500;white-space:nowrap;flex-shrink:0;}
+.badge-sent{background:#EAF3DE;color:#27500A;}
+.badge-draft{background:#F1EFE8;color:#5F5E5A;}
+.badge-pending{background:#FAEEDA;color:#633806;}
+.card-thumb{width:52px;height:66px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:500;letter-spacing:0.5px;border:0.5px solid #D3D1C7;}
+.card-thumb.royal{background:#0f172a;color:#F7E5A9;}
+.card-thumb.botanical{background:#F5EFE6;color:#6B7F4A;}
+.card-thumb.pop{background:#0F0F0F;color:#FF3CAC;}
+.card-thumb.minimal{background:#FAFAFA;color:#1a1a1a;border-color:#ccc;}
+.card-mid{display:flex;align-items:center;justify-content:space-between;}
+.meta-row{display:flex;align-items:center;gap:12px;}
+.meta-item{display:flex;align-items:center;gap:4px;font-size:12px;color:#888780;}
+.card-actions{display:flex;gap:6px;}
+.act-btn{font-size:11px;padding:5px 10px;border-radius:8px;border:0.5px solid #B4B2A9;background:transparent;color:#5F5E5A;cursor:pointer;display:flex;align-items:center;gap:3px;}
+.act-btn.primary{background:#2C3A1E;color:#fff;border-color:#2C3A1E;}
+.fab{position:absolute;bottom:20px;right:16px;width:48px;height:48px;border-radius:24px;background:#7BC142;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#1a2e0a;font-size:22px;}
+.scroll-wrap{position:relative;flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:48px 24px;flex:1;}
+.empty-icon{width:56px;height:56px;border-radius:28px;background:#EAF3DE;display:flex;align-items:center;justify-content:center;}
+.empty-title{font-size:15px;font-weight:500;color:#2C3A1E;}
+.empty-sub{font-size:13px;color:#888780;text-align:center;line-height:1.5;}
+.new-btn-full{background:#7BC142;color:#1a2e0a;font-size:14px;font-weight:500;padding:11px 24px;border-radius:20px;border:none;cursor:pointer;margin-top:4px;display:flex;align-items:center;gap:6px;}
+.tab-bar{background:#fff;border-top:0.5px solid #D3D1C7;display:flex;padding:10px 0 6px;flex-shrink:0;}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#888780;cursor:pointer;}
+.tab.active{color:#2C3A1E;}
+.tab i{font-size:20px;}
+</style>
+
+<h2 class="sr-only">CeremonyWallet invitations screen mobile mockup</h2>
+
+<div class="phone">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-icon"><i class="ti ti-credit-card" style="font-size:15px;color:#7BC142;" aria-hidden="true"></i></div>
+      Ceremony<span>Wallet</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button class="add-btn"><i class="ti ti-plus" style="font-size:14px;" aria-hidden="true"></i> Event</button>
+      <i class="ti ti-user" style="font-size:20px;color:#fff;opacity:0.8;" aria-hidden="true"></i>
+    </div>
+  </div>
+
+  <div class="screen">
+    <div class="subbar">
+      <div class="back-link"><i class="ti ti-chevron-left" style="font-size:14px;" aria-hidden="true"></i> Back</div>
+      <div class="page-title">Invitations</div>
+      <div class="event-name">Bennett & Montgomery Wedding</div>
+      <div class="filter-row">
+        <button class="filter-pill active" onclick="filterCards('all',this)">All</button>
+        <button class="filter-pill" onclick="filterCards('sent',this)">Sent</button>
+        <button class="filter-pill" onclick="filterCards('draft',this)">Drafts</button>
+        <button class="filter-pill" onclick="filterCards('pending',this)">Pending</button>
+      </div>
+    </div>
+
+    <div class="scroll-wrap">
+      <div class="scroll-area" id="card-list">
+
+        <div class="card" data-status="sent">
+          <div class="card-top">
+            <div style="flex:1;">
+              <div class="card-names">Jonathan & Clara</div>
+              <div class="card-event">Royal Luxury · Save the Date</div>
+            </div>
+            <div class="card-thumb royal">ROYAL</div>
+          </div>
+          <div class="card-mid">
+            <div class="meta-row">
+              <div class="meta-item"><i class="ti ti-users" style="font-size:13px;" aria-hidden="true"></i> 120 sent</div>
+              <div class="meta-item"><i class="ti ti-check" style="font-size:13px;" aria-hidden="true"></i> 84 opened</div>
+            </div>
+            <span class="badge badge-sent">Sent</span>
+          </div>
+          <div class="card-actions">
+            <button class="act-btn"><i class="ti ti-copy" style="font-size:13px;" aria-hidden="true"></i> Duplicate</button>
+            <button class="act-btn"><i class="ti ti-chart-bar" style="font-size:13px;" aria-hidden="true"></i> Stats</button>
+            <button class="act-btn primary"><i class="ti ti-edit" style="font-size:13px;" aria-hidden="true"></i> Edit</button>
+          </div>
+        </div>
+
+        <div class="card" data-status="draft">
+          <div class="card-top">
+            <div style="flex:1;">
+              <div class="card-names">Main Invitation</div>
+              <div class="card-event">Botanical Boho · Wedding</div>
+            </div>
+            <div class="card-thumb botanical">BOTANIC</div>
+          </div>
+          <div class="card-mid">
+            <div class="meta-row">
+              <div class="meta-item"><i class="ti ti-clock" style="font-size:13px;" aria-hidden="true"></i> Edited 2h ago</div>
+            </div>
+            <span class="badge badge-draft">Draft</span>
+          </div>
+          <div class="card-actions">
+            <button class="act-btn"><i class="ti ti-trash" style="font-size:13px;" aria-hidden="true"></i> Delete</button>
+            <button class="act-btn primary"><i class="ti ti-edit" style="font-size:13px;" aria-hidden="true"></i> Continue editing</button>
+          </div>
+        </div>
+
+        <div class="card" data-status="pending">
+          <div class="card-top">
+            <div style="flex:1;">
+              <div class="card-names">VIP Table Cards</div>
+              <div class="card-event">Ultra Minimal · Reception</div>
+            </div>
+            <div class="card-thumb minimal">MINIMAL</div>
+          </div>
+          <div class="card-mid">
+            <div class="meta-row">
+              <div class="meta-item"><i class="ti ti-send" style="font-size:13px;" aria-hidden="true"></i> Scheduled Oct 1</div>
+            </div>
+            <span class="badge badge-pending">Pending</span>
+          </div>
+          <div class="card-actions">
+            <button class="act-btn"><i class="ti ti-x" style="font-size:13px;" aria-hidden="true"></i> Cancel</button>
+            <button class="act-btn primary"><i class="ti ti-eye" style="font-size:13px;" aria-hidden="true"></i> Preview</button>
+          </div>
+        </div>
+
+        <div class="card" data-status="sent">
+          <div class="card-top">
+            <div style="flex:1;">
+              <div class="card-names">After-party Flyer</div>
+              <div class="card-event">Vibrant Pop · Evening event</div>
+            </div>
+            <div class="card-thumb pop">POP</div>
+          </div>
+          <div class="card-mid">
+            <div class="meta-row">
+              <div class="meta-item"><i class="ti ti-users" style="font-size:13px;" aria-hidden="true"></i> 45 sent</div>
+              <div class="meta-item"><i class="ti ti-check" style="font-size:13px;" aria-hidden="true"></i> 38 opened</div>
+            </div>
+            <span class="badge badge-sent">Sent</span>
+          </div>
+          <div class="card-actions">
+            <button class="act-btn"><i class="ti ti-copy" style="font-size:13px;" aria-hidden="true"></i> Duplicate</button>
+            <button class="act-btn primary"><i class="ti ti-edit" style="font-size:13px;" aria-hidden="true"></i> Edit</button>
+          </div>
+        </div>
+
+      </div>
+
+      <button class="fab" onclick="sendPrompt('Add a new invitation card to this event')" aria-label="New invitation">
+        <i class="ti ti-plus" aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <div class="tab-bar">
+      <div class="tab"><i class="ti ti-home" aria-hidden="true"></i><span>Home</span></div>
+      <div class="tab active"><i class="ti ti-mail" aria-hidden="true"></i><span>Invites</span></div>
+      <div class="tab"><i class="ti ti-users" aria-hidden="true"></i><span>Guests</span></div>
+      <div class="tab"><i class="ti ti-chart-bar" aria-hidden="true"></i><span>Stats</span></div>
+      <div class="tab"><i class="ti ti-settings" aria-hidden="true"></i><span>Settings</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function filterCards(status, btn){
+  document.querySelectorAll('.filter-pill').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.card').forEach(c=>{
+    c.style.display = (status==='all' || c.dataset.status===status) ? 'flex' : 'none';
+  });
+}
+</script>
