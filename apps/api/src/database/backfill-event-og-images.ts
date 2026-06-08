@@ -6,11 +6,11 @@
  *
  * Requires DATABASE_URL and Garage env vars (GARAGE_ENDPOINT, GARAGE_BUCKET, etc.).
  */
-import { NestFactory } from "@nestjs/core";
+import { ConfigService } from "@nestjs/config";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import { isNotNull } from "drizzle-orm";
-import { AppModule } from "../app.module";
+import configuration from "../config/configuration";
 import * as schema from "./schema";
 import { StorageService } from "../integrations/storage.service";
 import {
@@ -44,14 +44,11 @@ async function main() {
     process.exit(1);
   }
 
-  const app = await NestFactory.createApplicationContext(AppModule, {
-    logger: ["error", "warn"],
-  });
-  const storage = app.get(StorageService);
+  const config = new ConfigService({ app: configuration() });
+  const storage = new StorageService(config);
 
   if (!storage.isConfigured()) {
     console.error("Garage is not configured (GARAGE_ENDPOINT, GARAGE_BUCKET, etc.)");
-    await app.close();
     process.exit(1);
   }
 
@@ -109,7 +106,6 @@ async function main() {
   }
 
   await pool.end();
-  await app.close();
 
   console.log(
     `Backfill complete: ${processed} processed, ${skipped} skipped, ${failed} failed (${rows.length} events with image_urls).`
