@@ -53,6 +53,17 @@ These are the **right-hand** (container) sides of compose mappings and what each
 
 The **`db-migrate`** image has no published ports; it only needs `DATABASE_URL` to `mysql:3306` on the internal network.
 
+The **`db-backfill-event-og`** one-shot service compresses existing slot-0 gallery images into `events/{eventId}/og.webp`. It needs `DATABASE_URL` (internal `mysql:3306`) and Garage env (`GARAGE_ENDPOINT=http://garage:3900`, keys from `.env`). Run after deploy + `db:migrate`:
+
+```bash
+npm run docker:db-backfill-event-og              # default profile (ports.host.default.env)
+npm run docker:db-backfill-event-og:dev           # dev stack (+ docker-compose.dev.yml merge)
+npm run docker:db-backfill-event-og:staging
+npm run docker:db-backfill-event-og:production
+```
+
+Ensure the stack is up (`mysql` + `garage` healthy) before running. Regenerate profile env files with `npm run docker:gen-ports` after editing `ports.base.json`.
+
 ## Verification
 
 After changing `docker-compose.yml`, [`docker/garage.toml`](garage.toml), or either Dockerfile, run:

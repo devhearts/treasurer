@@ -18,6 +18,11 @@ FROM builder AS migrator
 WORKDIR /repo
 CMD ["node", "apps/api/scripts/docker-db-migrate.cjs"]
 
+# One-shot OG image backfill: compress slot-0 gallery images to events/{id}/og.webp.
+FROM builder AS backfill
+WORKDIR /repo/apps/api
+CMD ["npx", "tsx", "src/database/backfill-event-og-images.ts"]
+
 FROM node:22-alpine AS runner
 
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001 -G nodejs
