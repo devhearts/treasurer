@@ -61,6 +61,9 @@ export type CeremonyEventDto = {
   }[];
 };
 
+/** Max upload size for event gallery images (multer). */
+export const EVENT_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+
 const MAX_EVENT_IMAGES = 3;
 
 /** Matches `events.id` (varchar 36): single Garage path segment, no slashes. */

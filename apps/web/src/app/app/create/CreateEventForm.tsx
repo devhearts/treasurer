@@ -15,6 +15,10 @@ import {
 import { EventTypeIcon, IconWallet } from "@/components/Icons";
 import FloatingLabelInput from "@/components/FloatingLabelInput";
 import EventPhotoGallery from "@/components/EventPhotoGallery";
+import {
+  EVENT_IMAGE_MAX_MB,
+  isEventImageWithinSizeLimit,
+} from "@/lib/event-image-upload";
 import type { PaymentProcessorKind } from "@/lib/payments/types";
 import {
   paymentPollingWaitLabel,
@@ -186,6 +190,10 @@ export default function CreateEventForm({
     const picked = files.filter((f): f is File => f.type.startsWith("image/"));
     for (const file of picked) {
       if (photosRef.current.length >= 3) break;
+      if (!isEventImageWithinSizeLimit(file)) {
+        alert(`Each photo must be ${EVENT_IMAGE_MAX_MB} MB or smaller.`);
+        continue;
+      }
       setPhotoBusy(true);
       const previewUrl = URL.createObjectURL(file);
       const slot = nextFreeSlot(photosRef.current.map((p: DraftPhoto) => p.key));
@@ -569,7 +577,9 @@ export default function CreateEventForm({
                     Add photo ({photos.length}/3)
                   </button>
                   {photos.length > 0 && (
-                    <span className="text-xs text-muted">JPEG, PNG, or WebP from your device</span>
+                    <span className="text-xs text-muted">
+                      JPEG, PNG, or WebP · up to {EVENT_IMAGE_MAX_MB} MB each
+                    </span>
                   )}
                 </div>
               }
