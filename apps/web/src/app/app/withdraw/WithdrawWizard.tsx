@@ -617,9 +617,7 @@ export default function WithdrawWizard({
                   <span>{formatUGX(fees.grossAmount)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>
-                    MoMo fee ({formatFeeRatePercent(fees.momoFeeRate)})
-                  </span>
+                  <span>MoMo fee</span>
                   <span>{formatUGX(fees.momoFee)}</span>
                 </div>
                 <div className="flex justify-between">

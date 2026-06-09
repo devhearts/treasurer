@@ -3,18 +3,38 @@ export interface WithdrawFeeBreakdown {
   momoFee: number;
   platformFee: number;
   netAmount: number;
+  /** Effective MoMo rate for display (momoFee / grossAmount). */
   momoFeeRate: number;
   platformFeeRate: number;
 }
 
+/** Fixed levy by transaction band (UGX). */
+export function momoTierFlatLevy(amount: number): number {
+  if (amount < 499) return 0;
+  if (amount <= 59_999) return 300;
+  if (amount <= 499_999) return 600;
+  if (amount <= 999_999) return 1_000;
+  return 1_200;
+}
+
+/** Tiered MoMo fee: round(amount × baseRate) + band levy. */
+export function computeMomoTieredFee(
+  amount: number,
+  baseRate: number
+): number {
+  return Math.round(amount * baseRate) + momoTierFlatLevy(amount);
+}
+
 export function computeWithdrawFees(
   grossAmount: number,
-  momoFeeRate: number,
+  momoFeePercent: number,
   platformFeeRate: number
 ): WithdrawFeeBreakdown {
-  const momoFee = Math.round(grossAmount * momoFeeRate);
+  const momoFee = computeMomoTieredFee(grossAmount, momoFeePercent);
   const platformFee = Math.round(grossAmount * platformFeeRate);
   const netAmount = Math.max(0, grossAmount - momoFee - platformFee);
+  const momoFeeRate =
+    grossAmount > 0 ? momoFee / grossAmount : 0;
   return {
     grossAmount,
     momoFee,

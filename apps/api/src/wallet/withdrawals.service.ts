@@ -69,7 +69,7 @@ function generateWithdrawReference(): string {
 export class WithdrawalsService {
   private readonly log = new Logger(WithdrawalsService.name);
 
-  private readonly momoFeeRate: number;
+  private readonly momoFeePercent: number;
   private readonly platformFeeRate: number;
   private readonly otpTtlSec: number;
   private readonly resendThrottleSec: number;
@@ -83,8 +83,8 @@ export class WithdrawalsService {
     private readonly paymentProcessors: PaymentProcessorFactory,
     private readonly audit: AuditService
   ) {
-    this.momoFeeRate =
-      this.config.get<number>("app.fees.momoCollectionFeeRate") ?? 0.032;
+    this.momoFeePercent =
+      this.config.get<number>("app.fees.momoFeePercent") ?? 0.04;
     this.platformFeeRate =
       this.config.get<number>("app.fees.platformFeeRate") ?? 0.012;
     this.otpTtlSec =
@@ -101,7 +101,7 @@ export class WithdrawalsService {
     }
     return computeWithdrawFees(
       grossAmount,
-      this.momoFeeRate,
+      this.momoFeePercent,
       this.platformFeeRate
     );
   }
@@ -254,11 +254,7 @@ export class WithdrawalsService {
     }
 
     const method = await this.payoutMethods.getForUser(userId, w.methodId);
-    const fees = computeWithdrawFees(
-      w.grossAmount,
-      this.momoFeeRate,
-      this.platformFeeRate
-    );
+    const fees = this.quote(w.grossAmount);
     await this.sendOtp(withdrawalId, userEmail, fees, method.label, method.msisdn);
     return { ok: true, resendAvailableInSec: this.resendThrottleSec };
   }

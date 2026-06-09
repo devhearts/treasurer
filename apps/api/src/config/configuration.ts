@@ -33,11 +33,8 @@ export default registerAs("app", () => ({
     senderId: process.env.AFRICASTALKING_SENDER_ID ?? "",
   },
   fees: {
-    momoCollectionFeeRate: parseFloat(
-      process.env.MOMO_COLLECTION_FEE_RATE ??
-        process.env.WITHDRAW_MOMO_FEE_RATE ??
-        "0.032"
-    ),
+    /** Base % for tiered MoMo withdraw fee (band levies are fixed in wallet-fees.ts). */
+    momoFeePercent: parseFloat(process.env.MOMO_FEE_PERCENT ?? "0.04"),
     platformFeeRate: parseFloat(
       process.env.PLATFORM_FEE_RATE ?? "0.012"
     ),
