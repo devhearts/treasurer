@@ -7,7 +7,8 @@ export type PublicPaymentConfig = {
   processorKind: PaymentProcessorKind;
   subscriptionFeature: boolean;
   eventCreationFee: number;
-  momoCollectionFeeRate: number;
+  momoFeePercent: number;
+  momoFeeTiered: boolean;
   platformFeeRate: number;
 };
 
@@ -23,7 +24,8 @@ export async function loadPublicPaymentConfig(): Promise<PublicPaymentConfig> {
       processorKind: "mtn_momo",
       subscriptionFeature: raw === "1" || raw === "true",
       eventCreationFee: 10000,
-      momoCollectionFeeRate: 0.032,
+      momoFeePercent: 0.04,
+      momoFeeTiered: true,
       platformFeeRate: 0.012,
     };
   }

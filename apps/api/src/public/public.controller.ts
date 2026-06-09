@@ -24,9 +24,9 @@ export class PublicController {
         false,
       eventCreationFee:
         this.configService.get<number>("app.fees.eventCreationFee") ?? 10000,
-      momoCollectionFeeRate:
-        this.configService.get<number>("app.fees.momoCollectionFeeRate") ??
-        0.032,
+      momoFeePercent:
+        this.configService.get<number>("app.fees.momoFeePercent") ?? 0.04,
+      momoFeeTiered: true,
       platformFeeRate:
         this.configService.get<number>("app.fees.platformFeeRate") ?? 0.012,
     };
