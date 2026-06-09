@@ -10,6 +10,7 @@ import { normalizeUgandaMsisdnForNetworks } from "./phone";
 import { MOMO_PUBLIC_PAYMENT_START_FAILED } from "./momo.messages";
 import type { PaymentPollResult, PaymentProcessorKind } from "./payment.types";
 import { AuditService } from "../audit/audit.service";
+import { AuditAction } from "../audit/audit-actions";
 import { WalletService } from "../wallet/wallet.service";
 import { formatMysqlDateTimeUtc } from "../common/mysql-datetime";
 import { normalizeProviderPollStatus } from "./payment-status";
@@ -69,6 +70,16 @@ export class PaymentsService {
       meta: meta ?? null,
       createdAt: formatMysqlDateTimeUtc(new Date()),
     });
+  }
+
+  private async alreadyTerminalFailed(referenceId: string): Promise<boolean> {
+    const rows = await this.db
+      .select({ toStatus: schema.paymentStatusEvents.toStatus })
+      .from(schema.paymentStatusEvents)
+      .where(eq(schema.paymentStatusEvents.referenceId, referenceId));
+    return rows.some(
+      (r) => normalizeProviderPollStatus(r.toStatus).bucket === "failed"
+    );
   }
 
   async initiateContribution(input: {
@@ -170,9 +181,9 @@ export class PaymentsService {
       return { success: false, error: MOMO_PUBLIC_PAYMENT_START_FAILED };
     }
 
-    await this.audit.log({
+    this.audit.logSafe({
       actorType: "system",
-      action: "payment.contribution.initiated",
+      action: AuditAction.payment.contributionInitiated,
       entityType: "payment_intent",
       entityId: referenceId,
       metadata: { eventSlug: input.eventSlug },
@@ -223,6 +234,10 @@ export class PaymentsService {
     }
 
     const { bucket, rawUpper } = normalizeProviderPollStatus(body.status);
+    const hadTerminalFailure =
+      bucket === "failed"
+        ? await this.alreadyTerminalFailed(referenceId)
+        : false;
     await this.appendStatus(referenceId, "poll", null, rawUpper || "UNKNOWN", {
       processor: processor.kind,
     });
@@ -230,9 +245,9 @@ export class PaymentsService {
     if (bucket === "success") {
       const finalized = await this.finalizeContribution(referenceId);
       if (finalized) {
-        await this.audit.log({
+        this.audit.logSafe({
           actorType: "system",
-          action: "payment.contribution.completed",
+          action: AuditAction.payment.contributionCompleted,
           entityType: "payment_intent",
           entityId: referenceId,
         });
@@ -257,6 +272,24 @@ export class PaymentsService {
         (rawUpper === "REJECTED"
           ? "Payment was rejected."
           : "Payment failed.");
+      if (!hadTerminalFailure) {
+        let eventSlug: string | undefined;
+        if (pending.eventId) {
+          const ev = await this.db
+            .select({ slug: schema.events.slug })
+            .from(schema.events)
+            .where(eq(schema.events.id, pending.eventId))
+            .limit(1);
+          eventSlug = ev[0]?.slug;
+        }
+        this.audit.logSafe({
+          actorType: "system",
+          action: AuditAction.payment.contributionFailed,
+          entityType: "payment_intent",
+          entityId: referenceId,
+          metadata: { eventSlug, reason: msg },
+        });
+      }
       return { status: "FAILED", message: msg };
     }
     this.log.warn(`pollContribution ${referenceId}: pending`);
@@ -414,10 +447,10 @@ export class PaymentsService {
       return { success: false, error: MOMO_PUBLIC_PAYMENT_START_FAILED };
     }
 
-    await this.audit.log({
+    this.audit.logSafe({
       actorType: "user",
       actorUserId: input.userId,
-      action: "payment.subscription.initiated",
+      action: AuditAction.payment.subscriptionInitiated,
       entityType: "payment_intent",
       entityId: referenceId,
     });
@@ -466,6 +499,10 @@ export class PaymentsService {
     }
 
     const { bucket, rawUpper } = normalizeProviderPollStatus(body.status);
+    const hadTerminalFailure =
+      bucket === "failed"
+        ? await this.alreadyTerminalFailed(referenceId)
+        : false;
     await this.appendStatus(referenceId, "poll", null, rawUpper || "UNKNOWN", {
       processor: processor.kind,
     });
@@ -475,10 +512,10 @@ export class PaymentsService {
         .update(schema.paymentIntents)
         .set({ fulfilled: 1, updatedAt: formatMysqlDateTimeUtc(new Date()) })
         .where(eq(schema.paymentIntents.referenceId, referenceId));
-      await this.audit.log({
+      this.audit.logSafe({
         actorType: "user",
         actorUserId: userId,
-        action: "payment.subscription.completed",
+        action: AuditAction.payment.subscriptionCompleted,
         entityType: "payment_intent",
         entityId: referenceId,
       });
@@ -491,6 +528,16 @@ export class PaymentsService {
         (rawUpper === "REJECTED"
           ? "Payment was rejected."
           : "Payment failed.");
+      if (!hadTerminalFailure) {
+        this.audit.logSafe({
+          actorType: "user",
+          actorUserId: userId,
+          action: AuditAction.payment.subscriptionFailed,
+          entityType: "payment_intent",
+          entityId: referenceId,
+          metadata: { reason: msg },
+        });
+      }
       return { status: "FAILED", message: msg };
     }
 

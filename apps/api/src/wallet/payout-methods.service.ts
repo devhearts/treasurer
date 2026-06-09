@@ -20,6 +20,9 @@ import {
   WALLET_OTP_MAX_ATTEMPTS,
   walletOtpExpiresAt,
 } from "./wallet-otp.util";
+import { AuditService } from "../audit/audit.service";
+import { AuditAction } from "../audit/audit-actions";
+import { msisdnLast4 } from "../audit/audit-metadata";
 
 export type PayoutMethodType = "mtn_momo" | "airtel_momo" | "bank";
 
@@ -41,7 +44,8 @@ export class PayoutMethodsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
     private readonly mail: MailService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly audit: AuditService
   ) {
     this.otpTtlSec = parseInt(
       this.config.get<string>("WITHDRAW_OTP_TTL_SEC") ?? "300",
@@ -156,6 +160,13 @@ export class PayoutMethodsService {
 
     await this.sendAddOtp(id, userEmail, fields);
 
+    this.audit.logUserAction(
+      userId,
+      AuditAction.wallet.payoutMethodAddInitiated,
+      { type: "payout_method_pending", id },
+      { pendingId: id, network: fields.type }
+    );
+
     return {
       pendingId: id,
       methodLabel: fields.label,
@@ -253,6 +264,16 @@ export class PayoutMethodsService {
     });
 
     await this.deletePending(pendingId);
+    this.audit.logUserAction(
+      userId,
+      AuditAction.wallet.payoutMethodAdded,
+      { type: "payout_method", id: method.id },
+      {
+        methodId: method.id,
+        network: method.type,
+        ...(method.msisdn ? { msisdnLast4: msisdnLast4(method.msisdn) } : {}),
+      }
+    );
     return { method };
   }
 
@@ -376,6 +397,12 @@ export class PayoutMethodsService {
       .from(schema.payoutMethods)
       .where(eq(schema.payoutMethods.id, methodId))
       .limit(1);
+    this.audit.logUserAction(
+      userId,
+      AuditAction.wallet.payoutMethodUpdated,
+      { type: "payout_method", id: methodId },
+      { methodId }
+    );
     return this.toDto(rows[0]!);
   }
 
@@ -409,6 +436,13 @@ export class PayoutMethodsService {
           .where(eq(schema.payoutMethods.id, remaining[0].id));
       }
     }
+
+    this.audit.logUserAction(
+      userId,
+      AuditAction.wallet.payoutMethodDeleted,
+      { type: "payout_method", id: methodId },
+      { methodId }
+    );
 
     return { ok: true };
   }

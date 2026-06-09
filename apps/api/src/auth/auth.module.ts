@@ -3,9 +3,10 @@ import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { SessionService } from "./session.service";
 import { IntegrationsModule } from "../integrations/integrations.module";
+import { AuditModule } from "../audit/audit.module";
 
 @Module({
-  imports: [IntegrationsModule],
+  imports: [IntegrationsModule, AuditModule],
   controllers: [AuthController],
   providers: [AuthService, SessionService],
   exports: [AuthService, SessionService],

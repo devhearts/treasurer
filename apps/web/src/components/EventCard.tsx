@@ -4,6 +4,7 @@ import {
   formatUGX,
   getProgressPercent,
   getEventTypeLabel,
+  hasEventTarget,
 } from "@/lib/data";
 import { firstEventImageSrc } from "@/lib/event-share";
 import { EventTypeIcon, IconLocation, IconCalendar } from "./Icons";
@@ -67,26 +68,32 @@ export default function EventCard({ event }: EventCardProps) {
             {event.description}
           </p>
 
-          <div className="mb-3">
-            <div className="flex justify-between text-sm mb-1.5">
-              <span className="font-semibold text-surface">
-                {formatUGX(event.raisedAmount)}
-              </span>
-              <span className="text-muted">
-                of {formatUGX(event.targetAmount)}
-              </span>
+          {hasEventTarget(event.targetAmount) ? (
+            <div className="mb-3">
+              <div className="flex justify-between text-sm mb-1.5">
+                <span className="font-semibold text-surface">
+                  {formatUGX(event.raisedAmount)}
+                </span>
+                <span className="text-muted">
+                  of {formatUGX(event.targetAmount)}
+                </span>
+              </div>
+              <div className="w-full bg-muted/30 rounded-full h-2">
+                <div
+                  className="bg-accent h-2 rounded-full transition-all"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-muted mt-1">
+                <span>{progress}% raised</span>
+                <span>{paidCount} contributors</span>
+              </div>
             </div>
-            <div className="w-full bg-muted/30 rounded-full h-2">
-              <div
-                className="bg-accent h-2 rounded-full transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <div className="flex justify-between text-xs text-muted mt-1">
-              <span>{progress}% raised</span>
-              <span>{paidCount} contributors</span>
-            </div>
-          </div>
+          ) : (
+            <p className="text-xs text-muted mb-3">
+              {formatUGX(event.raisedAmount)} raised · {paidCount} contributors
+            </p>
+          )}
 
           <div className="flex items-center justify-between pt-3 border-t border-muted/20">
             <span className="text-xs text-muted">

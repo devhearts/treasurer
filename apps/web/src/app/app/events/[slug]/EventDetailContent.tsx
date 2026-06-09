@@ -6,6 +6,7 @@ import {
   formatUGX,
   getEventTypeLabel,
   filterPublicContributions,
+  hasEventTarget,
 } from "@/lib/data";
 import ContributeForm from "./ContributeForm";
 import MilestoneItemsTab from "./MilestoneItemsTab";
@@ -199,7 +200,11 @@ export default function EventDetailContent({
           <p className="text-2xl font-bold text-accent mt-2">
             {formatUGX(event.raisedAmount)}
           </p>
-          <p className="text-light/70 text-sm">raised of {formatUGX(event.targetAmount)}</p>
+          <p className="text-light/70 text-sm">
+            {hasEventTarget(event.targetAmount)
+              ? `raised of ${formatUGX(event.targetAmount)}`
+              : "raised"}
+          </p>
         </div>
       </div>
       {isPublicView ? (
@@ -271,7 +276,7 @@ export default function EventDetailContent({
         </div>
       </details>
 
-      {event.budgetItems.length > 0 && (
+      {hasEventTarget(event.targetAmount) && event.budgetItems.length > 0 && (
         <details open className="bg-light rounded-xl border border-muted/30 mb-4 overflow-hidden group">
           <summary className="p-4 cursor-pointer list-none font-bold text-surface">
             Budget
@@ -305,9 +310,9 @@ export default function EventDetailContent({
       <ContributionReceipt
         key={`${event.id}-receipt`}
         eventTitle={event.title}
+        eventSlug={event.slug}
         eventDate={event.date}
         eventLocation={event.location}
-        treasurerPhone={event.treasurerPhone}
         contributions={publicContributions}
         raisedAmount={event.raisedAmount}
         targetAmount={event.targetAmount}
@@ -488,7 +493,9 @@ export default function EventDetailContent({
               <div className="space-y-0">
                 <div className="bg-light rounded-xl border border-muted/30 p-4 mb-4">
                   <p className="text-xs text-muted uppercase tracking-wide mb-1">Summary</p>
-                  <p className="text-lg font-bold text-surface">{formatUGX(event.raisedAmount)}</p>
+                  <p className="text-lg font-bold text-surface">
+                    {formatUGX(event.raisedAmount)}
+                  </p>
                   <p className="text-sm text-muted">
                     {paidCount} paid · {pledgedCount} pledged · {event.contributions.length} total
                   </p>

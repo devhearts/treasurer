@@ -168,6 +168,72 @@ export class MailService {
     });
   }
 
+  async sendWithdrawalCompleted(
+    to: string,
+    summary: {
+      reference: string;
+      completedAt: string;
+      methodLabel: string;
+      methodDestination: string;
+      grossAmount: number;
+      momoFee: number;
+      platformFee: number;
+      netAmount: number;
+      accountUrl: string;
+    }
+  ): Promise<void> {
+    const t = this.transporter();
+    const from = this.config.get<string>("app.smtp.from") ?? "noreply@localhost";
+    const ugx = (n: number) => n.toLocaleString("en-UG");
+    const ref = escapeHtml(summary.reference);
+    const when = escapeHtml(summary.completedAt);
+    const methodLabel = escapeHtml(summary.methodLabel);
+    const destination = escapeHtml(summary.methodDestination);
+    const accountUrl = escapeHtml(summary.accountUrl);
+
+    if (!t) {
+      this.log.log(
+        `Withdrawal completed (no SMTP) for ${to}: ref ${summary.reference} net UGX ${ugx(summary.netAmount)}`
+      );
+      return;
+    }
+
+    await t.sendMail({
+      from,
+      to,
+      subject: `Withdrawal completed — ${summary.reference}`,
+      html: `
+        <p>Your CeremonyWallet withdrawal has been completed.</p>
+        <p style="margin:16px 0;padding:12px 16px;background:#f4f4f5;border-radius:8px;">
+          <strong>Reference:</strong> ${ref}<br/>
+          <strong>Date:</strong> ${when}<br/>
+          <strong>Sent to:</strong> ${methodLabel}<br/>
+          <strong>Destination:</strong> ${destination}
+        </p>
+        <table style="width:100%;max-width:360px;border-collapse:collapse;font-size:14px;margin:16px 0;">
+          <tr>
+            <td style="padding:6px 0;color:#666;">Gross amount</td>
+            <td style="padding:6px 0;text-align:right;">UGX ${ugx(summary.grossAmount)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#666;">Mobile money fee</td>
+            <td style="padding:6px 0;text-align:right;">UGX ${ugx(summary.momoFee)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#666;">Platform fee</td>
+            <td style="padding:6px 0;text-align:right;">UGX ${ugx(summary.platformFee)}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0 6px;border-top:1px solid #ddd;font-weight:bold;color:#3b6d11;">Net received</td>
+            <td style="padding:10px 0 6px;border-top:1px solid #ddd;text-align:right;font-weight:bold;color:#3b6d11;">UGX ${ugx(summary.netAmount)}</td>
+          </tr>
+        </table>
+        <p><a href="${accountUrl}">View your account</a></p>
+        <p style="color:#666;font-size:12px;">CeremonyWallet — withdrawal confirmation</p>
+      `,
+    });
+  }
+
   async sendPayoutMethodOtp(
     to: string,
     code: string,

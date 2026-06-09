@@ -1,0 +1,52 @@
+/** Semantic audit action constants — `{domain}.{entity}.{verb}` */
+
+export const AuditAction = {
+  auth: {
+    registerSucceeded: "auth.register.succeeded",
+    loginSucceeded: "auth.login.succeeded",
+    loginFailed: "auth.login.failed",
+    logout: "auth.logout",
+    emailVerified: "auth.email.verified",
+    emailResendRequested: "auth.email.resend_requested",
+    passwordChanged: "auth.password.changed",
+    passwordResetRequested: "auth.password.reset_requested",
+    passwordResetCompleted: "auth.password.reset_completed",
+  },
+  wallet: {
+    payoutMethodAddInitiated: "wallet.payout_method.add_initiated",
+    payoutMethodAdded: "wallet.payout_method.added",
+    payoutMethodUpdated: "wallet.payout_method.updated",
+    payoutMethodDeleted: "wallet.payout_method.deleted",
+    withdrawalInitiated: "wallet.withdrawal.initiated",
+    withdrawalOtpVerified: "wallet.withdrawal.otp_verified",
+    withdrawalCompleted: "wallet.withdrawal.completed",
+    withdrawalFailed: "wallet.withdrawal.failed",
+  },
+  event: {
+    created: "event.created",
+    updated: "event.updated",
+    contributionAdded: "event.contribution.added",
+    contributionVisibilityChanged: "event.contribution.visibility_changed",
+    milestoneCreated: "event.milestone.created",
+    milestoneDeleted: "event.milestone.deleted",
+    imageUploaded: "event.image.uploaded",
+    imageDeleted: "event.image.deleted",
+  },
+  invitation: {
+    draftCreated: "invitation.draft.created",
+    updated: "invitation.updated",
+    published: "invitation.published",
+    deleted: "invitation.deleted",
+    recipientAdded: "invitation.recipient.added",
+    recipientRemoved: "invitation.recipient.removed",
+    rsvpSubmitted: "invitation.rsvp.submitted",
+  },
+  payment: {
+    contributionInitiated: "payment.contribution.initiated",
+    contributionCompleted: "payment.contribution.completed",
+    contributionFailed: "payment.contribution.failed",
+    subscriptionInitiated: "payment.subscription.initiated",
+    subscriptionCompleted: "payment.subscription.completed",
+    subscriptionFailed: "payment.subscription.failed",
+  },
+} as const;

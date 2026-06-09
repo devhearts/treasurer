@@ -12,6 +12,8 @@ import * as schema from "../database/schema";
 import { PaymentsService } from "../payments/payments.service";
 import { PaymentProcessorFactory } from "../payments/payment-processor.factory";
 import { AuditService } from "../audit/audit.service";
+import { AuditAction } from "../audit/audit-actions";
+import type { AuditRequestContext } from "../audit/audit-context";
 import { ConfigService } from "@nestjs/config";
 import { StorageService } from "../integrations/storage.service";
 import { ContributionNotificationsService } from "../integrations/contribution-notifications.service";
@@ -68,6 +70,20 @@ export type CeremonyEventDto = {
     visible?: boolean;
     milestoneId?: string;
   }[];
+};
+
+/** POST /events body — server owns raisedAmount, contributions, createdAt. */
+export type CreateEventInput = Omit<
+  CeremonyEventDto,
+  "raisedAmount" | "contributions" | "userId" | "createdAt"
+> & {
+  milestoneItems?: {
+    id: string;
+    name: string;
+    targetAmount: number;
+  }[];
+  /** Rejected if present and non-empty. */
+  contributions?: CeremonyEventDto["contributions"];
 };
 
 /** Max upload size for event gallery images (multer). */
@@ -323,7 +339,8 @@ export class EventsService {
       location: string;
       targetAmount: number;
       imageUrls?: string[] | null;
-    }
+    },
+    ctx?: AuditRequestContext
   ): Promise<void> {
     const rows = await this.db
       .select()
@@ -413,13 +430,14 @@ export class EventsService {
       await this.syncEventOgAfterImageKeysChange(row.id, imageKeys);
     }
 
-    await this.audit.log({
+    this.audit.logSafe({
       actorType: "user",
       actorUserId: userId,
-      action: "event.updated",
+      action: AuditAction.event.updated,
       entityType: "event",
       entityId: row.id,
       metadata: { slug: row.slug },
+      ctx,
     });
   }
 
@@ -431,9 +449,16 @@ export class EventsService {
 
   async addEvent(
     userId: string,
-    event: CeremonyEventDto,
-    subscriptionPaymentReferenceId?: string | null
+    event: CreateEventInput,
+    subscriptionPaymentReferenceId?: string | null,
+    ctx?: AuditRequestContext
   ): Promise<{ slug: string }> {
+    if (event.contributions?.length) {
+      throw new BadRequestException(
+        "Contributions cannot be set when creating an event."
+      );
+    }
+
     const processor = this.processors.getProcessor();
     const feature =
       this.config.get<boolean>("app.featureSubscriptionPayment") ?? false;
@@ -443,6 +468,12 @@ export class EventsService {
         subscriptionPaymentReferenceId ?? undefined
       );
     }
+
+    const targetAmount = Math.max(
+      0,
+      Math.round(Number(event.targetAmount) || 0)
+    );
+    const createdAt = new Date().toISOString().slice(0, 10);
 
     const imageKeys = normalizeIncomingImageKeys(event.id, event.imageUrls);
     if (imageKeys?.length && !this.storage.isConfigured()) {
@@ -473,11 +504,11 @@ export class EventsService {
             organizer: event.organizer,
             treasurerPhone: event.treasurerPhone,
             description: event.description,
-            targetAmount: event.targetAmount,
-            raisedAmount: event.raisedAmount,
+            targetAmount,
+            raisedAmount: 0,
             date: event.date,
             location: event.location,
-            createdAt: event.createdAt,
+            createdAt,
             subscriptionPaid: event.subscriptionPaid ? 1 : 0,
             imageUrls: imageKeys,
           });
@@ -498,33 +529,16 @@ export class EventsService {
               targetAmount: m.targetAmount,
             });
           }
-          for (const c of event.contributions) {
-            await tx.insert(schema.contributions).values({
-              id: c.id,
-              eventId: event.id,
-              name: c.name,
-              anonymous: c.anonymous ? 1 : 0,
-              amount: c.amount,
-              phone: c.phone,
-              message: c.message ?? null,
-              status: c.status,
-              date: c.date,
-              pledgeHopeBy: c.pledgeHopeBy ?? null,
-              manual: c.manual ? 1 : 0,
-              visible: c.visible === false ? 0 : 1,
-              milestoneId: c.milestoneId ?? null,
-              paymentReferenceId: null,
-            });
-          }
         });
 
-        await this.audit.log({
+        this.audit.logSafe({
           actorType: "user",
           actorUserId: userId,
-          action: "event.created",
+          action: AuditAction.event.created,
           entityType: "event",
           entityId: event.id,
           metadata: { slug },
+          ctx,
         });
 
         return { slug };
@@ -610,6 +624,21 @@ export class EventsService {
         manual: contribution.manual,
       });
     }
+
+    this.audit.logSafe({
+      actorType: "system",
+      action: AuditAction.event.contributionAdded,
+      entityType: "contribution",
+      entityId: id,
+      metadata: {
+        contributionId: id,
+        eventSlug: event.slug,
+        status: contribution.status,
+        amount: contribution.amount,
+        anonymous: contribution.anonymous,
+        manual: !!contribution.manual,
+      },
+    });
   }
 
   async addMilestoneItem(
@@ -635,6 +664,12 @@ export class EventsService {
       name,
       targetAmount: target,
     });
+    this.audit.logUserAction(
+      userId,
+      AuditAction.event.milestoneCreated,
+      { type: "milestone", id },
+      { milestoneId: id, eventSlug, name }
+    );
     return { id };
   }
 
@@ -659,6 +694,12 @@ export class EventsService {
           eq(schema.milestoneItems.eventId, event.id)
         )
       );
+    this.audit.logUserAction(
+      userId,
+      AuditAction.event.milestoneDeleted,
+      { type: "milestone", id: milestoneId },
+      { milestoneId, eventSlug }
+    );
   }
 
   async setContributionVisibility(
@@ -697,6 +738,12 @@ export class EventsService {
         })
         .where(eq(schema.events.id, event.id));
     });
+    this.audit.logUserAction(
+      userId,
+      AuditAction.event.contributionVisibilityChanged,
+      { type: "contribution", id: contributionId },
+      { contributionId, eventSlug, visible }
+    );
   }
 
   /**
@@ -740,10 +787,12 @@ export class EventsService {
   }
 
   async saveDraftEventImage(
+    userId: string,
     eventId: string,
     slot: number,
     buffer: Buffer,
-    mime: string
+    mime: string,
+    ctx?: AuditRequestContext
   ): Promise<{ key: string }> {
     if (!this.storage.isConfigured()) {
       throw new BadRequestException("Image storage is not configured.");
@@ -767,10 +816,21 @@ export class EventsService {
     if (slot === 0) {
       await this.writeEventOgFromBuffer(eventId, buffer);
     }
+    this.audit.logUserAction(
+      userId,
+      AuditAction.event.imageUploaded,
+      { type: "event", id: eventId },
+      { slot, keyPrefix: `events/${eventId}/` },
+      ctx
+    );
     return { key };
   }
 
-  async deleteDraftEventImage(key: string): Promise<void> {
+  async deleteDraftEventImage(
+    userId: string,
+    key: string,
+    ctx?: AuditRequestContext
+  ): Promise<void> {
     if (!this.storage.isConfigured()) {
       return;
     }
@@ -786,6 +846,17 @@ export class EventsService {
     if (slot0Match) {
       await this.deleteEventOgImage(slot0Match[1]);
     }
+    const slotMatch = /\/([0-2])\./.exec(key);
+    this.audit.logUserAction(
+      userId,
+      AuditAction.event.imageDeleted,
+      { type: "event", id: slot0Match?.[1] ?? key.split("/")[1] ?? "unknown" },
+      {
+        slot: slotMatch ? Number(slotMatch[1]) : undefined,
+        keyPrefix: key.split("/").slice(0, 2).join("/") + "/",
+      },
+      ctx
+    );
   }
 
   private async writeEventOgFromBuffer(

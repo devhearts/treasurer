@@ -255,7 +255,6 @@ export default function CreateEventForm({
       treasurerPhone,
       description,
       targetAmount: target,
-      raisedAmount: 0,
       date,
       location,
       subscriptionPaid: subscriptionPaymentEnabled
@@ -268,8 +267,6 @@ export default function CreateEventForm({
           ? [{ id: "target", name: "Target", amount: target }]
           : [],
       milestoneItems: [],
-      contributions: [],
-      createdAt: new Date().toISOString().split("T")[0],
       ...(imageUrls?.length ? { imageUrls } : {}),
     };
     const result = await addEvent(

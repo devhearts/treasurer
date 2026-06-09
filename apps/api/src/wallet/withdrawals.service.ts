@@ -43,6 +43,8 @@ import {
 import { PaymentProcessorFactory } from "../payments/payment-processor.factory";
 import { normalizeProviderPollStatus } from "../payments/payment-status";
 import { maskMsisdn, shortId } from "./withdraw-log.util";
+import { AuditService } from "../audit/audit.service";
+import { AuditAction } from "../audit/audit-actions";
 
 const MIN_WITHDRAW_GROSS = 5000;
 const MAX_OTP_ATTEMPTS = 5;
@@ -78,7 +80,8 @@ export class WithdrawalsService {
     private readonly payoutMethods: PayoutMethodsService,
     private readonly mail: MailService,
     private readonly config: ConfigService,
-    private readonly paymentProcessors: PaymentProcessorFactory
+    private readonly paymentProcessors: PaymentProcessorFactory,
+    private readonly audit: AuditService
   ) {
     this.momoFeeRate =
       this.config.get<number>("app.fees.momoCollectionFeeRate") ?? 0.032;
@@ -175,6 +178,17 @@ export class WithdrawalsService {
       .limit(1);
     this.log.debug(
       `initiate ok withdrawal=${shortId(id)} ref=${reference} net=${fees.netAmount} methodType=${method.type} msisdn=${maskMsisdn(method.msisdn)}`
+    );
+    this.audit.logUserAction(
+      userId,
+      AuditAction.wallet.withdrawalInitiated,
+      { type: "withdrawal", id },
+      {
+        withdrawalId: id,
+        amount: fees.grossAmount,
+        currency: "UGX",
+        methodId: method.id,
+      }
     );
     return this.buildInitiateResponse(rows[0]!, method, userEmail);
   }
@@ -306,6 +320,12 @@ export class WithdrawalsService {
 
     const method = await this.payoutMethods.getForUser(userId, w.methodId);
     const processorType = this.paymentProcessors.getProcessorType();
+    this.audit.logUserAction(
+      userId,
+      AuditAction.wallet.withdrawalOtpVerified,
+      { type: "withdrawal", id: withdrawalId },
+      { withdrawalId }
+    );
     this.log.debug(
       `verifyOtp ok withdrawal=${shortId(withdrawalId)} ref=${w.reference} processor=${processorType} methodType=${method.type} net=${w.netAmount} msisdn=${maskMsisdn(method.msisdn)}`
     );
@@ -346,6 +366,7 @@ export class WithdrawalsService {
       this.log.debug(
         `verifyOtp bank completed withdrawal=${shortId(withdrawalId)}`
       );
+      this.notifyWithdrawalCompleted(userId, refreshed, method);
       return this.buildPollSuccess(refreshed, method);
     }
 
@@ -550,6 +571,7 @@ export class WithdrawalsService {
           userId,
           refreshed.methodId
         );
+        this.notifyWithdrawalCompleted(userId, refreshed, method);
         return this.buildPollSuccess(refreshed, method);
       }
       if (outcome.action === "fail") {
@@ -645,6 +667,7 @@ export class WithdrawalsService {
           .set({ status: "completed", updatedAt: updated })
           .where(eq(schema.withdrawals.id, w.id));
         const refreshed = await this.getWithdrawalForUser(userId, withdrawalId);
+        this.notifyWithdrawalCompleted(userId, refreshed, method);
         return this.buildPollSuccess(refreshed, method);
       }
       if (bucket === "failed") {
@@ -704,6 +727,7 @@ export class WithdrawalsService {
           .set({ status: "completed", updatedAt: updated })
           .where(eq(schema.withdrawals.id, w.id));
         const refreshed = await this.getWithdrawalForUser(userId, withdrawalId);
+        this.notifyWithdrawalCompleted(userId, refreshed, method);
         return this.buildPollSuccess(refreshed, method);
       }
       if (bucket === "failed") {
@@ -748,6 +772,12 @@ export class WithdrawalsService {
           eq(schema.withdrawals.userId, userId)
         )
       );
+    this.audit.logUserAction(
+      userId,
+      AuditAction.wallet.withdrawalFailed,
+      { type: "withdrawal", id: withdrawalId },
+      { withdrawalId, reason }
+    );
   }
 
   private async reverseDebitAndFail(
@@ -784,6 +814,92 @@ export class WithdrawalsService {
       .limit(1);
     if (!rows[0]) throw new NotFoundException("Withdrawal not found.");
     return rows[0];
+  }
+
+  private appBaseUrl(): string {
+    const pub = this.config.get<string>("app.nextPublicAppUrl")?.trim();
+    if (pub) return pub.replace(/\/$/, "");
+    const web = this.config.get<string>("app.webOrigin")?.trim();
+    return (web || "http://localhost:3000").replace(/\/$/, "");
+  }
+
+  private formatWithdrawalDate(iso: string): string {
+    const d = new Date(iso.includes("T") ? iso : `${iso.replace(" ", "T")}Z`);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString("en-UG", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: "Africa/Kampala",
+    });
+  }
+
+  private methodDestination(
+    method: typeof schema.payoutMethods.$inferSelect
+  ): string {
+    if (method.type === "bank") {
+      const parts = [
+        method.accountNumber,
+        method.branch,
+        method.bankName,
+      ].filter((p) => p?.trim());
+      return parts.length ? parts.join(" · ") : method.label;
+    }
+    return method.msisdn?.trim() || method.label;
+  }
+
+  /** Email user on successful withdrawal; never throws. */
+  private notifyWithdrawalCompleted(
+    userId: string,
+    w: typeof schema.withdrawals.$inferSelect,
+    method: typeof schema.payoutMethods.$inferSelect
+  ): void {
+    this.audit.logSafe({
+      actorType: "user",
+      actorUserId: userId,
+      action: AuditAction.wallet.withdrawalCompleted,
+      entityType: "withdrawal",
+      entityId: w.id,
+      metadata: {
+        withdrawalId: w.id,
+        ...(w.processorRef ? { processorRef: w.processorRef } : {}),
+      },
+    });
+    void this.sendWithdrawalCompletedEmail(userId, w, method).catch((err) => {
+      this.log.warn(
+        `Withdrawal notification failed withdrawal=${shortId(w.id)}: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
+    });
+  }
+
+  private async sendWithdrawalCompletedEmail(
+    userId: string,
+    w: typeof schema.withdrawals.$inferSelect,
+    method: typeof schema.payoutMethods.$inferSelect
+  ): Promise<void> {
+    const userRows = await this.db
+      .select({ email: schema.users.email })
+      .from(schema.users)
+      .where(eq(schema.users.id, userId))
+      .limit(1);
+    const to = userRows[0]?.email?.trim();
+    if (!to) return;
+
+    await this.mail.sendWithdrawalCompleted(to, {
+      reference: w.reference,
+      completedAt: this.formatWithdrawalDate(w.updatedAt),
+      methodLabel: method.label,
+      methodDestination: this.methodDestination(method),
+      grossAmount: w.grossAmount,
+      momoFee: w.momoFee,
+      platformFee: w.platformFee,
+      netAmount: w.netAmount,
+      accountUrl: `${this.appBaseUrl()}/app/account`,
+    });
   }
 
   private buildInitiateResponse(
