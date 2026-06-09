@@ -134,7 +134,7 @@ Slug for a new event is derived from the title (lowercase, strip non-alphanumeri
 
 ### Receipt and invitations
 
-- **Receipt**: On event page, “Contribution Receipt” builds a text summary (event, date, location, list of contributions with amounts and status, total raised, target, progress). Copy or share via WhatsApp.
+- **Receipt**: On event page, “Contribution Receipt” builds a text summary (event, date, location, list of contributions with amounts and status, total cash raised, target, progress). Copy or share via WhatsApp.
 - **Invitations**: Only for `type === "wedding"`. From event page go to “Create Invitation Cards”. Customise one message; generate per-contributor personalised text (guest name, event title, date, location, message); optional custom invitation (guest name + preview). Copy or “Send on WhatsApp” for each.
 
 ---

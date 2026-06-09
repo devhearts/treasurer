@@ -134,7 +134,7 @@ export function buildEventOgDescription(
   let s = `${type} · ${loc} · ${when}. `;
   if (event.targetAmount > 0) {
     s += `${formatUGX(event.raisedAmount)} raised toward ${formatUGX(event.targetAmount)}.`;
-  } else {
+  } else if (event.raisedAmount > 0) {
     s += `${formatUGX(event.raisedAmount)} raised.`;
   }
   const org = event.organizer.trim();
