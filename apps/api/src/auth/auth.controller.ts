@@ -25,6 +25,7 @@ export class AuthController {
       password?: string;
       confirmPassword?: string;
       phone?: string;
+      acceptTerms?: boolean;
     },
     @Req() req: Request
   ) {
@@ -37,6 +38,7 @@ export class AuthController {
       body.password ?? "",
       body.confirmPassword ?? "",
       body.phone ?? "",
+      body.acceptTerms === true,
       ip,
       ua
     );

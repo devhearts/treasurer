@@ -47,7 +47,8 @@ export async function register(
   email: string,
   password: string,
   confirmPassword: string,
-  phone: string
+  phone: string,
+  acceptTerms: boolean
 ): Promise<RegisterResult> {
   try {
     const res = await serverApiFetchInternal("auth/register", {
@@ -57,6 +58,7 @@ export async function register(
         password,
         confirmPassword,
         phone,
+        acceptTerms,
       }),
     });
     const data = (await res.json()) as {

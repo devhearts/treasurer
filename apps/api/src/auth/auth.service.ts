@@ -46,9 +46,15 @@ export class AuthService {
     password: string,
     confirmPassword: string,
     phoneRaw: string,
+    acceptTerms: boolean,
     _ip?: string,
     _ua?: string
   ): Promise<{ userId: string; email: string }> {
+    if (!acceptTerms) {
+      throw new BadRequestException(
+        "You must accept the Terms and Conditions to create an account."
+      );
+    }
     const trimmed = email.toLowerCase().trim();
     if (!trimmed || !password) {
       throw new BadRequestException("Email and password are required.");
