@@ -95,17 +95,6 @@ export async function verifyEmail(token: string): Promise<VerifyEmailResult> {
         error: data.message ?? "Verification failed.",
       };
     }
-    const sid = res.headers.get("x-set-session");
-    if (sid?.trim()) {
-      const c = await cookies();
-      c.set(SESSION_COOKIE, sid.trim(), {
-        path: "/",
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 30,
-      });
-    }
     return { success: true };
   } catch (e) {
     return {

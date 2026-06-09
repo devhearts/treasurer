@@ -260,9 +260,9 @@ export class AuthService {
 
   async verifyEmail(
     token: string,
-    ip?: string,
-    ua?: string
-  ): Promise<{ userId: string; sessionId: string; email: string }> {
+    _ip?: string,
+    _ua?: string
+  ): Promise<{ userId: string; email: string }> {
     if (!token?.trim()) {
       throw new BadRequestException("Invalid or expired verification link.");
     }
@@ -297,7 +297,7 @@ export class AuthService {
       await this.db
         .delete(schema.emailVerificationTokens)
         .where(eq(schema.emailVerificationTokens.userId, user.id));
-      throw new BadRequestException("Invalid or expired verification link.");
+      return { userId: user.id, email: user.email };
     }
     const verifiedAt = formatMysqlDateTimeUtc(new Date());
     await this.db
@@ -307,8 +307,7 @@ export class AuthService {
     await this.db
       .delete(schema.emailVerificationTokens)
       .where(eq(schema.emailVerificationTokens.userId, user.id));
-    const sessionId = await this.sessions.createSession(user.id, ip, ua);
-    return { userId: user.id, sessionId, email: user.email };
+    return { userId: user.id, email: user.email };
   }
 
   async resendVerificationEmail(email: string): Promise<void> {

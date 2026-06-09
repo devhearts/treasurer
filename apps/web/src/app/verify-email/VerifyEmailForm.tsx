@@ -36,8 +36,7 @@ export default function VerifyEmailForm({ token }: VerifyEmailFormProps) {
     const result = await verifyEmail(token);
     setLoading(false);
     if (result.success) {
-      router.refresh();
-      router.push("/app");
+      router.push("/login?verified=1");
     } else {
       setError(result.error);
     }
@@ -55,7 +54,7 @@ export default function VerifyEmailForm({ token }: VerifyEmailFormProps) {
         disabled={loading}
         className="cta-primary w-full disabled:opacity-50"
       >
-        {loading ? "Verifying…" : "Verify and continue"}
+        {loading ? "Verifying…" : "Verify email"}
       </button>
       <p className="text-center text-sm text-muted">
         <Link href="/login" className="text-accent font-medium hover:underline">

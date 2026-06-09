@@ -47,17 +47,8 @@ export class AuthController {
 
   @Post("email/verify")
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  async verifyEmail(
-    @Body() body: { token?: string },
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response
-  ) {
-    const ip =
-      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
-      req.socket.remoteAddress;
-    const ua = req.headers["user-agent"] as string | undefined;
-    const r = await this.auth.verifyEmail(body.token ?? "", ip, ua);
-    res.setHeader("X-Set-Session", r.sessionId);
+  async verifyEmail(@Body() body: { token?: string }) {
+    const r = await this.auth.verifyEmail(body.token ?? "");
     return { user: { id: r.userId, email: r.email } };
   }
 

@@ -33,7 +33,8 @@ export default async function VerifyEmailPage({
       <div className="flex-1 max-w-sm mx-auto w-full px-4 py-12">
         <h1 className="text-xl font-bold text-surface mb-2">Verify email</h1>
         <p className="text-muted text-sm mb-6">
-          Tap the button below to confirm this address and open your account.
+          Tap the button below to confirm this address. You will then sign in with
+          your password.
         </p>
         <VerifyEmailForm token={token} />
       </div>
