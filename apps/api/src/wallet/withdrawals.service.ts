@@ -346,6 +346,7 @@ export class WithdrawalsService {
       this.log.debug(
         `verifyOtp bank completed withdrawal=${shortId(withdrawalId)}`
       );
+      this.notifyWithdrawalCompleted(userId, refreshed, method);
       return this.buildPollSuccess(refreshed, method);
     }
 
@@ -550,6 +551,7 @@ export class WithdrawalsService {
           userId,
           refreshed.methodId
         );
+        this.notifyWithdrawalCompleted(userId, refreshed, method);
         return this.buildPollSuccess(refreshed, method);
       }
       if (outcome.action === "fail") {
@@ -645,6 +647,7 @@ export class WithdrawalsService {
           .set({ status: "completed", updatedAt: updated })
           .where(eq(schema.withdrawals.id, w.id));
         const refreshed = await this.getWithdrawalForUser(userId, withdrawalId);
+        this.notifyWithdrawalCompleted(userId, refreshed, method);
         return this.buildPollSuccess(refreshed, method);
       }
       if (bucket === "failed") {
@@ -704,6 +707,7 @@ export class WithdrawalsService {
           .set({ status: "completed", updatedAt: updated })
           .where(eq(schema.withdrawals.id, w.id));
         const refreshed = await this.getWithdrawalForUser(userId, withdrawalId);
+        this.notifyWithdrawalCompleted(userId, refreshed, method);
         return this.buildPollSuccess(refreshed, method);
       }
       if (bucket === "failed") {
@@ -784,6 +788,81 @@ export class WithdrawalsService {
       .limit(1);
     if (!rows[0]) throw new NotFoundException("Withdrawal not found.");
     return rows[0];
+  }
+
+  private appBaseUrl(): string {
+    const pub = this.config.get<string>("app.nextPublicAppUrl")?.trim();
+    if (pub) return pub.replace(/\/$/, "");
+    const web = this.config.get<string>("app.webOrigin")?.trim();
+    return (web || "http://localhost:3000").replace(/\/$/, "");
+  }
+
+  private formatWithdrawalDate(iso: string): string {
+    const d = new Date(iso.includes("T") ? iso : `${iso.replace(" ", "T")}Z`);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString("en-UG", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: "Africa/Kampala",
+    });
+  }
+
+  private methodDestination(
+    method: typeof schema.payoutMethods.$inferSelect
+  ): string {
+    if (method.type === "bank") {
+      const parts = [
+        method.accountNumber,
+        method.branch,
+        method.bankName,
+      ].filter((p) => p?.trim());
+      return parts.length ? parts.join(" · ") : method.label;
+    }
+    return method.msisdn?.trim() || method.label;
+  }
+
+  /** Email user on successful withdrawal; never throws. */
+  private notifyWithdrawalCompleted(
+    userId: string,
+    w: typeof schema.withdrawals.$inferSelect,
+    method: typeof schema.payoutMethods.$inferSelect
+  ): void {
+    void this.sendWithdrawalCompletedEmail(userId, w, method).catch((err) => {
+      this.log.warn(
+        `Withdrawal notification failed withdrawal=${shortId(w.id)}: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
+    });
+  }
+
+  private async sendWithdrawalCompletedEmail(
+    userId: string,
+    w: typeof schema.withdrawals.$inferSelect,
+    method: typeof schema.payoutMethods.$inferSelect
+  ): Promise<void> {
+    const userRows = await this.db
+      .select({ email: schema.users.email })
+      .from(schema.users)
+      .where(eq(schema.users.id, userId))
+      .limit(1);
+    const to = userRows[0]?.email?.trim();
+    if (!to) return;
+
+    await this.mail.sendWithdrawalCompleted(to, {
+      reference: w.reference,
+      completedAt: this.formatWithdrawalDate(w.updatedAt),
+      methodLabel: method.label,
+      methodDestination: this.methodDestination(method),
+      grossAmount: w.grossAmount,
+      momoFee: w.momoFee,
+      platformFee: w.platformFee,
+      netAmount: w.netAmount,
+      accountUrl: `${this.appBaseUrl()}/app/account`,
+    });
   }
 
   private buildInitiateResponse(
