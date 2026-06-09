@@ -25,12 +25,31 @@ export function computeWithdrawFees(
   };
 }
 
+function truncateTo2Decimals(value: number): number {
+  return Math.trunc(value * 100) / 100;
+}
+
+function formatCompactScaledBody(truncated: number): string {
+  if (truncated === Math.trunc(truncated)) {
+    return String(Math.trunc(truncated));
+  }
+  return truncated.toFixed(2);
+}
+
+/** Keep in sync with `formatAmountCompact` in apps/web/src/lib/data.ts */
 export function formatBalanceCompact(amount: number, currency = "UGX"): string {
-  if (amount >= 1_000_000) {
-    return `${currency} ${(amount / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  const prefix = `${currency} `;
+  const n = Math.max(0, Math.trunc(amount));
+
+  if (n < 10_000) {
+    return `${prefix}${n.toLocaleString("en-UG")}`;
   }
-  if (amount >= 1_000) {
-    return `${currency} ${Math.round(amount / 1_000)}K`;
+
+  if (n >= 1_000_000) {
+    const body = formatCompactScaledBody(truncateTo2Decimals(n / 1_000_000));
+    return `${prefix}${body}M`;
   }
-  return `${currency} ${amount.toLocaleString("en-UG")}`;
+
+  const body = formatCompactScaledBody(truncateTo2Decimals(n / 1_000));
+  return `${prefix}${body}K`;
 }
