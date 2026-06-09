@@ -1,22 +1,11 @@
 "use client";
 
 import type { MilestoneItem } from "@/lib/types";
+import { formatAmountCompact } from "@/lib/data";
 
 function progressPct(raised: number, target: number) {
   if (target <= 0) return 0;
   return Math.min(100, Math.round((raised / target) * 100));
-}
-
-/** Short amounts for tight cards (e.g. 250k, 1.5M). */
-function compactUg(amount: number): string {
-  const n = Math.max(0, Math.round(amount));
-  if (n >= 1_000_000) {
-    const m = n / 1_000_000;
-    const s = m >= 10 ? String(Math.round(m)) : m.toFixed(1).replace(/\.0$/, "");
-    return `${s}M`;
-  }
-  if (n >= 1000) return `${Math.round(n / 1000)}k`;
-  return String(n);
 }
 
 const cardBase =
@@ -64,7 +53,7 @@ export default function MilestoneCardsRow({
               key={m.id}
               type="button"
               aria-pressed={active}
-              aria-label={`${m.name}, ${pct} percent, ${compactUg(m.raisedAmount)} of ${compactUg(m.targetAmount)}`}
+              aria-label={`${m.name}, ${pct} percent, ${formatAmountCompact(m.raisedAmount)} of ${formatAmountCompact(m.targetAmount)}`}
               onClick={() => onSelect(m.id)}
               className={`${cardBase} gap-1 ${
                 active
@@ -96,7 +85,7 @@ export default function MilestoneCardsRow({
                   />
                 </div>
                 <span className="text-[11px] text-muted tabular-nums flex-shrink-0 whitespace-nowrap leading-none">
-                  {compactUg(m.raisedAmount)}/{compactUg(m.targetAmount)}
+                  {formatAmountCompact(m.raisedAmount)}/{formatAmountCompact(m.targetAmount)}
                 </span>
               </div>
             </button>

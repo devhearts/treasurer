@@ -21,17 +21,64 @@ export function formatUGX(amount: number): string {
   return `UGX ${amount.toLocaleString("en-UG")}`;
 }
 
-/** Compact balance for navbar pill (e.g. UGX 142K). */
+/** Truncate (not round) to two decimal places. */
+function truncateTo2Decimals(value: number): number {
+  return Math.trunc(value * 100) / 100;
+}
+
+function formatCompactScaledBody(truncated: number): string {
+  if (truncated === Math.trunc(truncated)) {
+    return String(Math.trunc(truncated));
+  }
+  return truncated.toFixed(2);
+}
+
+type CompactAmountOptions = {
+  prefix?: string;
+  kSuffix?: string;
+  mSuffix?: string;
+  /** Use en-UG grouping for values under 10k (e.g. 5,500). */
+  localeFull?: boolean;
+};
+
+/**
+ * Compact amount: under 10k shown in full; ≥10k truncated to 2dp with k/M suffix.
+ * e.g. 5500 → 5500, 123500 → 123.50k, 23450200 → 23.45M
+ */
+export function formatAmountCompact(
+  amount: number,
+  options: CompactAmountOptions = {}
+): string {
+  const {
+    prefix = "",
+    kSuffix = "k",
+    mSuffix = "M",
+    localeFull = false,
+  } = options;
+  const n = Math.max(0, Math.trunc(amount));
+
+  if (n < 10_000) {
+    const num = localeFull ? n.toLocaleString("en-UG") : String(n);
+    return prefix ? `${prefix}${num}` : num;
+  }
+
+  if (n >= 1_000_000) {
+    const body = formatCompactScaledBody(truncateTo2Decimals(n / 1_000_000));
+    return `${prefix}${body}${mSuffix}`;
+  }
+
+  const body = formatCompactScaledBody(truncateTo2Decimals(n / 1_000));
+  return `${prefix}${body}${kSuffix}`;
+}
+
+/** Compact balance for navbar pill (e.g. UGX 123.50K). */
 export function formatUGXCompact(amount: number): string {
-  if (amount >= 1_000_000) {
-    const m = amount / 1_000_000;
-    const s = m % 1 === 0 ? String(m) : m.toFixed(1).replace(/\.0$/, "");
-    return `UGX ${s}M`;
-  }
-  if (amount >= 1_000) {
-    return `UGX ${Math.round(amount / 1_000)}K`;
-  }
-  return formatUGX(amount);
+  return formatAmountCompact(amount, {
+    prefix: "UGX ",
+    kSuffix: "K",
+    mSuffix: "M",
+    localeFull: true,
+  });
 }
 
 /** Format YYYY-MM-DD (or ISO date) for display in Uganda locale. */

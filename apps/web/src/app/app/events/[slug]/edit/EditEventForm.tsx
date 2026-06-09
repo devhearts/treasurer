@@ -4,18 +4,16 @@ import { useState, useEffect, useRef, type ChangeEvent, type FormEvent } from "r
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CeremonyEvent, EventType } from "@/lib/types";
-import {
-  deleteEventDraftImage,
-  uploadEventDraftImage,
-  updateEvent,
-} from "@/app/actions/events";
+import { deleteEventDraftImage, updateEvent } from "@/app/actions/events";
 import { EventTypeIcon } from "@/components/Icons";
 import FloatingLabelInput from "@/components/FloatingLabelInput";
 import EventPhotoGallery from "@/components/EventPhotoGallery";
+import EventPhotoDropzone from "@/components/EventPhotoDropzone";
 import {
   EVENT_IMAGE_MAX_MB,
   isEventImageWithinSizeLimit,
 } from "@/lib/event-image-upload";
+import { uploadEventImageWithProgress } from "@/lib/upload-event-image-client";
 import { formatUGX, getEventTypeLabel } from "@/lib/data";
 
 const EVENT_TYPES: { value: EventType; label: string }[] = [
@@ -100,7 +98,8 @@ export default function EditEventForm({
   );
   const photosRef = useRef<DraftPhoto[]>(buildInitialPhotos(initialEvent, imageGarageKeys));
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const [photoBusy, setPhotoBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const photoBusy = uploadProgress !== null;
 
   useEffect(() => {
     photosRef.current = photos;
@@ -114,7 +113,6 @@ export default function EditEventForm({
         alert(`Each photo must be ${EVENT_IMAGE_MAX_MB} MB or smaller.`);
         continue;
       }
-      setPhotoBusy(true);
       const previewUrl = URL.createObjectURL(file);
       const slot = nextFreeSlot(photosRef.current.map((p) => p.key));
       const fd = new FormData();
@@ -122,8 +120,9 @@ export default function EditEventForm({
       fd.set("eventId", eventId);
       fd.set("slot", String(slot));
       fd.set("file", file);
-      const res = await uploadEventDraftImage(fd);
-      setPhotoBusy(false);
+      setUploadProgress(0);
+      const res = await uploadEventImageWithProgress(fd, setUploadProgress);
+      setUploadProgress(null);
       if (!res.success) {
         URL.revokeObjectURL(previewUrl);
         alert(res.error);
@@ -446,13 +445,18 @@ export default function EditEventForm({
               </p>
             </div>
 
+            <EventPhotoDropzone
+              disabled={photoBusy || photos.length >= 3}
+              uploadProgress={uploadProgress}
+              onFiles={(files) => void addPhotoFilesFromInput(files)}
+            >
             <EventPhotoGallery
               imageSources={photos.map((p) => p.previewUrl)}
               onEmptyMainClick={() => photoInputRef.current?.click()}
               emptyMainClickDisabled={photoBusy || photos.length >= 3}
               emptyMain={
                 <span>
-                  No photos — tap here or use{" "}
+                  No photos — tap here, drag images in, or use{" "}
                   <strong className="text-surface">Add photo</strong> below.
                 </span>
               }
@@ -500,6 +504,7 @@ export default function EditEventForm({
                 </button>
               )}
             />
+            </EventPhotoDropzone>
 
             <div className="px-6 py-5 border-t border-muted/20 space-y-3">
               <h2 className="text-lg font-bold text-surface leading-tight">
