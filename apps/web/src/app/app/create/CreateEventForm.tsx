@@ -3,11 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { EventType } from "@/lib/types";
-import {
-  addEvent,
-  deleteEventDraftImage,
-  uploadEventDraftImage,
-} from "@/app/actions/events";
+import { addEvent, deleteEventDraftImage } from "@/app/actions/events";
 import {
   initiateSubscriptionPayment,
   pollSubscriptionPayment,
@@ -15,10 +11,12 @@ import {
 import { EventTypeIcon, IconWallet } from "@/components/Icons";
 import FloatingLabelInput from "@/components/FloatingLabelInput";
 import EventPhotoGallery from "@/components/EventPhotoGallery";
+import EventPhotoDropzone from "@/components/EventPhotoDropzone";
 import {
   EVENT_IMAGE_MAX_MB,
   isEventImageWithinSizeLimit,
 } from "@/lib/event-image-upload";
+import { uploadEventImageWithProgress } from "@/lib/upload-event-image-client";
 import type { PaymentProcessorKind } from "@/lib/payments/types";
 import {
   paymentPollingWaitLabel,
@@ -112,7 +110,8 @@ export default function CreateEventForm({
   const [photos, setPhotos] = useState<DraftPhoto[]>([]);
   const photosRef = useRef<DraftPhoto[]>([]);
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const [photoBusy, setPhotoBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const photoBusy = uploadProgress !== null;
 
   useEffect(() => {
     if (!momoWait || !momoRef) return;
@@ -194,15 +193,15 @@ export default function CreateEventForm({
         alert(`Each photo must be ${EVENT_IMAGE_MAX_MB} MB or smaller.`);
         continue;
       }
-      setPhotoBusy(true);
       const previewUrl = URL.createObjectURL(file);
       const slot = nextFreeSlot(photosRef.current.map((p: DraftPhoto) => p.key));
       const fd = new FormData();
       fd.set("eventId", draftEventId);
       fd.set("slot", String(slot));
       fd.set("file", file);
-      const res = await uploadEventDraftImage(fd);
-      setPhotoBusy(false);
+      setUploadProgress(0);
+      const res = await uploadEventImageWithProgress(fd, setUploadProgress);
+      setUploadProgress(null);
       if (!res.success) {
         URL.revokeObjectURL(previewUrl);
         alert(res.error);
@@ -539,13 +538,19 @@ export default function CreateEventForm({
               </p>
             </div>
 
+            <EventPhotoDropzone
+              disabled={photoBusy || photos.length >= 3}
+              uploadProgress={uploadProgress}
+              onFiles={(files) => void addPhotoFilesFromInput(files)}
+            >
             <EventPhotoGallery
               imageSources={photos.map((p: DraftPhoto) => p.previewUrl)}
               onEmptyMainClick={() => photoInputRef.current?.click()}
               emptyMainClickDisabled={photoBusy || photos.length >= 3}
               emptyMain={
                 <span>
-                  No photos yet — tap here or use <strong className="text-surface">Add photo</strong> below.
+                  No photos yet — tap here, drag images in, or use{" "}
+                  <strong className="text-surface">Add photo</strong> below.
                 </span>
               }
               controls={
@@ -594,6 +599,7 @@ export default function CreateEventForm({
                 </button>
               )}
             />
+            </EventPhotoDropzone>
 
             <div className="px-6 py-5 border-t border-muted/20 space-y-3">
               <h2 className="text-lg font-bold text-surface leading-tight">{title}</h2>
