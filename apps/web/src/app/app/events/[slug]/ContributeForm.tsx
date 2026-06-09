@@ -356,7 +356,11 @@ export default function ContributeForm({
                 onChange={(e) => {
                   const on = e.target.checked;
                   setAnonymous(on);
-                  if (on) setName("");
+                  if (on) {
+                    setName("");
+                    setPledgeExpanded(false);
+                    setPledgeHopeBy("");
+                  }
                 }}
                 className="mt-0.5 h-4 w-4 rounded border-muted/50 text-accent focus:ring-accent"
               />
@@ -414,9 +418,14 @@ export default function ContributeForm({
               {!pledgeExpanded ? (
                 <button
                   type="button"
-                  disabled={loading}
+                  disabled={loading || anonymous}
                   onClick={() => setPledgeExpanded(true)}
-                  className="w-full py-3 rounded-lg font-semibold border-2 border-muted/50 text-muted hover:border-muted hover:text-surface transition-colors disabled:opacity-50"
+                  className="w-full py-3 rounded-lg font-semibold border-2 border-muted/50 text-muted hover:border-muted hover:text-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={
+                    anonymous
+                      ? "Pledges cannot be recorded anonymously"
+                      : undefined
+                  }
                 >
                   Pledge (pay later)
                 </button>
@@ -434,19 +443,26 @@ export default function ContributeForm({
                       type="date"
                       value={pledgeHopeBy}
                       onChange={(e) => setPledgeHopeBy(e.target.value)}
-                      className="w-full border border-muted/50 rounded-lg px-3 py-2 text-sm text-surface focus:outline-none focus:ring-2 focus:ring-accent"
+                      disabled={anonymous}
+                      className="w-full border border-muted/50 rounded-lg px-3 py-2 text-sm text-surface focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50"
                     />
                   </div>
                   <button
                     type="button"
-                    disabled={loading}
+                    disabled={loading || anonymous}
                     onClick={() => recordContribution("pledged")}
-                    className="shrink-0 w-full sm:w-auto py-3 px-4 rounded-lg font-semibold border-2 border-muted/50 text-muted hover:border-muted hover:text-surface transition-colors disabled:opacity-50"
+                    className="shrink-0 w-full sm:w-auto py-3 px-4 rounded-lg font-semibold border-2 border-muted/50 text-muted hover:border-muted hover:text-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Pledge
                   </button>
                 </div>
               )}
+              {anonymous ? (
+                <p className="mt-2 text-xs text-muted">
+                  Pledges cannot be recorded anonymously. Pay now or turn off
+                  anonymous to pledge.
+                </p>
+              ) : null}
             </div>
           </div>
         </form>
