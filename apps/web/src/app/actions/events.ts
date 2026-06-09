@@ -1,6 +1,6 @@
 "use server";
 
-import type { CeremonyEvent } from "@/lib/types";
+import type { CeremonyEvent, CreateCeremonyEvent } from "@/lib/types";
 import { clearSession, getCurrentUser } from "@/app/actions/auth";
 import { serverApiFetch, serverApiJson } from "@/lib/server-api";
 
@@ -92,7 +92,7 @@ export async function updateEvent(
 }
 
 export async function addEvent(
-  event: CeremonyEvent,
+  event: CreateCeremonyEvent,
   subscriptionPaymentReferenceId?: string | null
 ): Promise<{ success: true; slug: string } | { success: false; error: string }> {
   const user = await getCurrentUser();

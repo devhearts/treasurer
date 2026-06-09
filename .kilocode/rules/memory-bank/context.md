@@ -83,6 +83,9 @@
 ## Recent: Create event — default event date
 - **`CreateEventForm`** ([`apps/web/src/app/app/create/CreateEventForm.tsx`](apps/web/src/app/app/create/CreateEventForm.tsx)): “Event date” pre-fills to **local calendar today + 30 days** as `YYYY-MM-DD` for `<input type="date">` (avoids UTC `toISOString()` day drift).
 
+## Recent: Secure event creation (raisedAmount)
+- **`POST /events`** ([`EventsService.addEvent`](apps/api/src/events/events.service.ts)): **`raisedAmount` is always 0** on insert (client value ignored). **`contributions`** rejected if non-empty (400). **`createdAt`** set server-side. **`targetAmount`** normalized like edit. Input type **`CreateEventInput`** omits server-owned fields; web **`CreateCeremonyEvent`** mirrors this in [`types.ts`](apps/web/src/lib/types.ts) / [`CreateEventForm`](apps/web/src/app/app/create/CreateEventForm.tsx).
+
 ## Recent: Event slug collision (API)
 - **`EventsService.addEvent`** ([`apps/api/src/events/events.service.ts`](apps/api/src/events/events.service.ts)): On MySQL **duplicate slug** (`ER_DUP_ENTRY` / errno **1062**), retries with suffixes `-<n>` (up to 8 attempts). Duplicate detection walks **`error.cause`** because Drizzle wraps the driver error (top-level message is “Failed query…”, not “Duplicate entry…”).
 

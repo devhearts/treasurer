@@ -17,7 +17,11 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import type { Request } from "express";
-import { EventsService, EVENT_IMAGE_MAX_BYTES, type CeremonyEventDto } from "./events.service";
+import {
+  EventsService,
+  EVENT_IMAGE_MAX_BYTES,
+  type CreateEventInput,
+} from "./events.service";
 import { SessionGuard } from "../auth/session.guard";
 import { Public } from "../common/public.decorator";
 
@@ -162,7 +166,7 @@ export class EventsController {
     @Req() req: Request & { sessionUserId?: string },
     @Body()
     body: {
-      event: CeremonyEventDto;
+      event: CreateEventInput;
       subscriptionPaymentReferenceId?: string | null;
     }
   ) {
