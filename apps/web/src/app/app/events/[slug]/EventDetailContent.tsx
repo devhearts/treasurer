@@ -310,9 +310,9 @@ export default function EventDetailContent({
       <ContributionReceipt
         key={`${event.id}-receipt`}
         eventTitle={event.title}
+        eventSlug={event.slug}
         eventDate={event.date}
         eventLocation={event.location}
-        treasurerPhone={event.treasurerPhone}
         contributions={publicContributions}
         raisedAmount={event.raisedAmount}
         targetAmount={event.targetAmount}
