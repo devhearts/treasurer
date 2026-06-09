@@ -33,6 +33,8 @@ import {
   eventGalleryPhotoUrl,
   eventHasStoredImages,
 } from "./invite-content-defaults";
+import { AuditService } from "../audit/audit.service";
+import { AuditAction } from "../audit/audit-actions";
 
 const INVITATION_ID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -161,7 +163,8 @@ export class InvitationsService {
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
     private readonly config: ConfigService,
     private readonly storage: StorageService,
-    private readonly events: EventsService
+    private readonly events: EventsService,
+    private readonly audit: AuditService
   ) {}
 
   private appBaseUrl(): string {
@@ -283,6 +286,13 @@ export class InvitationsService {
       updatedAt: now,
     });
 
+    this.audit.logUserAction(
+      userId,
+      AuditAction.invitation.draftCreated,
+      { type: "invitation", id },
+      { invitationId: id, eventSlug: slug }
+    );
+
     return this.getDetail(userId, id);
   }
 
@@ -324,6 +334,12 @@ export class InvitationsService {
         updatedAt: now,
       })
       .where(eq(schema.invitations.id, invitationId));
+    this.audit.logUserAction(
+      userId,
+      AuditAction.invitation.updated,
+      { type: "invitation", id: invitationId },
+      { invitationId }
+    );
     return this.getDetail(userId, invitationId);
   }
 
@@ -358,6 +374,12 @@ export class InvitationsService {
       .where(eq(schema.invitationRecipients.id, id))
       .limit(1);
     const r = rows[0]!;
+    this.audit.logUserAction(
+      userId,
+      AuditAction.invitation.recipientAdded,
+      { type: "invitation_recipient", id },
+      { invitationId, recipientId: id }
+    );
     return {
       id: r.id,
       guestName: r.guestName,
@@ -388,6 +410,12 @@ export class InvitationsService {
       );
     await this.refreshRecipientCount(invitationId);
     await this.refreshStats(invitationId);
+    this.audit.logUserAction(
+      userId,
+      AuditAction.invitation.recipientRemoved,
+      { type: "invitation_recipient", id: recipientId },
+      { invitationId, recipientId }
+    );
   }
 
   private async refreshRecipientCount(invitationId: string) {
@@ -445,6 +473,12 @@ export class InvitationsService {
         updatedAt: now,
       })
       .where(eq(schema.invitations.id, invitationId));
+    this.audit.logUserAction(
+      userId,
+      AuditAction.invitation.published,
+      { type: "invitation", id: invitationId },
+      { invitationId, recipientCount: recipients.length }
+    );
     return this.getDetail(userId, invitationId);
   }
 
@@ -502,6 +536,12 @@ export class InvitationsService {
     await this.db
       .delete(schema.invitations)
       .where(eq(schema.invitations.id, invitationId));
+    this.audit.logUserAction(
+      userId,
+      AuditAction.invitation.deleted,
+      { type: "invitation", id: invitationId },
+      { invitationId }
+    );
   }
 
   private deadlinePassed(content: InviteCardContent): boolean {
@@ -637,6 +677,13 @@ export class InvitationsService {
       .where(eq(schema.invitationRecipients.id, rec.id));
 
     await this.adjustRsvpCounts(inv.id, prev, next);
+    this.audit.logSafe({
+      actorType: "system",
+      action: AuditAction.invitation.rsvpSubmitted,
+      entityType: "invitation",
+      entityId: inv.id,
+      metadata: { invitationId: inv.id, response: next },
+    });
     return this.getPublic(viewToken);
   }
 

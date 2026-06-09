@@ -43,6 +43,8 @@ import {
 import { PaymentProcessorFactory } from "../payments/payment-processor.factory";
 import { normalizeProviderPollStatus } from "../payments/payment-status";
 import { maskMsisdn, shortId } from "./withdraw-log.util";
+import { AuditService } from "../audit/audit.service";
+import { AuditAction } from "../audit/audit-actions";
 
 const MIN_WITHDRAW_GROSS = 5000;
 const MAX_OTP_ATTEMPTS = 5;
@@ -78,7 +80,8 @@ export class WithdrawalsService {
     private readonly payoutMethods: PayoutMethodsService,
     private readonly mail: MailService,
     private readonly config: ConfigService,
-    private readonly paymentProcessors: PaymentProcessorFactory
+    private readonly paymentProcessors: PaymentProcessorFactory,
+    private readonly audit: AuditService
   ) {
     this.momoFeeRate =
       this.config.get<number>("app.fees.momoCollectionFeeRate") ?? 0.032;
@@ -175,6 +178,17 @@ export class WithdrawalsService {
       .limit(1);
     this.log.debug(
       `initiate ok withdrawal=${shortId(id)} ref=${reference} net=${fees.netAmount} methodType=${method.type} msisdn=${maskMsisdn(method.msisdn)}`
+    );
+    this.audit.logUserAction(
+      userId,
+      AuditAction.wallet.withdrawalInitiated,
+      { type: "withdrawal", id },
+      {
+        withdrawalId: id,
+        amount: fees.grossAmount,
+        currency: "UGX",
+        methodId: method.id,
+      }
     );
     return this.buildInitiateResponse(rows[0]!, method, userEmail);
   }
@@ -306,6 +320,12 @@ export class WithdrawalsService {
 
     const method = await this.payoutMethods.getForUser(userId, w.methodId);
     const processorType = this.paymentProcessors.getProcessorType();
+    this.audit.logUserAction(
+      userId,
+      AuditAction.wallet.withdrawalOtpVerified,
+      { type: "withdrawal", id: withdrawalId },
+      { withdrawalId }
+    );
     this.log.debug(
       `verifyOtp ok withdrawal=${shortId(withdrawalId)} ref=${w.reference} processor=${processorType} methodType=${method.type} net=${w.netAmount} msisdn=${maskMsisdn(method.msisdn)}`
     );
@@ -752,6 +772,12 @@ export class WithdrawalsService {
           eq(schema.withdrawals.userId, userId)
         )
       );
+    this.audit.logUserAction(
+      userId,
+      AuditAction.wallet.withdrawalFailed,
+      { type: "withdrawal", id: withdrawalId },
+      { withdrawalId, reason }
+    );
   }
 
   private async reverseDebitAndFail(
@@ -830,6 +856,17 @@ export class WithdrawalsService {
     w: typeof schema.withdrawals.$inferSelect,
     method: typeof schema.payoutMethods.$inferSelect
   ): void {
+    this.audit.logSafe({
+      actorType: "user",
+      actorUserId: userId,
+      action: AuditAction.wallet.withdrawalCompleted,
+      entityType: "withdrawal",
+      entityId: w.id,
+      metadata: {
+        withdrawalId: w.id,
+        ...(w.processorRef ? { processorRef: w.processorRef } : {}),
+      },
+    });
     void this.sendWithdrawalCompletedEmail(userId, w, method).catch((err) => {
       this.log.warn(
         `Withdrawal notification failed withdrawal=${shortId(w.id)}: ${

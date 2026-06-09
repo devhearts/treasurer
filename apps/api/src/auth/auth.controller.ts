@@ -12,6 +12,7 @@ import { Throttle } from "@nestjs/throttler";
 import type { Request, Response } from "express";
 import { AuthService } from "./auth.service";
 import { SessionGuard } from "./session.guard";
+import { requestAuditContext } from "../audit/audit-context";
 
 @Controller("auth")
 export class AuthController {
@@ -29,26 +30,33 @@ export class AuthController {
     },
     @Req() req: Request
   ) {
-    const ip =
-      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
-      req.socket.remoteAddress;
-    const ua = req.headers["user-agent"] as string | undefined;
+    const ctx = requestAuditContext(req);
     const r = await this.auth.register(
       body.email ?? "",
       body.password ?? "",
       body.confirmPassword ?? "",
       body.phone ?? "",
       body.acceptTerms === true,
-      ip,
-      ua
+      ctx.ip,
+      ctx.userAgent,
+      ctx
     );
     return { user: { id: r.userId, email: r.email } };
   }
 
   @Post("email/verify")
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  async verifyEmail(@Body() body: { token?: string }) {
-    const r = await this.auth.verifyEmail(body.token ?? "");
+  async verifyEmail(
+    @Body() body: { token?: string },
+    @Req() req: Request
+  ) {
+    const ctx = requestAuditContext(req);
+    const r = await this.auth.verifyEmail(
+      body.token ?? "",
+      ctx.ip,
+      ctx.userAgent,
+      ctx
+    );
     return { user: { id: r.userId, email: r.email } };
   }
 
@@ -65,11 +73,14 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ) {
-    const ip =
-      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
-      req.socket.remoteAddress;
-    const ua = req.headers["user-agent"] as string | undefined;
-    const r = await this.auth.login(body.email ?? "", body.password ?? "", ip, ua);
+    const ctx = requestAuditContext(req);
+    const r = await this.auth.login(
+      body.email ?? "",
+      body.password ?? "",
+      ctx.ip,
+      ctx.userAgent,
+      ctx
+    );
     res.setHeader("X-Set-Session", r.sessionId);
     return { user: { id: r.userId, email: r.email } };
   }

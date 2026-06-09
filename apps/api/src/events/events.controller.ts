@@ -24,6 +24,7 @@ import {
 } from "./events.service";
 import { SessionGuard } from "../auth/session.guard";
 import { Public } from "../common/public.decorator";
+import { requestAuditContext } from "../audit/audit-context";
 
 /** Multer in-memory file shape (avoid `Express.Multer.File` — not on Express 5 types). */
 type UploadedImageFile = {
@@ -71,7 +72,12 @@ export class EventsController {
       imageUrls?: string[] | null;
     }
   ) {
-    await this.events.updateEventForOwner(req.sessionUserId!, slug, body);
+    await this.events.updateEventForOwner(
+      req.sessionUserId!,
+      slug,
+      body,
+      requestAuditContext(req)
+    );
     return { success: true };
   }
 
@@ -142,21 +148,30 @@ export class EventsController {
       slug
     );
     return this.events.saveDraftEventImage(
+      req.sessionUserId!,
       resolvedId,
       slot,
       file.buffer,
-      file.mimetype
+      file.mimetype,
+      requestAuditContext(req)
     );
   }
 
   @Delete("image")
   @UseGuards(SessionGuard)
-  async deleteEventImage(@Body() body: { key?: string }): Promise<{ success: true }> {
+  async deleteEventImage(
+    @Req() req: Request & { sessionUserId?: string },
+    @Body() body: { key?: string }
+  ): Promise<{ success: true }> {
     const key = body?.key?.trim();
     if (!key) {
       throw new BadRequestException("Missing key.");
     }
-    await this.events.deleteDraftEventImage(key);
+    await this.events.deleteDraftEventImage(
+      req.sessionUserId!,
+      key,
+      requestAuditContext(req)
+    );
     return { success: true };
   }
 
@@ -176,7 +191,8 @@ export class EventsController {
     const { slug } = await this.events.addEvent(
       req.sessionUserId!,
       body.event,
-      body.subscriptionPaymentReferenceId
+      body.subscriptionPaymentReferenceId,
+      requestAuditContext(req)
     );
     return { success: true, slug };
   }

@@ -12,6 +12,8 @@ import * as schema from "../database/schema";
 import { PaymentsService } from "../payments/payments.service";
 import { PaymentProcessorFactory } from "../payments/payment-processor.factory";
 import { AuditService } from "../audit/audit.service";
+import { AuditAction } from "../audit/audit-actions";
+import type { AuditRequestContext } from "../audit/audit-context";
 import { ConfigService } from "@nestjs/config";
 import { StorageService } from "../integrations/storage.service";
 import { ContributionNotificationsService } from "../integrations/contribution-notifications.service";
@@ -337,7 +339,8 @@ export class EventsService {
       location: string;
       targetAmount: number;
       imageUrls?: string[] | null;
-    }
+    },
+    ctx?: AuditRequestContext
   ): Promise<void> {
     const rows = await this.db
       .select()
@@ -427,13 +430,14 @@ export class EventsService {
       await this.syncEventOgAfterImageKeysChange(row.id, imageKeys);
     }
 
-    await this.audit.log({
+    this.audit.logSafe({
       actorType: "user",
       actorUserId: userId,
-      action: "event.updated",
+      action: AuditAction.event.updated,
       entityType: "event",
       entityId: row.id,
       metadata: { slug: row.slug },
+      ctx,
     });
   }
 
@@ -446,7 +450,8 @@ export class EventsService {
   async addEvent(
     userId: string,
     event: CreateEventInput,
-    subscriptionPaymentReferenceId?: string | null
+    subscriptionPaymentReferenceId?: string | null,
+    ctx?: AuditRequestContext
   ): Promise<{ slug: string }> {
     if (event.contributions?.length) {
       throw new BadRequestException(
@@ -526,13 +531,14 @@ export class EventsService {
           }
         });
 
-        await this.audit.log({
+        this.audit.logSafe({
           actorType: "user",
           actorUserId: userId,
-          action: "event.created",
+          action: AuditAction.event.created,
           entityType: "event",
           entityId: event.id,
           metadata: { slug },
+          ctx,
         });
 
         return { slug };
@@ -618,6 +624,21 @@ export class EventsService {
         manual: contribution.manual,
       });
     }
+
+    this.audit.logSafe({
+      actorType: "system",
+      action: AuditAction.event.contributionAdded,
+      entityType: "contribution",
+      entityId: id,
+      metadata: {
+        contributionId: id,
+        eventSlug: event.slug,
+        status: contribution.status,
+        amount: contribution.amount,
+        anonymous: contribution.anonymous,
+        manual: !!contribution.manual,
+      },
+    });
   }
 
   async addMilestoneItem(
@@ -643,6 +664,12 @@ export class EventsService {
       name,
       targetAmount: target,
     });
+    this.audit.logUserAction(
+      userId,
+      AuditAction.event.milestoneCreated,
+      { type: "milestone", id },
+      { milestoneId: id, eventSlug, name }
+    );
     return { id };
   }
 
@@ -667,6 +694,12 @@ export class EventsService {
           eq(schema.milestoneItems.eventId, event.id)
         )
       );
+    this.audit.logUserAction(
+      userId,
+      AuditAction.event.milestoneDeleted,
+      { type: "milestone", id: milestoneId },
+      { milestoneId, eventSlug }
+    );
   }
 
   async setContributionVisibility(
@@ -705,6 +738,12 @@ export class EventsService {
         })
         .where(eq(schema.events.id, event.id));
     });
+    this.audit.logUserAction(
+      userId,
+      AuditAction.event.contributionVisibilityChanged,
+      { type: "contribution", id: contributionId },
+      { contributionId, eventSlug, visible }
+    );
   }
 
   /**
@@ -748,10 +787,12 @@ export class EventsService {
   }
 
   async saveDraftEventImage(
+    userId: string,
     eventId: string,
     slot: number,
     buffer: Buffer,
-    mime: string
+    mime: string,
+    ctx?: AuditRequestContext
   ): Promise<{ key: string }> {
     if (!this.storage.isConfigured()) {
       throw new BadRequestException("Image storage is not configured.");
@@ -775,10 +816,21 @@ export class EventsService {
     if (slot === 0) {
       await this.writeEventOgFromBuffer(eventId, buffer);
     }
+    this.audit.logUserAction(
+      userId,
+      AuditAction.event.imageUploaded,
+      { type: "event", id: eventId },
+      { slot, keyPrefix: `events/${eventId}/` },
+      ctx
+    );
     return { key };
   }
 
-  async deleteDraftEventImage(key: string): Promise<void> {
+  async deleteDraftEventImage(
+    userId: string,
+    key: string,
+    ctx?: AuditRequestContext
+  ): Promise<void> {
     if (!this.storage.isConfigured()) {
       return;
     }
@@ -794,6 +846,17 @@ export class EventsService {
     if (slot0Match) {
       await this.deleteEventOgImage(slot0Match[1]);
     }
+    const slotMatch = /\/([0-2])\./.exec(key);
+    this.audit.logUserAction(
+      userId,
+      AuditAction.event.imageDeleted,
+      { type: "event", id: slot0Match?.[1] ?? key.split("/")[1] ?? "unknown" },
+      {
+        slot: slotMatch ? Number(slotMatch[1]) : undefined,
+        keyPrefix: key.split("/").slice(0, 2).join("/") + "/",
+      },
+      ctx
+    );
   }
 
   private async writeEventOgFromBuffer(
