@@ -15,6 +15,9 @@ import { SessionService } from "./session.service";
 import { MailService } from "../integrations/mail.service";
 import { formatMysqlDateTimeUtc } from "../common/mysql-datetime";
 import { normalizeUgandaMsisdnForNetworks } from "../payments/phone";
+import { AuditService } from "../audit/audit.service";
+import { AuditAction } from "../audit/audit-actions";
+import type { AuditRequestContext } from "../audit/audit-context";
 
 const SALT_ROUNDS = 10;
 const RESET_TOKEN_EXPIRY_HOURS = 1;
@@ -38,7 +41,8 @@ export class AuthService {
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
     private readonly sessions: SessionService,
     private readonly mail: MailService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly audit: AuditService
   ) {}
 
   async register(
@@ -46,9 +50,16 @@ export class AuthService {
     password: string,
     confirmPassword: string,
     phoneRaw: string,
-    _ip?: string,
-    _ua?: string
+    acceptTerms: boolean,
+    ip?: string,
+    ua?: string,
+    ctx?: AuditRequestContext
   ): Promise<{ userId: string; email: string }> {
+    if (!acceptTerms) {
+      throw new BadRequestException(
+        "You must accept the Terms and Conditions to create an account."
+      );
+    }
     const trimmed = email.toLowerCase().trim();
     if (!trimmed || !password) {
       throw new BadRequestException("Email and password are required.");
@@ -84,6 +95,17 @@ export class AuthService {
       phone,
     });
     await this.issueEmailVerification(id, trimmed);
+    this.audit.logSafe({
+      actorType: "user",
+      actorUserId: id,
+      action: AuditAction.auth.registerSucceeded,
+      entityType: "user",
+      entityId: id,
+      metadata: { userId: id },
+      ip,
+      userAgent: ua,
+      ctx,
+    });
     return { userId: id, email: trimmed };
   }
 
@@ -91,7 +113,8 @@ export class AuthService {
     email: string,
     password: string,
     ip?: string,
-    ua?: string
+    ua?: string,
+    ctx?: AuditRequestContext
   ): Promise<{ userId: string; sessionId: string; email: string }> {
     const trimmed = email.toLowerCase().trim();
     if (!trimmed || !password) {
@@ -104,18 +127,56 @@ export class AuthService {
       .limit(1);
     const user = rows[0];
     if (!user) {
+      this.audit.logSafe({
+        actorType: "system",
+        action: AuditAction.auth.loginFailed,
+        entityType: "auth",
+        metadata: { reason: "invalid_credentials" },
+        ip,
+        userAgent: ua,
+        ctx,
+      });
       throw new UnauthorizedException("Invalid email or password.");
     }
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) {
+      this.audit.logSafe({
+        actorType: "system",
+        action: AuditAction.auth.loginFailed,
+        entityType: "auth",
+        metadata: { reason: "invalid_credentials" },
+        ip,
+        userAgent: ua,
+        ctx,
+      });
       throw new UnauthorizedException("Invalid email or password.");
     }
     if (!user.emailVerifiedAt) {
+      this.audit.logSafe({
+        actorType: "system",
+        action: AuditAction.auth.loginFailed,
+        entityType: "auth",
+        metadata: { reason: "email_unverified" },
+        ip,
+        userAgent: ua,
+        ctx,
+      });
       throw new UnauthorizedException(
         "Please verify your email before signing in."
       );
     }
     const sessionId = await this.sessions.createSession(user.id, ip, ua);
+    this.audit.logSafe({
+      actorType: "user",
+      actorUserId: user.id,
+      action: AuditAction.auth.loginSucceeded,
+      entityType: "user",
+      entityId: user.id,
+      metadata: { userId: user.id },
+      ip,
+      userAgent: ua,
+      ctx,
+    });
     return { userId: user.id, sessionId, email: user.email };
   }
 
@@ -166,11 +227,22 @@ export class AuthService {
       .update(schema.users)
       .set({ passwordHash })
       .where(eq(schema.users.id, userId));
+    this.audit.logUserAction(
+      userId,
+      AuditAction.auth.passwordChanged,
+      { type: "user", id: userId },
+      { userId }
+    );
   }
 
   async requestPasswordReset(email: string): Promise<void> {
     const trimmed = email.toLowerCase().trim();
     if (!trimmed) return;
+    this.audit.logSafe({
+      actorType: "system",
+      action: AuditAction.auth.passwordResetRequested,
+      entityType: "auth",
+    });
     const rows = await this.db
       .select()
       .from(schema.users)
@@ -225,6 +297,12 @@ export class AuthService {
     await this.db
       .delete(schema.passwordResetTokens)
       .where(eq(schema.passwordResetTokens.tokenHash, tokenHash));
+    this.audit.logUserAction(
+      row.userId,
+      AuditAction.auth.passwordResetCompleted,
+      { type: "user", id: row.userId },
+      { userId: row.userId }
+    );
   }
 
   private async issueEmailVerification(
@@ -255,8 +333,9 @@ export class AuthService {
   async verifyEmail(
     token: string,
     ip?: string,
-    ua?: string
-  ): Promise<{ userId: string; sessionId: string; email: string }> {
+    ua?: string,
+    ctx?: AuditRequestContext
+  ): Promise<{ userId: string; email: string }> {
     if (!token?.trim()) {
       throw new BadRequestException("Invalid or expired verification link.");
     }
@@ -291,7 +370,7 @@ export class AuthService {
       await this.db
         .delete(schema.emailVerificationTokens)
         .where(eq(schema.emailVerificationTokens.userId, user.id));
-      throw new BadRequestException("Invalid or expired verification link.");
+      return { userId: user.id, email: user.email };
     }
     const verifiedAt = formatMysqlDateTimeUtc(new Date());
     await this.db
@@ -301,8 +380,18 @@ export class AuthService {
     await this.db
       .delete(schema.emailVerificationTokens)
       .where(eq(schema.emailVerificationTokens.userId, user.id));
-    const sessionId = await this.sessions.createSession(user.id, ip, ua);
-    return { userId: user.id, sessionId, email: user.email };
+    this.audit.logSafe({
+      actorType: "user",
+      actorUserId: user.id,
+      action: AuditAction.auth.emailVerified,
+      entityType: "user",
+      entityId: user.id,
+      metadata: { userId: user.id },
+      ip,
+      userAgent: ua,
+      ctx,
+    });
+    return { userId: user.id, email: user.email };
   }
 
   async resendVerificationEmail(email: string): Promise<void> {
@@ -316,9 +405,23 @@ export class AuthService {
     const user = rows[0];
     if (!user || user.emailVerifiedAt) return;
     await this.issueEmailVerification(user.id, user.email);
+    this.audit.logSafe({
+      actorType: "system",
+      action: AuditAction.auth.emailResendRequested,
+      entityType: "auth",
+    });
   }
 
   async logout(sessionId: string): Promise<void> {
+    const userId = await this.sessions.resolveUserId(sessionId);
     await this.sessions.destroy(sessionId);
+    if (userId) {
+      this.audit.logUserAction(
+        userId,
+        AuditAction.auth.logout,
+        { type: "user", id: userId },
+        { userId }
+      );
+    }
   }
 }

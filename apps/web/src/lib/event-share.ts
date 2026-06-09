@@ -73,14 +73,19 @@ export function firstEventImageSrc(event: CeremonyEvent): string | undefined {
   return publicEventGallerySlotPath(event.slug, 0);
 }
 
+/** Same-origin path for compressed Open Graph image. */
+export function publicEventOgImagePath(slug: string): string {
+  return `/api/v1/events/by-slug/${encodeURIComponent(slug)}/og`;
+}
+
 /** Absolute URL for OG / Twitter cards (crawlers cannot use relative paths). */
 export function absoluteFirstEventImageUrl(
   event: CeremonyEvent
 ): string | undefined {
-  const rel = firstEventImageSrc(event);
-  if (!rel) return undefined;
+  if (!event.imageUrls?.length) return undefined;
+  const rel = publicEventOgImagePath(event.slug);
   const base = siteBaseUrl();
-  /** Per-event cache buster so link-preview CDNs never reuse another event’s image at `/gallery/0`. */
+  /** Per-event cache buster so link-preview CDNs never reuse another event’s image. */
   const v = encodeURIComponent(event.id);
   return `${base}${rel}?v=${v}`;
 }
@@ -129,7 +134,7 @@ export function buildEventOgDescription(
   let s = `${type} · ${loc} · ${when}. `;
   if (event.targetAmount > 0) {
     s += `${formatUGX(event.raisedAmount)} raised toward ${formatUGX(event.targetAmount)}.`;
-  } else {
+  } else if (event.raisedAmount > 0) {
     s += `${formatUGX(event.raisedAmount)} raised.`;
   }
   const org = event.organizer.trim();

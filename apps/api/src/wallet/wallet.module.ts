@@ -6,9 +6,10 @@ import { WithdrawalsService } from "./withdrawals.service";
 import { AuthModule } from "../auth/auth.module";
 import { IntegrationsModule } from "../integrations/integrations.module";
 import { PaymentProcessorModule } from "../payments/payment-processor.module";
+import { AuditModule } from "../audit/audit.module";
 
 @Module({
-  imports: [AuthModule, IntegrationsModule, PaymentProcessorModule],
+  imports: [AuthModule, IntegrationsModule, PaymentProcessorModule, AuditModule],
   controllers: [WalletController],
   providers: [WalletService, PayoutMethodsService, WithdrawalsService],
   exports: [WalletService],

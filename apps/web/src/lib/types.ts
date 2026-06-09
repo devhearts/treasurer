@@ -60,3 +60,11 @@ export interface CeremonyEvent {
    */
   imageUrls?: string[];
 }
+
+/** POST /events — server sets raisedAmount, contributions, createdAt. */
+export type CreateCeremonyEvent = Omit<
+  CeremonyEvent,
+  "raisedAmount" | "contributions" | "createdAt" | "userId"
+> & {
+  milestoneItems?: Omit<MilestoneItem, "raisedAmount">[];
+};

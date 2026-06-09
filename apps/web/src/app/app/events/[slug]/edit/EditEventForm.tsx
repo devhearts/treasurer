@@ -12,6 +12,10 @@ import {
 import { EventTypeIcon } from "@/components/Icons";
 import FloatingLabelInput from "@/components/FloatingLabelInput";
 import EventPhotoGallery from "@/components/EventPhotoGallery";
+import {
+  EVENT_IMAGE_MAX_MB,
+  isEventImageWithinSizeLimit,
+} from "@/lib/event-image-upload";
 import { formatUGX, getEventTypeLabel } from "@/lib/data";
 
 const EVENT_TYPES: { value: EventType; label: string }[] = [
@@ -106,6 +110,10 @@ export default function EditEventForm({
     const picked = files.filter((f): f is File => f.type.startsWith("image/"));
     for (const file of picked) {
       if (photosRef.current.length >= 3) break;
+      if (!isEventImageWithinSizeLimit(file)) {
+        alert(`Each photo must be ${EVENT_IMAGE_MAX_MB} MB or smaller.`);
+        continue;
+      }
       setPhotoBusy(true);
       const previewUrl = URL.createObjectURL(file);
       const slot = nextFreeSlot(photosRef.current.map((p) => p.key));
@@ -473,6 +481,9 @@ export default function EditEventForm({
                   >
                     Add photo ({photos.length}/3)
                   </button>
+                  <span className="text-xs text-muted">
+                    JPEG, PNG, or WebP · up to {EVENT_IMAGE_MAX_MB} MB each
+                  </span>
                 </div>
               }
               renderThumbAction={(i) => (

@@ -17,9 +17,14 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import type { Request } from "express";
-import { EventsService, type CeremonyEventDto } from "./events.service";
+import {
+  EventsService,
+  EVENT_IMAGE_MAX_BYTES,
+  type CreateEventInput,
+} from "./events.service";
 import { SessionGuard } from "../auth/session.guard";
 import { Public } from "../common/public.decorator";
+import { requestAuditContext } from "../audit/audit-context";
 
 /** Multer in-memory file shape (avoid `Express.Multer.File` — not on Express 5 types). */
 type UploadedImageFile = {
@@ -67,7 +72,12 @@ export class EventsController {
       imageUrls?: string[] | null;
     }
   ) {
-    await this.events.updateEventForOwner(req.sessionUserId!, slug, body);
+    await this.events.updateEventForOwner(
+      req.sessionUserId!,
+      slug,
+      body,
+      requestAuditContext(req)
+    );
     return { success: true };
   }
 
@@ -92,6 +102,20 @@ export class EventsController {
     });
   }
 
+  @Get("by-slug/:slug/og")
+  @Public()
+  @Header("Cache-Control", "public, max-age=86400")
+  async ogImage(@Param("slug") slug: string): Promise<StreamableFile> {
+    const obj = await this.events.streamEventOgObject(slug);
+    if (!obj) {
+      throw new NotFoundException();
+    }
+    return new StreamableFile(obj.body, {
+      type: obj.contentType,
+      disposition: "inline",
+    });
+  }
+
   @Get("by-slug/:slug")
   async bySlug(@Param("slug") slug: string) {
     const ev = await this.events.getBySlug(slug);
@@ -102,7 +126,7 @@ export class EventsController {
   @Post("image")
   @UseGuards(SessionGuard)
   @UseInterceptors(
-    FileInterceptor("file", { limits: { fileSize: 5 * 1024 * 1024 } })
+    FileInterceptor("file", { limits: { fileSize: EVENT_IMAGE_MAX_BYTES } })
   )
   async uploadEventImage(
     @Req() req: Request & { sessionUserId?: string },
@@ -124,21 +148,30 @@ export class EventsController {
       slug
     );
     return this.events.saveDraftEventImage(
+      req.sessionUserId!,
       resolvedId,
       slot,
       file.buffer,
-      file.mimetype
+      file.mimetype,
+      requestAuditContext(req)
     );
   }
 
   @Delete("image")
   @UseGuards(SessionGuard)
-  async deleteEventImage(@Body() body: { key?: string }): Promise<{ success: true }> {
+  async deleteEventImage(
+    @Req() req: Request & { sessionUserId?: string },
+    @Body() body: { key?: string }
+  ): Promise<{ success: true }> {
     const key = body?.key?.trim();
     if (!key) {
       throw new BadRequestException("Missing key.");
     }
-    await this.events.deleteDraftEventImage(key);
+    await this.events.deleteDraftEventImage(
+      req.sessionUserId!,
+      key,
+      requestAuditContext(req)
+    );
     return { success: true };
   }
 
@@ -148,7 +181,7 @@ export class EventsController {
     @Req() req: Request & { sessionUserId?: string },
     @Body()
     body: {
-      event: CeremonyEventDto;
+      event: CreateEventInput;
       subscriptionPaymentReferenceId?: string | null;
     }
   ) {
@@ -158,7 +191,8 @@ export class EventsController {
     const { slug } = await this.events.addEvent(
       req.sessionUserId!,
       body.event,
-      body.subscriptionPaymentReferenceId
+      body.subscriptionPaymentReferenceId,
+      requestAuditContext(req)
     );
     return { success: true, slug };
   }

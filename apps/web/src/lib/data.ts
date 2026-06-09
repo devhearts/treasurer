@@ -50,7 +50,12 @@ export function formatCalendarDate(
   });
 }
 
+export function hasEventTarget(targetAmount: number): boolean {
+  return targetAmount > 0;
+}
+
 export function getProgressPercent(raised: number, target: number): number {
+  if (target <= 0) return 0;
   return Math.min(Math.round((raised / target) * 100), 100);
 }
 

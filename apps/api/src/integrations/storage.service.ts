@@ -90,6 +90,16 @@ export class StorageService {
     }
   }
 
+  async getObjectBuffer(key: string): Promise<Buffer | null> {
+    const obj = await this.getObjectStream(key);
+    if (!obj) return null;
+    const chunks: Buffer[] = [];
+    for await (const chunk of obj.body as AsyncIterable<Buffer | Uint8Array>) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
+  }
+
   async deleteObject(key: string): Promise<void> {
     const c = this.client();
     const bucket = this.config.get<string>("app.garage.bucket")?.trim();

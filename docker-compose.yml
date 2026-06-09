@@ -1,7 +1,7 @@
 # Full stack: MariaDB, Mailpit, Garage (S3 API), Nest API, Next web.
 # Schema: `db-migrate` runs `apps/api/scripts/docker-db-migrate.cjs` once before `api` on every `docker compose up`
 # (records `0000_init` in `__drizzle_migrations` if tables already exist from old `drizzle-kit push`, then `drizzle-kit migrate`).
-# Manual: `npm run docker:db-migrate`.
+# Manual: `npm run docker:db-migrate`. OG backfill (once per env): `npm run docker:db-backfill-event-og`.
 # Host ports: see docker/README-ports.md — defaults match historical ports; use `docker/ports.host.{dev,staging,production}.env`
 # via `npm run docker:up:dev` (merges `docker-compose.dev.yml`: Nest watch + Next dev HMR) when other stacks use the same host ports.
 #
@@ -67,6 +67,29 @@ services:
       DATABASE_URL: mysql://treasurer:treasurer@mysql:3306/treasurer
     depends_on:
       mysql:
+        condition: service_healthy
+    restart: "no"
+
+  # One-shot: npm run docker:db-backfill-event-og (see root package.json for dev/staging/production profiles).
+  db-backfill-event-og:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: backfill
+    env_file:
+      - .env
+      - apps/api/.env
+    environment:
+      DATABASE_URL: mysql://treasurer:treasurer@mysql:3306/treasurer
+      GARAGE_ENDPOINT: http://garage:3900
+      GARAGE_REGION: garage
+      GARAGE_ACCESS_KEY: ${GARAGE_ACCESS_KEY:-GK0123456789abcdef0123456789abcdef}
+      GARAGE_SECRET_KEY: ${GARAGE_SECRET_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      GARAGE_BUCKET: ${GARAGE_BUCKET:-treasurer}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      garage:
         condition: service_healthy
     restart: "no"
 

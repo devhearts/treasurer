@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { register as registerUser } from "@/app/actions/auth";
@@ -10,18 +11,29 @@ export default function RegisterForm() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!acceptedTerms) {
+      setError("You must accept the Terms and Conditions to create an account.");
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
     setLoading(true);
-    const result = await registerUser(email, password, confirmPassword, phone);
+    const result = await registerUser(
+      email,
+      password,
+      confirmPassword,
+      phone,
+      acceptedTerms
+    );
     setLoading(false);
     if (result.success) {
       router.push(
@@ -101,9 +113,29 @@ export default function RegisterForm() {
           className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
         />
       </div>
+      <label className="flex items-start gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={acceptedTerms}
+          onChange={(e) => setAcceptedTerms(e.target.checked)}
+          className="mt-1 h-4 w-4 rounded border-muted/50 text-accent focus:ring-accent"
+        />
+        <span className="text-sm text-muted leading-snug">
+          I have read and agree to the{" "}
+          <Link
+            href="/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent font-medium hover:underline"
+          >
+            Terms and Conditions
+          </Link>
+          .
+        </span>
+      </label>
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || !acceptedTerms}
         className="cta-primary w-full disabled:opacity-50"
       >
         {loading ? "Creating account…" : "Create account"}

@@ -3,14 +3,14 @@
 import { useState } from "react";
 import { Contribution } from "@/lib/types";
 import { formatCalendarDate, formatUGX } from "@/lib/data";
+import { absolutePublicEventUrl } from "@/lib/event-share";
 import { IconCopy, IconReceipt } from "@/components/Icons";
 
 interface ContributionReceiptProps {
   eventTitle: string;
+  eventSlug: string;
   eventDate: string;
   eventLocation: string;
-  /** Mobile Money number to contact/receive contributions for this event. */
-  treasurerPhone: string;
   contributions: Contribution[];
   raisedAmount: number;
   targetAmount: number;
@@ -40,9 +40,9 @@ function appendContributionSection(
 
 function buildReceiptText(
   eventTitle: string,
+  eventSlug: string,
   eventDate: string,
   eventLocation: string,
-  treasurerPhone: string,
   contributions: Contribution[],
   raisedAmount: number,
   targetAmount: number
@@ -71,21 +71,22 @@ function buildReceiptText(
 
   appendContributionSection(lines, `Cash Contributions:`, paid);
   appendContributionSection(lines, `Pledged Contributions:`, pledged);
-
-  lines.push(`Total Raised: ${formatUGX(raisedAmount)}`);
-  lines.push(`Target: ${formatUGX(targetAmount)}`);
-  lines.push(`Progress: ${progressPct}%`);
-  lines.push(``);
-  lines.push(`Business: CeremonyWallet`);
-  if (treasurerPhone.trim()) lines.push(`Contact: ${treasurerPhone}`);
+  lines.push(`Total Cash Raised: ${formatUGX(raisedAmount)}`);
+  if (targetAmount > 0) {
+    lines.push(`Target: ${formatUGX(targetAmount)}`);
+    lines.push(`Progress: ${progressPct}%`);
+    lines.push(``);
+  }
+  lines.push(`Contribute online:`);
+  lines.push(absolutePublicEventUrl(eventSlug));
   return lines.join("\n");
 }
 
 export default function ContributionReceipt({
   eventTitle,
+  eventSlug,
   eventDate,
   eventLocation,
-  treasurerPhone,
   contributions,
   raisedAmount,
   targetAmount,
@@ -93,9 +94,9 @@ export default function ContributionReceipt({
   const [copied, setCopied] = useState(false);
   const receiptText = buildReceiptText(
     eventTitle,
+    eventSlug,
     eventDate,
     eventLocation,
-    treasurerPhone,
     contributions,
     raisedAmount,
     targetAmount

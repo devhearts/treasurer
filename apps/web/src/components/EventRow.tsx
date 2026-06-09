@@ -3,7 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { CeremonyEvent } from "@/lib/types";
-import { formatUGX, getProgressPercent, getEventTypeLabel } from "@/lib/data";
+import {
+  formatUGX,
+  getProgressPercent,
+  getEventTypeLabel,
+  hasEventTarget,
+} from "@/lib/data";
 import { firstEventImageSrc } from "@/lib/event-share";
 import { EventTypeIcon, IconPaid, IconPledge, IconPhone, IconLocation, IconCalendar } from "./Icons";
 
@@ -43,8 +48,9 @@ export default function EventRow({ event }: EventRowProps) {
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-surface truncate">{event.title}</p>
           <p className="text-xs text-muted">
-            {formatUGX(event.raisedAmount)} raised
-            {event.targetAmount > 0 && ` · ${progress}%`}
+            {hasEventTarget(event.targetAmount)
+              ? `${formatUGX(event.raisedAmount)} raised · ${progress}%`
+              : `${formatUGX(event.raisedAmount)} raised`}
           </p>
         </div>
         <span className={`text-muted transition-transform ${open ? "rotate-180" : ""}`} aria-hidden>
@@ -86,21 +92,25 @@ export default function EventRow({ event }: EventRowProps) {
               <p className="text-xs font-semibold text-surface mb-2">Contributions</p>
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-muted">Raised</span>
-                <span className="font-semibold text-surface">{formatUGX(event.raisedAmount)}</span>
+                <span className="font-semibold text-surface">
+                  {formatUGX(event.raisedAmount)}
+                </span>
               </div>
-              {event.targetAmount > 0 && (
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-muted">Target</span>
-                  <span className="text-surface">{formatUGX(event.targetAmount)}</span>
-                </div>
-              )}
-              {event.targetAmount > 0 && (
-                <div className="w-full bg-muted/30 rounded-full h-1.5 mb-2">
-                  <div
-                    className="bg-accent h-1.5 rounded-full"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
+              {hasEventTarget(event.targetAmount) && (
+                <>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-muted">Target</span>
+                    <span className="text-surface">
+                      {formatUGX(event.targetAmount)}
+                    </span>
+                  </div>
+                  <div className="w-full bg-muted/30 rounded-full h-1.5 mb-2">
+                    <div
+                      className="bg-accent h-1.5 rounded-full"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </>
               )}
               <div className="flex flex-wrap gap-3 text-xs text-muted">
                 <span className="inline-flex items-center gap-1">
