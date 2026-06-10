@@ -5,12 +5,32 @@
 var META_SHEET_NAME = "_meta";
 
 /**
+ * Active spreadsheet when opened manually; bound ID when run from a time trigger.
+ * @returns {GoogleAppsScript.Spreadsheet.Spreadsheet}
+ */
+function getSpreadsheet() {
+  var active = SpreadsheetApp.getActiveSpreadsheet();
+  if (active) {
+    return active;
+  }
+
+  var id = getScriptProperty("SPREADSHEET_ID");
+  if (id) {
+    return SpreadsheetApp.openById(id);
+  }
+
+  throw new Error(
+    "No spreadsheet context. Open the bound sheet or enable scheduled sync from its menu."
+  );
+}
+
+/**
  * @param {string} sheetName
  * @param {string[]} headers
  * @param {string[][]} rows
  */
 function writeTableToSheet(sheetName, headers, rows) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = getSpreadsheet();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) {
     sheet = ss.insertSheet(sheetName);
@@ -34,8 +54,28 @@ function writeTableToSheet(sheetName, headers, rows) {
  * @param {string} sheetName
  * @param {number} rowCount
  */
+/**
+ * @param {string[]} results
+ */
+function stampScheduledSyncRun(results) {
+  var ss = getSpreadsheet();
+  var meta = ss.getSheetByName(META_SHEET_NAME);
+  if (!meta) {
+    meta = ss.insertSheet(META_SHEET_NAME);
+    meta
+      .getRange(1, 1, 1, 3)
+      .setValues([["sheet", "last_synced_at", "row_count"]]);
+  }
+
+  var summary = results.join("; ").substring(0, 50000);
+  meta.getRange("E1").setValue("last_scheduled_sync_at");
+  meta.getRange("E2").setValue(new Date().toISOString());
+  meta.getRange("F1").setValue("last_scheduled_sync_summary");
+  meta.getRange("F2").setValue(summary);
+}
+
 function stampMetaSync(sheetName, rowCount) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = getSpreadsheet();
   var meta = ss.getSheetByName(META_SHEET_NAME);
   if (!meta) {
     meta = ss.insertSheet(META_SHEET_NAME);

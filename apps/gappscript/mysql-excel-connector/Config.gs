@@ -256,6 +256,15 @@ function getConnectionConfig() {
 }
 
 /**
+ * Backward-compatible alias used by older Database.gs deployments.
+ * @returns {{ host: string, port: string, database: string, user: string, password: string }}
+ */
+function getJdbcConfig() {
+  var config = getConnectionConfig();
+  return config.jdbc;
+}
+
+/**
  * Direct JDBC URL (direct mode only).
  * @returns {string}
  */
