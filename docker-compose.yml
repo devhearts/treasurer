@@ -19,7 +19,7 @@ services:
       MARIADB_USER: treasurer
       MARIADB_PASSWORD: treasurer
     ports:
-      - "${HOST_PORT_MYSQL:-3306}:3306"
+      - "${HOST_BIND:-0.0.0.0}:${HOST_PORT_MYSQL:-3306}:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
@@ -32,8 +32,8 @@ services:
   mailpit:
     image: axllent/mailpit
     ports:
-      - "${HOST_PORT_MAILPIT_UI:-8025}:8025"
-      - "${HOST_PORT_MAILPIT_SMTP:-1025}:1025"
+      - "${HOST_BIND:-0.0.0.0}:${HOST_PORT_MAILPIT_UI:-8025}:8025"
+      - "${HOST_BIND:-0.0.0.0}:${HOST_PORT_MAILPIT_SMTP:-1025}:1025"
 
   # https://garagehq.deuxfleurs.fr/documentation/quick-start/
   garage:
@@ -49,8 +49,8 @@ services:
       - garage-meta:/var/lib/garage/meta
       - garage-data:/var/lib/garage/data
     ports:
-      - "${HOST_PORT_GARAGE_S3:-3900}:3900"
-      - "${HOST_PORT_GARAGE_ADMIN:-3903}:3903"
+      - "${HOST_BIND:-0.0.0.0}:${HOST_PORT_GARAGE_S3:-3900}:3900"
+      - "${HOST_BIND:-0.0.0.0}:${HOST_PORT_GARAGE_ADMIN:-3903}:3903"
     healthcheck:
       test: ["CMD", "/garage", "status"]
       interval: 300s
@@ -99,7 +99,7 @@ services:
       dockerfile: apps/api/Dockerfile
       target: runner
     ports:
-      - "${HOST_PORT_API:-4000}:4000"
+      - "${HOST_BIND:-0.0.0.0}:${HOST_PORT_API:-4000}:4000"
     env_file:
       - .env
       - apps/api/.env
@@ -133,7 +133,7 @@ services:
         NEXT_PUBLIC_FEATURE_SUBSCRIPTION_PAYMENT: ${NEXT_PUBLIC_FEATURE_SUBSCRIPTION_PAYMENT:-0}
         NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY:-MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
     ports:
-      - "${HOST_PORT_WEB:-3000}:3000"
+      - "${HOST_BIND:-0.0.0.0}:${HOST_PORT_WEB:-3000}:3000"
     env_file:
       - .env
       - apps/web/.env

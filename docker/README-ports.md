@@ -9,7 +9,7 @@ Published **host** ports are centralized in [`ports.base.json`](ports.base.json)
 | staging    | +40    | `npm run docker:up:staging` |
 | production | +50    | `npm run docker:up:production` |
 
-**Inside** the Compose network, services still use the original container ports (`mysql:3306`, `api:4000`, `mailpit:1025`, `garage:3900`, etc.). The **host** side of `ports:` uses `HOST_PORT_*` offsets. **`WEB_ORIGIN` / `NEXT_PUBLIC_APP_URL`**: `default` and `dev` use `http://localhost:<HOST_PORT_WEB>`; **`staging`** uses `https://staging.ceremonywallet.com`; **`production`** uses `https://ceremonywallet.com` (set in [`generate-port-envs.mjs`](generate-port-envs.mjs)—expect TLS at the edge proxy in front of `HOST_PORT_WEB`).
+**Inside** the Compose network, services still use the original container ports (`mysql:3306`, `api:4000`, `mailpit:1025`, `garage:3900`, etc.). The **host** side of `ports:` uses `HOST_PORT_*` offsets. **`staging`** and **`production`** also set **`HOST_BIND=127.0.0.1`** so published ports listen on localhost only (reverse proxy / SSH tunnel on the same VM); **`default`** and **`dev`** omit it and bind `0.0.0.0` for local access. **`WEB_ORIGIN` / `NEXT_PUBLIC_APP_URL`**: `default` and `dev` use `http://localhost:<HOST_PORT_WEB>`; **`staging`** uses `https://staging.ceremonywallet.com`; **`production`** uses `https://ceremonywallet.com` (set in [`generate-port-envs.mjs`](generate-port-envs.mjs)—expect TLS at the edge proxy in front of `HOST_PORT_WEB`).
 
 ## Regenerating env files
 
@@ -73,4 +73,35 @@ npm run docker:verify-ports
 ```
 
 That script checks compose `${HOST_PORT_*:-defaults}` against [`ports.base.json`](ports.base.json), Garage S3/admin bind ports, and `EXPOSE` / `PORT` in the API and web Dockerfiles.
+
+## UFW does not block Docker-published ports
+
+**`ufw deny 3356` will not close a port that Docker publishes to `0.0.0.0`.** Docker inserts its own `iptables` DNAT rules (in the `DOCKER` chain) that forward traffic **before** UFW evaluates its rules. This is a long-standing Docker + UFW interaction; the deny rule may show as active in `ufw status` while the port stays reachable from the internet.
+
+**Fix (preferred): bind to localhost.** Staging/production profiles set `HOST_BIND=127.0.0.1` in `ports.host.{staging,production}.env`. Recreate the stack so Docker re-binds the port:
+
+```bash
+docker compose --env-file docker/ports.host.production.env up -d
+```
+
+Verify on the server:
+
+```bash
+sudo ss -tlnp | grep 3356
+# want: 127.0.0.1:3356   NOT: 0.0.0.0:3356
+```
+
+Test from **another machine** (not SSH'd into the VM — localhost access still works on the server itself):
+
+```bash
+nc -zv YOUR_SERVER_PUBLIC_IP 3356   # should fail / time out after fix
+```
+
+**Emergency block** (until you redeploy with `HOST_BIND`), drop non-localhost traffic in Docker's `DOCKER-USER` chain (survives until Docker restarts unless persisted):
+
+```bash
+sudo iptables -I DOCKER-USER -p tcp --dport 3356 ! -s 127.0.0.0/8 -j DROP
+```
+
+**Strongest option for production:** MariaDB does not need a host port at all — the API and migrator connect via `mysql:3306` on the Compose network. You can remove the `mysql` `ports:` block entirely on production if you never run `mysql` from the host shell.
 
