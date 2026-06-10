@@ -1,7 +1,8 @@
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
-import { APP_GUARD } from "@nestjs/core";
+import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { SentryGlobalFilter, SentryModule } from "@sentry/nestjs/setup";
 import configuration from "./config/configuration";
 import { DatabaseModule } from "./database/database.module";
 import { AuthModule } from "./auth/auth.module";
@@ -21,6 +22,7 @@ import { InternalProxyGuard } from "./common/internal-proxy.guard";
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
@@ -41,6 +43,7 @@ import { InternalProxyGuard } from "./common/internal-proxy.guard";
   ],
   controllers: [HealthController, PublicController, WebhooksController],
   providers: [
+    { provide: APP_FILTER, useClass: SentryGlobalFilter },
     HttpLoggerMiddleware,
     SessionMiddleware,
     { provide: APP_GUARD, useClass: InternalProxyGuard },

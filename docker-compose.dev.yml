@@ -3,7 +3,8 @@
 # Add `--build` after changing `docker/Dockerfile.dev` or `package-lock.json`.
 # or `npm run docker:up:dev`.
 #
-# Binds ./apps/api and ./apps/web over the image copies; node_modules stays from the image (Linux).
+# Binds ./apps/api and ./apps/web over the image copies; hoisted deps live in /repo/node_modules (image).
+# Anonymous volumes hide host apps/*/node_modules so partial local installs do not break resolution.
 
 services:
   api:
@@ -12,7 +13,10 @@ services:
       dockerfile: docker/Dockerfile.dev
     image: treasurer-dev:latest
     volumes:
+      - ./package.json:/repo/package.json
+      - ./package-lock.json:/repo/package-lock.json
       - ./apps/api:/repo/apps/api
+      - /repo/apps/api/node_modules
     environment:
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: "true"
@@ -20,7 +24,7 @@ services:
       [
         "sh",
         "-c",
-        "if [ ! -x /repo/apps/api/node_modules/.bin/nest ]; then cd /repo && npm ci; fi; exec npm run start:dev -w @treasurer/api",
+        "if [ ! -d /repo/node_modules ] || [ /repo/package-lock.json -nt /repo/node_modules ]; then cd /repo && npm ci; fi; exec npm run start:dev -w @treasurer/api",
       ]
 
   web:
@@ -29,7 +33,10 @@ services:
       dockerfile: docker/Dockerfile.dev
     image: treasurer-dev:latest
     volumes:
+      - ./package.json:/repo/package.json
+      - ./package-lock.json:/repo/package-lock.json
       - ./apps/web:/repo/apps/web
+      - /repo/apps/web/node_modules
     environment:
       NODE_ENV: development
       WATCHPACK_POLLING: "true"
