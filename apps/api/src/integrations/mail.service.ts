@@ -60,7 +60,10 @@ export class MailService {
       this.log.log(`Email verification link (no SMTP): ${verifyLink}`);
       return;
     }
-    this.log.debug(`Sending email verification link to ${to}: ${verifyLink} using smtp user ${from}`);
+    const smtpUser = this.config.get<string>("app.smtp.user") ?? "";
+    this.log.debug(
+      `Sending email verification link to ${to} via ${this.config.get<string>("app.smtp.host")} (auth user: ${smtpUser || "—"}, from: ${from})`
+    );
     await t.sendMail({
       from,
       to,

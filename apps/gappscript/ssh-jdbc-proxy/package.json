@@ -1,0 +1,12 @@
+{
+  "name": "@treasurer/ssh-jdbc-proxy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "mysql2": "^3.14.1",
+    "ssh2": "^1.16.0"
+  }
+}
