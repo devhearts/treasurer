@@ -17,6 +17,7 @@ import type { AuditRequestContext } from "../audit/audit-context";
 import { ConfigService } from "@nestjs/config";
 import { StorageService } from "../integrations/storage.service";
 import { ContributionNotificationsService } from "../integrations/contribution-notifications.service";
+import { normalizeUgandaMsisdnForNetworks } from "../payments/phone";
 import type { Readable } from "node:stream";
 import {
   compressEventOgImage,
@@ -577,6 +578,32 @@ export class EventsService {
       throw new BadRequestException("Invalid milestone.");
     }
 
+    let contributorName = contribution.name?.trim() ?? "";
+    let contributorPhone = contribution.phone?.trim() ?? "";
+
+    if (contribution.anonymous && contribution.status === "pledged") {
+      throw new BadRequestException(
+        "Pledges cannot be recorded anonymously."
+      );
+    }
+
+    if (!contributorName) {
+      throw new BadRequestException("Enter your name.");
+    }
+    
+    const normalizedPhone = normalizeUgandaMsisdnForNetworks(
+      contributorPhone,
+      ["mtn", "airtel"]
+    );
+
+    if (!normalizedPhone) {
+      throw new BadRequestException(
+        "Enter a valid MTN or Airtel Uganda number (e.g. 07… or 256…)."
+      );
+    }
+    
+    contributorPhone = normalizedPhone;
+
     const id = `c${Date.now()}`;
     const pledgeHopeBy =
       contribution.status === "pledged" && contribution.pledgeHopeBy?.trim()
@@ -587,10 +614,10 @@ export class EventsService {
       await tx.insert(schema.contributions).values({
         id,
         eventId: event.id,
-        name: contribution.name,
+        name: contributorName || contribution.name,
         anonymous: contribution.anonymous ? 1 : 0,
         amount: contribution.amount,
-        phone: contribution.phone,
+        phone: contributorPhone,
         message: contribution.message ?? null,
         status: contribution.status,
         date: contribution.date,

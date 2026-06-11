@@ -13,9 +13,26 @@ import MilestoneCardsRow from "@/components/MilestoneCardsRow";
 import type { MilestoneItem } from "@/lib/types";
 import type { PaymentProcessorKind } from "@/lib/payments/types";
 import {
+  paymentPhoneValidationMessage,
   paymentPollingWaitLabel,
   paymentReceivedViaPhrase,
 } from "@/lib/payments";
+
+function isValidUgandaContactPhone(input: string): boolean {
+  const digits = input.replace(/\D/g, "");
+  let full: string | null = null;
+  if (digits.startsWith("256") && digits.length === 12) full = digits;
+  else if (digits.startsWith("0") && digits.length === 10)
+    full = `256${digits.slice(1)}`;
+  else if (digits.length === 9) full = `256${digits}`;
+  if (!full) return false;
+  const mtn = ["25676", "25677", "25678", "25679", "25639"];
+  const airtel = ["25670", "25674", "25675", "25620"];
+  return (
+    mtn.some((p) => full!.startsWith(p)) ||
+    airtel.some((p) => full!.startsWith(p))
+  );
+}
 
 interface ContributeFormProps {
   eventId: string;
@@ -164,6 +181,25 @@ export default function ContributeForm({
   }
 
   async function recordContribution(status: "paid" | "pledged") {
+    
+    if (anonymous && status === "pledged") {
+      setMomoError("Pledges cannot be recorded anonymously.");
+      return;
+    }
+    if (!name.trim()) {
+      setMomoError("Enter your name.");
+      return;
+    }
+    if (!payerPhone.trim()) {
+      setMomoError("Enter your phone number.");
+      return;
+    }
+    if (!isValidUgandaContactPhone(payerPhone)) {
+      setMomoError(paymentPhoneValidationMessage(["mtn", "airtel"]));
+      return;
+    }
+    
+    setMomoError(null);
     setLoading(true);
     const result = await addContribution(eventSlug, {
       name: anonymous ? "Anonymous" : name.trim(),
@@ -370,10 +406,10 @@ export default function ContributeForm({
             </label>
           </div>
 
-          {momoConfigured && (
+          {(momoConfigured || pledgeExpanded) && (
             <div className="mb-4">
               <label className="block text-xs text-muted mb-1" htmlFor="payer-phone">
-                {payerPhoneLabel}
+                {momoConfigured ? payerPhoneLabel : "Your phone number"}
               </label>
               <input
                 id="payer-phone"
@@ -383,6 +419,7 @@ export default function ContributeForm({
                 value={payerPhone}
                 onChange={(e) => setPayerPhone(e.target.value)}
                 placeholder="e.g. 077xxxxxxx"
+                required={pledgeExpanded}
                 className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
@@ -419,7 +456,10 @@ export default function ContributeForm({
                 <button
                   type="button"
                   disabled={loading || anonymous}
-                  onClick={() => setPledgeExpanded(true)}
+                  onClick={() => {
+                    setMomoError(null);
+                    setPledgeExpanded(true);
+                  }}
                   className="w-full py-3 rounded-lg font-semibold border-2 border-muted/50 text-muted hover:border-muted hover:text-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title={
                     anonymous
