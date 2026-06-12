@@ -20,6 +20,8 @@ export default registerAs("app", () => ({
     pass: process.env.SMTP_PASS ?? "",
     from: process.env.MAIL_FROM ?? "CeremonyWallet <noreply@ceremonywallet.com>",
   },
+  /** Inbox for account-verification submission alerts (optional). */
+  supportEmail: process.env.SUPPORT_EMAIL ?? "",
   garage: {
     endpoint: process.env.GARAGE_ENDPOINT ?? "",
     region: process.env.GARAGE_REGION ?? "garage",

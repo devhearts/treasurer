@@ -13,6 +13,7 @@ import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import configuration from "../config/configuration";
 import * as schema from "../database/schema";
+import { MailService } from "../integrations/mail.service";
 import {
   approveUserVerification,
   enrollUserVerification,
@@ -21,6 +22,10 @@ import {
   proxyReviewImageUrls,
   rejectUserVerification,
 } from "./verification-admin";
+import {
+  notifyUserVerificationApproved,
+  notifyUserVerificationRejected,
+} from "./verification-notifications";
 
 function argValue(flag: string): string | undefined {
   const eqPrefix = `${flag}=`;
@@ -63,6 +68,7 @@ async function main() {
   }
 
   const config = new ConfigService({ app: configuration() });
+  const mail = new MailService(config);
   const pool = mysql.createPool(databaseUrl);
   const db = drizzle(pool, { schema, mode: "default" });
 
@@ -140,6 +146,13 @@ async function main() {
 
     if (cmd === "approve") {
       await approveUserVerification(db, userId!, reviewer);
+      try {
+        await notifyUserVerificationApproved(db, mail, config, userId!);
+      } catch (e) {
+        console.warn(
+          `User approval email failed: ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
       console.log(`Approved verification for ${userId}.`);
       return;
     }
@@ -151,6 +164,19 @@ async function main() {
         process.exit(1);
       }
       await rejectUserVerification(db, userId!, reason, reviewer);
+      try {
+        await notifyUserVerificationRejected(
+          db,
+          mail,
+          config,
+          userId!,
+          reason
+        );
+      } catch (e) {
+        console.warn(
+          `User rejection email failed: ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
       console.log(`Rejected verification for ${userId}.`);
       return;
     }
