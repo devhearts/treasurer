@@ -15,6 +15,7 @@ import { PaymentsModule } from "./payments/payments.module";
 import { EventsModule } from "./events/events.module";
 import { WalletModule } from "./wallet/wallet.module";
 import { InvitationsModule } from "./invitations/invitations.module";
+import { VerificationModule } from "./verification/verification.module";
 import { HealthController } from "./health/health.controller";
 import { PublicController } from "./public/public.controller";
 import { WebhooksController } from "./webhooks/webhooks.controller";
@@ -40,6 +41,7 @@ import { InternalProxyGuard } from "./common/internal-proxy.guard";
     EventsModule,
     WalletModule,
     InvitationsModule,
+    VerificationModule,
   ],
   controllers: [HealthController, PublicController, WebhooksController],
   providers: [

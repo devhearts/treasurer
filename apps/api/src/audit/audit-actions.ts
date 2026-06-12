@@ -41,6 +41,12 @@ export const AuditAction = {
     recipientRemoved: "invitation.recipient.removed",
     rsvpSubmitted: "invitation.rsvp.submitted",
   },
+  verification: {
+    enrolled: "verification.enrolled",
+    submitted: "verification.submitted",
+    approved: "verification.approved",
+    rejected: "verification.rejected",
+  },
   payment: {
     contributionInitiated: "payment.contribution.initiated",
     contributionCompleted: "payment.contribution.completed",

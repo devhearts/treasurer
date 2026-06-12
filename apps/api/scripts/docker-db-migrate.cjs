@@ -41,10 +41,10 @@ async function columnExists(conn, dbName, table, column) {
   return Number(r.c) > 0;
 }
 
-/** True when DB looks older than current Drizzle schema for auth/email verification. */
+/** True when DB looks older than current Drizzle schema (missing expected columns/tables). */
 async function needsSchemaPush(conn, dbName, usersExists) {
   if (!usersExists) return false;
-  const hasVerifiedCol = await columnExists(
+  const hasEmailVerifiedCol = await columnExists(
     conn,
     dbName,
     "users",
@@ -55,7 +55,23 @@ async function needsSchemaPush(conn, dbName, usersExists) {
     dbName,
     "email_verification_tokens"
   );
-  return !hasVerifiedCol || !hasEvTable;
+  const hasAccountVerifiedCol = await columnExists(
+    conn,
+    dbName,
+    "users",
+    "account_verified_at"
+  );
+  const hasAccountVerifications = await tableExists(
+    conn,
+    dbName,
+    "account_verifications"
+  );
+  return (
+    !hasEmailVerifiedCol ||
+    !hasEvTable ||
+    !hasAccountVerifiedCol ||
+    !hasAccountVerifications
+  );
 }
 
 async function hasMigrationHash(conn, hash) {

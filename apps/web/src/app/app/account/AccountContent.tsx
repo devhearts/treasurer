@@ -11,6 +11,7 @@ interface AccountContentProps {
   transactions: WalletTransaction[];
   transactionsNextCursor: string | null;
   transactionsHasMore: boolean;
+  accountVerified: boolean;
 }
 
 export default function AccountContent({
@@ -18,6 +19,7 @@ export default function AccountContent({
   transactions,
   transactionsNextCursor,
   transactionsHasMore,
+  accountVerified,
 }: AccountContentProps) {
   return (
     <>
@@ -43,15 +45,24 @@ export default function AccountContent({
             </p>
           </div>
         </div>
-        <Link
-          href="/app/withdraw"
-          className="inline-flex items-center gap-2 mt-5 bg-accent hover:bg-accent/90 text-white font-medium text-sm px-9 py-3 rounded-lg transition-colors"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <path d="M12 19V5M5 12l7-7 7 7" />
-          </svg>
-          Withdraw
-        </Link>
+        {accountVerified ? (
+          <Link
+            href="/app/withdraw"
+            className="inline-flex items-center gap-2 mt-5 bg-accent hover:bg-accent/90 text-white font-medium text-sm px-9 py-3 rounded-lg transition-colors"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <path d="M12 19V5M5 12l7-7 7 7" />
+            </svg>
+            Withdraw
+          </Link>
+        ) : (
+          <Link
+            href="/app/verify-account"
+            className="inline-flex items-center gap-2 mt-5 bg-muted/30 hover:bg-muted/40 text-light font-medium text-sm px-9 py-3 rounded-lg transition-colors"
+          >
+            Verify my account
+          </Link>
+        )}
       </section>
 
       <section className="px-4 py-4 max-w-lg mx-auto w-full">

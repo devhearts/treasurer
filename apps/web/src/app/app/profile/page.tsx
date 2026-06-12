@@ -28,6 +28,27 @@ export default async function ProfilePage() {
         </Link>
 
         <div className="bg-light rounded-xl border border-muted/30 overflow-hidden mb-4">
+          <div className="px-6 py-4 border-b border-muted/20 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs text-muted uppercase tracking-wider">
+                Account verification
+              </p>
+              <p className="text-sm font-medium text-surface mt-0.5 capitalize">
+                {user.accountVerificationStatus?.replace("_", " ") ?? "none"}
+              </p>
+              {user.accountVerificationRejectionReason && (
+                <p className="text-xs text-red-700 mt-1">
+                  {user.accountVerificationRejectionReason}
+                </p>
+              )}
+            </div>
+            <Link
+              href="/app/verify-account"
+              className="text-sm text-accent font-medium hover:underline shrink-0"
+            >
+              {user.accountVerified ? "View" : "Verify"}
+            </Link>
+          </div>
           <div className="p-6 flex items-center gap-4">
             <div className="w-14 h-14 rounded-full bg-muted/20 flex items-center justify-center text-surface flex-shrink-0">
               <IconUser className="w-7 h-7" />

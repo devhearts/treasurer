@@ -18,6 +18,8 @@ import { normalizeUgandaMsisdnForNetworks } from "../payments/phone";
 import { AuditService } from "../audit/audit.service";
 import { AuditAction } from "../audit/audit-actions";
 import type { AuditRequestContext } from "../audit/audit-context";
+import { VerificationService } from "../verification/verification.service";
+import type { AccountVerificationStatus } from "../verification/verification.types";
 
 const SALT_ROUNDS = 10;
 const RESET_TOKEN_EXPIRY_HOURS = 1;
@@ -42,7 +44,8 @@ export class AuthService {
     private readonly sessions: SessionService,
     private readonly mail: MailService,
     private readonly config: ConfigService,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    private readonly verification: VerificationService
   ) {}
 
   async register(
@@ -184,6 +187,9 @@ export class AuthService {
     id: string;
     email: string;
     emailVerified: boolean;
+    accountVerified: boolean;
+    accountVerificationStatus: AccountVerificationStatus;
+    accountVerificationRejectionReason?: string;
   } | null> {
     const rows = await this.db
       .select({
@@ -196,10 +202,12 @@ export class AuthService {
       .limit(1);
     const u = rows[0];
     if (!u) return null;
+    const vFields = await this.verification.getAuthVerificationFields(userId);
     return {
       id: u.id,
       email: u.email,
       emailVerified: !!u.emailVerifiedAt,
+      ...vFields,
     };
   }
 
@@ -370,6 +378,7 @@ export class AuthService {
       await this.db
         .delete(schema.emailVerificationTokens)
         .where(eq(schema.emailVerificationTokens.userId, user.id));
+      await this.verification.enrollOnEmailVerified(user.id);
       return { userId: user.id, email: user.email };
     }
     const verifiedAt = formatMysqlDateTimeUtc(new Date());
@@ -391,6 +400,7 @@ export class AuthService {
       userAgent: ua,
       ctx,
     });
+    await this.verification.enrollOnEmailVerified(user.id);
     return { userId: user.id, email: user.email };
   }
 

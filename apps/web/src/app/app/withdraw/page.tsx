@@ -13,6 +13,7 @@ export const metadata = {
 export default async function WithdrawPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/");
+  if (!user.accountVerified) redirect("/app/verify-account");
 
   const [account, methods] = await Promise.all([
     getWalletAccount(),
@@ -25,6 +26,7 @@ export default async function WithdrawPage() {
         initialBalance={account.balance}
         initialMethods={methods}
         userEmail={user.email}
+        methodsReadOnly
       />
     </main>
   );

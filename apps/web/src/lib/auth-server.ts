@@ -1,18 +1,21 @@
 import "server-only";
 import { serverApiJson } from "./server-api";
 
-export async function getCurrentUser(): Promise<{
+import type { AccountVerificationStatus } from "@/lib/verification/types";
+
+export type CurrentUser = {
   id: string;
   email: string;
   emailVerified?: boolean;
-} | null> {
+  accountVerified?: boolean;
+  accountVerificationStatus?: AccountVerificationStatus;
+  accountVerificationRejectionReason?: string;
+};
+
+export async function getCurrentUser(): Promise<CurrentUser | null> {
   try {
     const data = await serverApiJson<{
-      user: {
-        id: string;
-        email: string;
-        emailVerified?: boolean;
-      } | null;
+      user: CurrentUser | null;
     }>("auth/me");
     return data.user;
   } catch {

@@ -9,6 +9,15 @@
 - **Web**: BFF proxy [`apps/web/src/app/api/v1/[[...path]]/route.ts`](apps/web/src/app/api/v1/[[...path]]/route.ts) → `API_INTERNAL_URL`. Server Actions call the API with [`apps/web/src/lib/server-api.ts`](apps/web/src/lib/server-api.ts). Cookie `cerw_session` holds session id. Standalone: `node apps/web/server.js` from the standalone bundle root after `npm run build -w @treasurer/web` (see [`apps/web/Dockerfile`](apps/web/Dockerfile)).
 - **Env samples**: [`env.example`](env.example), [`apps/api/.env.example`](apps/api/.env.example), [`apps/web/.env.example`](apps/web/.env.example).
 
+## Recent: Account verification (KYC-lite)
+
+- **DB** ([`0007_account_verification.sql`](apps/api/drizzle/0007_account_verification.sql)): `users.account_verified_at`, `account_verifications`, `verification_capture_sessions`.
+- **API** ([`VerificationModule`](apps/api/src/verification/verification.module.ts)): `GET verification/status`, `POST verification/{capture-sessions,submit}`, public `GET/POST public/verification/capture/:token/:slot` (camera-only uploads to Garage). **No user enroll** — operators use CLI.
+- **Enrollment**: auto on email verify (`AuthService.verifyEmail` → `VerificationService.enrollOnEmailVerified`); backfill migration [`0008_account_verification_auto_enroll.sql`](apps/api/drizzle/0008_account_verification_auto_enroll.sql). CLI enroll still available for manual override.
+- **Admin CLI**: `npm run verify-account -w @treasurer/api` or `npm run docker:verify-account -- {enroll,list,show,approve,reject}` ([`verify-account-cli.ts`](apps/api/src/verification/verify-account-cli.ts)).
+- **Wallet gating**: withdraw + payout-method add/edit/delete blocked until verified; on approve, auto-provision single MTN/Airtel MoMo method from verified phone.
+- **Web**: `/app/verify-account` wizard (camera or desktop QR → `/verify-capture/[token]`), [`VerificationBanner`](apps/web/src/components/verification/VerificationBanner.tsx), withdraw/account/profile gating. [`CameraCapture`](apps/web/src/components/verification/CameraCapture.tsx) uses a single `preview`-gated effect with cleanup cancellation and ignores benign `video.play()` abort/interrupt errors (React Strict Mode / remount).
+
 ## Recent: Google Apps Script MySQL-to-Sheets connector
 
 - **App**: [`apps/gappscript/mysql-excel-connector/`](apps/gappscript/mysql-excel-connector/) — bound Spreadsheet script using built-in **Jdbc** service to `SELECT` reporting tables from Treasurer MariaDB into one tab per table.
