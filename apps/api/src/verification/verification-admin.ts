@@ -7,7 +7,10 @@ import {
   isAirtelUgandaMsisdn,
   isMtnUgandaMsisdn,
 } from "../payments/phone";
-import type { AccountVerificationStatus } from "./verification.types";
+import type {
+  AccountVerificationStatus,
+  VerificationReviewImageUrls,
+} from "./verification.types";
 import {
   buildVerificationReviewImageUrl,
   type VerificationReviewSlot,
@@ -283,8 +286,12 @@ export function proxyReviewImageUrls(
     idBack?: string | null;
   },
   ttlSec = 3600
-): Record<string, string | null> {
-  const out: Record<string, string | null> = {};
+): VerificationReviewImageUrls {
+  const out: VerificationReviewImageUrls = {
+    selfie: null,
+    idFront: null,
+    idBack: null,
+  };
   for (const [label, key] of [
     ["selfie", keys.selfie],
     ["idFront", keys.idFront],
@@ -294,7 +301,7 @@ export function proxyReviewImageUrls(
       ? buildVerificationReviewImageUrl(
           publicWebUrl,
           userId,
-          label as VerificationReviewSlot,
+          label,
           secret,
           ttlSec
         )

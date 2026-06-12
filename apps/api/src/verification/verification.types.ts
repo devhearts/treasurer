@@ -43,3 +43,9 @@ export type PublicCaptureStatusDto = {
     idBack: boolean;
   };
 };
+
+export type VerificationReviewImageUrls = {
+  selfie: string | null;
+  idFront: string | null;
+  idBack: string | null;
+};

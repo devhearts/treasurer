@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -13,6 +14,7 @@ import { DRIZZLE } from "../database/database.module";
 import * as schema from "../database/schema";
 import { formatMysqlDateTimeUtc } from "../common/mysql-datetime";
 import { normalizeUgandaMsisdnForNetworks } from "../payments/phone";
+import { MailService } from "../integrations/mail.service";
 import { StorageService } from "../integrations/storage.service";
 import { AuditService } from "../audit/audit.service";
 import { AuditAction } from "../audit/audit-actions";
@@ -21,6 +23,7 @@ import {
   canSubmitVerification,
   getVerificationForShow,
   getVerificationStatusForUser,
+  proxyReviewImageUrls,
 } from "./verification-admin";
 import {
   isVerificationReviewSlot,
@@ -52,9 +55,12 @@ import {
 
 @Injectable()
 export class VerificationService {
+  private readonly log = new Logger(VerificationService.name);
+
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
     private readonly storage: StorageService,
+    private readonly mail: MailService,
     private readonly config: ConfigService,
     private readonly audit: AuditService
   ) {}
@@ -365,7 +371,86 @@ export class VerificationService {
       id: userId,
     });
 
+    this.notifySupportOfSubmission(userId, {
+      legalName,
+      phoneMsisdn,
+      submittedAt: now,
+      selfieKey,
+      idFrontKey,
+      idBackKey,
+    });
+
     return { ok: true };
+  }
+
+  /** Email support with submission details; never blocks or throws to the client. */
+  private notifySupportOfSubmission(
+    userId: string,
+    submission: {
+      legalName: string;
+      phoneMsisdn: string;
+      submittedAt: string;
+      selfieKey: string;
+      idFrontKey: string;
+      idBackKey: string;
+    }
+  ): void {
+    void this.sendSupportSubmissionEmail(userId, submission).catch((err) => {
+      this.log.warn(
+        `Support notification failed for verification ${userId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
+    });
+  }
+
+  private async sendSupportSubmissionEmail(
+    userId: string,
+    submission: {
+      legalName: string;
+      phoneMsisdn: string;
+      submittedAt: string;
+      selfieKey: string;
+      idFrontKey: string;
+      idBackKey: string;
+    }
+  ): Promise<void> {
+    const supportTo = this.config.get<string>("app.supportEmail")?.trim();
+    if (!supportTo) return;
+
+    const userRows = await this.db
+      .select({
+        email: schema.users.email,
+        phone: schema.users.phone,
+      })
+      .from(schema.users)
+      .where(eq(schema.users.id, userId))
+      .limit(1);
+    const user = userRows[0];
+    if (!user?.email) return;
+
+    const proxySecret =
+      this.config.get<string>("app.internalProxySecret")?.trim() ?? "";
+    const reviewUrls = proxyReviewImageUrls(
+      this.appBaseUrl(),
+      proxySecret,
+      userId,
+      {
+        selfie: submission.selfieKey,
+        idFront: submission.idFrontKey,
+        idBack: submission.idBackKey,
+      }
+    );
+
+    await this.mail.sendVerificationSubmissionToSupport(supportTo, {
+      userId,
+      email: user.email,
+      accountPhone: user.phone,
+      legalName: submission.legalName,
+      phoneMsisdn: submission.phoneMsisdn,
+      submittedAt: submission.submittedAt,
+      reviewUrls,
+    });
   }
 
   private async resolveCaptureSessionKeys(
