@@ -79,15 +79,28 @@ export default function MobileCaptureWizard({ token }: MobileCaptureWizardProps)
 
   const labels: Record<
     Exclude<Step, "done">,
-    { title: string; hint?: string }
+    {
+      title: string;
+      hint?: string;
+      captureLabel: string;
+      captureKind: "selfie" | "id";
+    }
   > = {
-    selfie: { title: "Selfie" },
+    selfie: {
+      title: "Selfie",
+      captureLabel: "Capture Selfie",
+      captureKind: "selfie",
+    },
     "id-front": {
       title: "ID front",
+      captureLabel: "Capture ID Front",
+      captureKind: "id",
       hint: "Hold the front of your ID to the camera.",
     },
     "id-back": {
       title: "ID back",
+      captureLabel: "Capture ID Back",
+      captureKind: "id",
       hint: "Hold the back of your ID to the camera.",
     },
   };
@@ -103,6 +116,8 @@ export default function MobileCaptureWizard({ token }: MobileCaptureWizardProps)
       )}
       <CameraCapture
         label={current.title}
+        captureLabel={current.captureLabel}
+        captureKind={current.captureKind}
         hint={current.hint || undefined}
         instructions={
           step === "selfie" ? SELFIE_CAPTURE_INSTRUCTIONS : undefined

@@ -1,14 +1,23 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { IconSwitchCamera } from "@/components/Icons";
+
+type CameraFacingMode = "user" | "environment";
 
 interface CameraCaptureProps {
   label: string;
   hint?: string;
+  /** Primary capture button label, e.g. "Capture Selfie". */
+  captureLabel: string;
   /** Short checklist shown above the camera (e.g. selfie guidance). */
   instructions?: readonly string[];
   /** Oval face positioning guide over the live preview. */
   faceGuide?: boolean;
+  /** Selfie → front camera; ID → rear camera (overridable via switch). */
+  captureKind?: "selfie" | "id";
+  /** Override default camera for this capture step. */
+  defaultFacingMode?: CameraFacingMode;
   onCapture: (blob: Blob) => void;
   /** Optional fallback when camera cannot start (does not auto-invoke). */
   onUsePhoneInstead?: () => void;
@@ -56,18 +65,34 @@ function FaceOverlayGuide({ maskId }: { maskId: string }) {
   );
 }
 
-async function openCameraStream(): Promise<MediaStream> {
+function facingModeConstraints(
+  facingMode: CameraFacingMode
+): MediaStreamConstraints[] {
+  return [
+    {
+      video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 } },
+      audio: false,
+    },
+    { video: { facingMode, width: { ideal: 1280 } }, audio: false },
+    { video: { facingMode: { ideal: facingMode } }, audio: false },
+    { video: { facingMode }, audio: false },
+  ];
+}
+
+async function openCameraStream(
+  facingMode: CameraFacingMode
+): Promise<MediaStream> {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error("Camera is not available on this device.");
   }
+
   const attempts: MediaStreamConstraints[] = [
-    {
-      video: { facingMode: { ideal: "user" }, width: { ideal: 1280 } },
-      audio: false,
-    },
+    ...facingModeConstraints(facingMode),
+    // Last resort when the device has no matching camera (e.g. desktop webcam only).
     { video: { width: { ideal: 1280 } }, audio: false },
     { video: true, audio: false },
   ];
+
   let lastError: unknown;
   for (const constraints of attempts) {
     try {
@@ -77,6 +102,14 @@ async function openCameraStream(): Promise<MediaStream> {
     }
   }
   throw lastError;
+}
+
+function defaultFacingForKind(
+  captureKind: "selfie" | "id" | undefined,
+  override?: CameraFacingMode
+): CameraFacingMode {
+  if (override) return override;
+  return captureKind === "id" ? "environment" : "user";
 }
 
 function isBenignPlayError(e: unknown): boolean {
@@ -115,21 +148,33 @@ async function attachStreamToVideo(
 export default function CameraCapture({
   label,
   hint,
+  captureLabel,
   instructions,
   faceGuide = false,
+  captureKind,
+  defaultFacingMode,
   onCapture,
   onUsePhoneInstead,
 }: CameraCaptureProps) {
+  const preferredFacing = defaultFacingForKind(captureKind, defaultFacingMode);
   const faceMaskId = `face-guide-${useId().replace(/:/g, "")}`;
   const videoRef = useRef<HTMLVideoElement>(null);
   const onCaptureRef = useRef(onCapture);
   const [preview, setPreview] = useState<string | null>(null);
   const [starting, setStarting] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [facingMode, setFacingMode] =
+    useState<CameraFacingMode>(preferredFacing);
+
+  const mirrorPreview = facingMode === "user";
 
   useEffect(() => {
     onCaptureRef.current = onCapture;
   }, [onCapture]);
+
+  useEffect(() => {
+    setFacingMode(preferredFacing);
+  }, [preferredFacing]);
 
   useEffect(() => {
     if (preview) return;
@@ -141,7 +186,7 @@ export default function CameraCapture({
       setStarting(true);
       setError(null);
       try {
-        stream = await openCameraStream();
+        stream = await openCameraStream(facingMode);
         if (cancelled) return;
 
         const video = videoRef.current;
@@ -165,7 +210,7 @@ export default function CameraCapture({
       const video = videoRef.current;
       if (video) video.srcObject = null;
     };
-  }, [preview]);
+  }, [preview, facingMode]);
 
   function captureFrame() {
     const video = videoRef.current;
@@ -182,9 +227,10 @@ export default function CameraCapture({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Mirror to match the live preview (CSS scaleX on the video element).
-    ctx.translate(w, 0);
-    ctx.scale(-1, 1);
+    if (mirrorPreview) {
+      ctx.translate(w, 0);
+      ctx.scale(-1, 1);
+    }
     ctx.drawImage(video, 0, 0, w, h);
 
     const stream = video.srcObject as MediaStream | null;
@@ -205,8 +251,17 @@ export default function CameraCapture({
 
   function retake() {
     if (preview) URL.revokeObjectURL(preview);
+    setFacingMode(preferredFacing);
     setPreview(null);
   }
+
+  function switchCamera() {
+    setFacingMode((current) =>
+      current === "user" ? "environment" : "user"
+    );
+  }
+
+  const showLiveCamera = !preview && !starting && !error;
 
   return (
     <div className="space-y-3">
@@ -254,11 +309,21 @@ export default function CameraCapture({
             playsInline
             muted
             autoPlay
-            className="w-full h-full object-cover mirror"
-            style={{ transform: "scaleX(-1)" }}
+            className="w-full h-full object-cover"
+            style={mirrorPreview ? { transform: "scaleX(-1)" } : undefined}
           />
         )}
-        {faceGuide && !preview && !starting && !error && (
+        {showLiveCamera && (
+          <button
+            type="button"
+            onClick={switchCamera}
+            className="absolute top-3 right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/45 text-white hover:bg-black/60"
+            aria-label="Switch camera"
+          >
+            <IconSwitchCamera className="h-5 w-5" />
+          </button>
+        )}
+        {faceGuide && showLiveCamera && (
           <FaceOverlayGuide maskId={faceMaskId} />
         )}
         {starting && !preview && (
@@ -284,7 +349,7 @@ export default function CameraCapture({
             disabled={starting || !!error}
             className="px-6 py-2.5 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/90 disabled:opacity-50"
           >
-            Capture
+            {captureLabel}
           </button>
         )}
       </div>

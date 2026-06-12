@@ -348,6 +348,8 @@ export default function VerifyAccountWizard({
           <CameraCapture
             key="selfie"
             label="Selfie"
+            captureLabel="Capture Selfie"
+            captureKind="selfie"
             instructions={SELFIE_CAPTURE_INSTRUCTIONS}
             faceGuide
             onCapture={setSelfie}
@@ -369,6 +371,8 @@ export default function VerifyAccountWizard({
             <CameraCapture
               key="id-front"
               label="ID front"
+              captureLabel="Capture ID Front"
+              captureKind="id"
               hint="Hold the front of your ID to the camera."
               onCapture={setIdFront}
               onUsePhoneInstead={switchToPhoneCapture}
@@ -390,6 +394,8 @@ export default function VerifyAccountWizard({
             <CameraCapture
               key="id-back"
               label="ID back"
+              captureLabel="Capture ID Back"
+              captureKind="id"
               hint="Hold the back of your ID to the camera."
               onCapture={setIdBack}
               onUsePhoneInstead={switchToPhoneCapture}
