@@ -29,7 +29,11 @@
     "docker:db-backfill-event-og": "docker compose --env-file docker/ports.host.default.env run --rm db-backfill-event-og",
     "docker:db-backfill-event-og:dev": "docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file docker/ports.host.dev.env run --rm db-backfill-event-og",
     "docker:db-backfill-event-og:staging": "docker compose --env-file docker/ports.host.staging.env run --rm db-backfill-event-og",
-    "docker:db-backfill-event-og:production": "docker compose --env-file docker/ports.host.production.env run --rm db-backfill-event-og"
+    "docker:db-backfill-event-og:production": "docker compose --env-file docker/ports.host.production.env run --rm db-backfill-event-og",
+    "docker:verify-account": "docker compose --env-file docker/ports.host.default.env run --rm verify-account",
+    "docker:verify-account:dev": "docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file docker/ports.host.dev.env run --rm verify-account",
+    "docker:verify-account:staging": "docker compose --env-file docker/ports.host.staging.env run --rm verify-account",
+    "docker:verify-account:production": "docker compose --env-file docker/ports.host.production.env run --rm verify-account"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

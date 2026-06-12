@@ -33,6 +33,14 @@ import {
   eventGalleryPhotoUrl,
   eventHasStoredImages,
 } from "./invite-content-defaults";
+
+const GUEST_NAME_MAX = 255;
+const INVITATION_TITLE_MAX = 500;
+const RSVP_STATUSES = new Set<RsvpStatus>([
+  "accepted",
+  "declined",
+  "maybe",
+]);
 import { AuditService } from "../audit/audit.service";
 import { AuditAction } from "../audit/audit-actions";
 
@@ -319,6 +327,12 @@ export class InvitationsService {
     if (body.templateId != null && !isInviteTemplateId(body.templateId)) {
       throw new BadRequestException("Invalid invitation theme.");
     }
+    const nextTitle = body.title?.trim();
+    if (nextTitle && nextTitle.length > INVITATION_TITLE_MAX) {
+      throw new BadRequestException(
+        `Title must be ${INVITATION_TITLE_MAX} characters or fewer.`
+      );
+    }
     const content = parseContent(inv.contentJson);
     const merged: InviteCardContent = {
       ...content,
@@ -328,7 +342,7 @@ export class InvitationsService {
     await this.db
       .update(schema.invitations)
       .set({
-        title: body.title?.trim() || inv.title,
+        title: nextTitle?.slice(0, INVITATION_TITLE_MAX) || inv.title,
         templateId: body.templateId ?? inv.templateId,
         contentJson: inviteContentToJson(merged),
         updatedAt: now,
@@ -351,6 +365,11 @@ export class InvitationsService {
     await this.getOwnedInvitation(userId, invitationId);
     const name = body.guestName?.trim();
     if (!name) throw new BadRequestException("Guest name is required.");
+    if (name.length > GUEST_NAME_MAX) {
+      throw new BadRequestException(
+        `Guest name must be ${GUEST_NAME_MAX} characters or fewer.`
+      );
+    }
     const id = randomUUID();
     const token = viewToken();
     const now = formatMysqlDateTimeUtc(new Date());
@@ -659,6 +678,9 @@ export class InvitationsService {
 
     const prev = rec.rsvpStatus as RsvpStatus;
     const next = body.status;
+    if (!RSVP_STATUSES.has(next)) {
+      throw new BadRequestException("Invalid RSVP status.");
+    }
     const now = formatMysqlDateTimeUtc(new Date());
     const partySize =
       body.partySize != null && body.partySize > 0

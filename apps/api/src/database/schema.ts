@@ -24,6 +24,11 @@ export const users = mysqlTable(
     }),
     /** Uganda MSISDN (256…); null for legacy rows before this column existed. */
     phone: varchar("phone", { length: 32 }),
+    /** Set when account verification is approved (KYC-lite). */
+    accountVerifiedAt: datetime("account_verified_at", {
+      mode: "string",
+      fsp: 3,
+    }),
   },
   (t) => [uniqueIndex("uq_users_email").on(t.email)]
 );
@@ -331,6 +336,43 @@ export const payoutMethodOtps = mysqlTable(
     createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
   },
   (t) => [index("idx_payout_method_otps_pending").on(t.pendingId)]
+);
+
+/** Account identity verification (KYC-lite) — one row per user. */
+export const accountVerifications = mysqlTable("account_verifications", {
+  userId: varchar("user_id", { length: 36 }).primaryKey(),
+  status: varchar("status", { length: 32 }).notNull().default("none"),
+  legalName: varchar("legal_name", { length: 255 }),
+  phoneMsisdn: varchar("phone_msisdn", { length: 32 }),
+  selfieKey: varchar("selfie_key", { length: 512 }),
+  idFrontKey: varchar("id_front_key", { length: 512 }),
+  idBackKey: varchar("id_back_key", { length: 512 }),
+  rejectionReason: text("rejection_reason"),
+  submittedAt: datetime("submitted_at", { mode: "string", fsp: 3 }),
+  reviewedAt: datetime("reviewed_at", { mode: "string", fsp: 3 }),
+  reviewedBy: varchar("reviewed_by", { length: 255 }),
+  createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
+  updatedAt: datetime("updated_at", { mode: "string", fsp: 3 }).notNull(),
+});
+
+/** Short-lived QR capture session for desktop → phone camera flow. */
+export const verificationCaptureSessions = mysqlTable(
+  "verification_capture_sessions",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    userId: varchar("user_id", { length: 36 }).notNull(),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+    expiresAt: datetime("expires_at", { mode: "string", fsp: 3 }).notNull(),
+    selfieKey: varchar("selfie_key", { length: 512 }),
+    idFrontKey: varchar("id_front_key", { length: 512 }),
+    idBackKey: varchar("id_back_key", { length: 512 }),
+    consumedAt: datetime("consumed_at", { mode: "string", fsp: 3 }),
+    createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
+  },
+  (t) => [
+    index("idx_verification_capture_token").on(t.tokenHash),
+    index("idx_verification_capture_user").on(t.userId),
+  ]
 );
 
 export const invitations = mysqlTable(

@@ -50,6 +50,20 @@
       "when": 1779100000000,
       "tag": "0006_event_og_images",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1779200000000,
+      "tag": "0007_account_verification",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1779300000000,
+      "tag": "0008_account_verification_auto_enroll",
+      "breakpoints": true
     }
   ]
 }

@@ -7,9 +7,16 @@ import { AuthModule } from "../auth/auth.module";
 import { IntegrationsModule } from "../integrations/integrations.module";
 import { PaymentProcessorModule } from "../payments/payment-processor.module";
 import { AuditModule } from "../audit/audit.module";
+import { VerificationModule } from "../verification/verification.module";
 
 @Module({
-  imports: [AuthModule, IntegrationsModule, PaymentProcessorModule, AuditModule],
+  imports: [
+    AuthModule,
+    IntegrationsModule,
+    PaymentProcessorModule,
+    AuditModule,
+    VerificationModule,
+  ],
   controllers: [WalletController],
   providers: [WalletService, PayoutMethodsService, WithdrawalsService],
   exports: [WalletService],

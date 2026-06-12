@@ -15,6 +15,7 @@ import {
 } from "@/lib/event-image-upload";
 import { uploadEventImageWithProgress } from "@/lib/upload-event-image-client";
 import { formatUGX, getEventTypeLabel } from "@/lib/data";
+import { validateUgandaPhone } from "@/lib/phone";
 
 const EVENT_TYPES: { value: EventType; label: string }[] = [
   { value: "wedding", label: "Wedding" },
@@ -149,6 +150,27 @@ export default function EditEventForm({
 
   async function handleSave(e: FormEvent) {
     e.preventDefault();
+    if (!organizer.trim()) {
+      alert("Organizer is required.");
+      return;
+    }
+    if (!treasurerPhone.trim()) {
+      alert("Treasurer phone is required.");
+      return;
+    }
+    const phoneErr = validateUgandaPhone(treasurerPhone);
+    if (phoneErr) {
+      alert(phoneErr);
+      return;
+    }
+    if (!date.trim()) {
+      alert("Event date is required.");
+      return;
+    }
+    if (!location.trim()) {
+      alert("Location is required.");
+      return;
+    }
     setLoading(true);
     const imageUrlsSorted = [...photosRef.current]
       .sort(

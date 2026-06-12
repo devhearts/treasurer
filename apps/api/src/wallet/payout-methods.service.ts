@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -23,6 +24,7 @@ import {
 import { AuditService } from "../audit/audit.service";
 import { AuditAction } from "../audit/audit-actions";
 import { msisdnLast4 } from "../audit/audit-metadata";
+import { VerificationService } from "../verification/verification.service";
 
 export type PayoutMethodType = "mtn_momo" | "airtel_momo" | "bank";
 
@@ -45,7 +47,8 @@ export class PayoutMethodsService {
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
     private readonly mail: MailService,
     private readonly config: ConfigService,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    private readonly verification: VerificationService
   ) {
     this.otpTtlSec = parseInt(
       this.config.get<string>("WITHDRAW_OTP_TTL_SEC") ?? "300",
@@ -58,6 +61,9 @@ export class PayoutMethodsService {
   }
 
   async list(userId: string) {
+    if (!(await this.verification.isAccountVerified(userId))) {
+      return [];
+    }
     const rows = await this.db
       .select()
       .from(schema.payoutMethods)
@@ -125,11 +131,11 @@ export class PayoutMethodsService {
     return fields.msisdn ?? fields.label;
   }
 
-  /** Start add flow: store draft and email OTP. Direct create is not allowed. */
+  /** Payout methods are provisioned on account verification approval. */
   async initiateAdd(
-    userId: string,
-    userEmail: string,
-    body: {
+    _userId: string,
+    _userEmail: string,
+    _body: {
       type: PayoutMethodType;
       label?: string;
       msisdn?: string;
@@ -140,40 +146,11 @@ export class PayoutMethodsService {
       isDefault?: boolean;
     }
   ) {
-    const fields = this.parseMethodFields(body);
-    const id = randomUUID();
-    const now = formatMysqlDateTimeUtc(new Date());
-
-    await this.db.insert(schema.payoutMethodPending).values({
-      id,
-      userId,
-      type: fields.type,
-      label: fields.label,
-      msisdn: fields.msisdn,
-      accountNumber: fields.accountNumber,
-      bankName: fields.bankName,
-      branch: fields.branch,
-      swift: fields.swift,
-      isDefault: body.isDefault ? 1 : 0,
-      createdAt: now,
+    throw new ForbiddenException({
+      message:
+        "Withdraw methods are set from your verified phone number after account verification.",
+      code: "payout_method_add_disabled",
     });
-
-    await this.sendAddOtp(id, userEmail, fields);
-
-    this.audit.logUserAction(
-      userId,
-      AuditAction.wallet.payoutMethodAddInitiated,
-      { type: "payout_method_pending", id },
-      { pendingId: id, network: fields.type }
-    );
-
-    return {
-      pendingId: id,
-      methodLabel: fields.label,
-      destination: this.destinationLine(fields),
-      otpEmailMasked: maskEmail(userEmail),
-      resendAvailableInSec: this.resendThrottleSec,
-    };
   }
 
   async resendAddOtp(
@@ -349,7 +326,7 @@ export class PayoutMethodsService {
   async update(
     userId: string,
     methodId: string,
-    body: {
+    _body: {
       label?: string;
       msisdn?: string;
       accountNumber?: string;
@@ -359,92 +336,21 @@ export class PayoutMethodsService {
       isDefault?: boolean;
     }
   ) {
-    const existing = await this.getForUser(userId, methodId);
-    const fields = this.parseMethodFields({
-      type: existing.type as PayoutMethodType,
-      label: body.label,
-      msisdn: body.msisdn ?? existing.msisdn ?? undefined,
-      accountNumber: body.accountNumber ?? existing.accountNumber ?? undefined,
-      bankName: body.bankName ?? existing.bankName ?? undefined,
-      branch: body.branch ?? existing.branch ?? undefined,
-      swift: body.swift ?? existing.swift ?? undefined,
+    void userId;
+    void methodId;
+    throw new ForbiddenException({
+      message: "Verified withdraw methods cannot be edited.",
+      code: "payout_method_edit_disabled",
     });
-
-    if (body.isDefault) {
-      await this.db
-        .update(schema.payoutMethods)
-        .set({ isDefault: 0 })
-        .where(eq(schema.payoutMethods.userId, userId));
-    }
-
-    await this.db
-      .update(schema.payoutMethods)
-      .set({
-        label: fields.label,
-        msisdn: fields.msisdn,
-        accountNumber: fields.accountNumber,
-        bankName: fields.bankName,
-        branch: fields.branch,
-        swift: fields.swift,
-        ...(body.isDefault !== undefined
-          ? { isDefault: body.isDefault ? 1 : 0 }
-          : {}),
-      })
-      .where(eq(schema.payoutMethods.id, methodId));
-
-    const rows = await this.db
-      .select()
-      .from(schema.payoutMethods)
-      .where(eq(schema.payoutMethods.id, methodId))
-      .limit(1);
-    this.audit.logUserAction(
-      userId,
-      AuditAction.wallet.payoutMethodUpdated,
-      { type: "payout_method", id: methodId },
-      { methodId }
-    );
-    return this.toDto(rows[0]!);
   }
 
   async delete(userId: string, methodId: string) {
-    const rows = await this.db
-      .select()
-      .from(schema.payoutMethods)
-      .where(
-        and(
-          eq(schema.payoutMethods.id, methodId),
-          eq(schema.payoutMethods.userId, userId)
-        )
-      )
-      .limit(1);
-    if (!rows[0]) throw new NotFoundException("Payout method not found.");
-    const wasDefault = !!rows[0].isDefault;
-    await this.db
-      .delete(schema.payoutMethods)
-      .where(eq(schema.payoutMethods.id, methodId));
-
-    if (wasDefault) {
-      const remaining = await this.db
-        .select()
-        .from(schema.payoutMethods)
-        .where(eq(schema.payoutMethods.userId, userId))
-        .limit(1);
-      if (remaining[0]) {
-        await this.db
-          .update(schema.payoutMethods)
-          .set({ isDefault: 1 })
-          .where(eq(schema.payoutMethods.id, remaining[0].id));
-      }
-    }
-
-    this.audit.logUserAction(
-      userId,
-      AuditAction.wallet.payoutMethodDeleted,
-      { type: "payout_method", id: methodId },
-      { methodId }
-    );
-
-    return { ok: true };
+    void userId;
+    void methodId;
+    throw new ForbiddenException({
+      message: "Verified withdraw methods cannot be removed.",
+      code: "payout_method_delete_disabled",
+    });
   }
 
   async getForUser(userId: string, methodId: string) {

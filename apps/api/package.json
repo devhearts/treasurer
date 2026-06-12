@@ -10,6 +10,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "npx tsx src/database/seed.ts",
     "db:backfill-event-og": "npx tsx src/database/backfill-event-og-images.ts",
+    "verify-account": "npx tsx src/verification/verify-account-cli.ts",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",

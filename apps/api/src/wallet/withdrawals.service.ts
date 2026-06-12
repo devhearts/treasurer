@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
+import { VerificationService } from "../verification/verification.service";
 import { ConfigService } from "@nestjs/config";
 import { eq, and, desc } from "drizzle-orm";
 import { createHash, randomInt, randomUUID } from "crypto";
@@ -81,7 +82,8 @@ export class WithdrawalsService {
     private readonly mail: MailService,
     private readonly config: ConfigService,
     private readonly paymentProcessors: PaymentProcessorFactory,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    private readonly verification: VerificationService
   ) {
     this.momoFeePercent =
       this.config.get<number>("app.fees.momoFeePercent") ?? 0.04;
@@ -115,6 +117,7 @@ export class WithdrawalsService {
       idempotencyKey?: string;
     }
   ) {
+    await this.verification.assertAccountVerified(userId);
     this.log.debug(
       `initiate user=${shortId(userId)} method=${shortId(body.methodId)} gross=${body.grossAmount}`
     );
@@ -225,6 +228,7 @@ export class WithdrawalsService {
   }
 
   async resendOtp(userId: string, userEmail: string, withdrawalId: string) {
+    await this.verification.assertAccountVerified(userId);
     this.log.debug(
       `resendOtp withdrawal=${shortId(withdrawalId)} user=${shortId(userId)}`
     );
@@ -260,6 +264,7 @@ export class WithdrawalsService {
   }
 
   async verifyOtp(userId: string, withdrawalId: string, code: string) {
+    await this.verification.assertAccountVerified(userId);
     this.log.debug(
       `verifyOtp withdrawal=${shortId(withdrawalId)} user=${shortId(userId)}`
     );
