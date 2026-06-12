@@ -1,10 +1,10 @@
 /**
  * Docker one-shot DB setup:
  * 1. Ensures `__drizzle_migrations` exists.
- * 2. Repairs a false baseline (`0000_init` recorded but schema older than current app — e.g. prior `push` without `email_verified_at`).
- * 3. Runs `drizzle-kit push` when `users` exists but expected columns/tables from current schema are missing.
- * 4. Inserts a real baseline row for `0000_init` only when tables already exist and schema matches (so `migrate` does not replay CREATEs).
- * 5. Runs `drizzle-kit migrate` (applies any newer migration files).
+ * 2. Repairs a false baseline (`0000_init` recorded alone but schema missing pre-migration legacy columns).
+ * 3. Runs `drizzle-kit push` only for legacy DBs with tables but zero migration history.
+ * 4. Inserts a real baseline row for `0000_init` only when tables already exist and legacy schema matches.
+ * 5. Runs `drizzle-kit migrate` (applies any newer migration files, e.g. 0007_account_verification).
  *
  * Run from repo root with DATABASE_URL set (see Dockerfile migrator).
  */
@@ -41,8 +41,11 @@ async function columnExists(conn, dbName, table, column) {
   return Number(r.c) > 0;
 }
 
-/** True when DB looks older than current Drizzle schema (missing expected columns/tables). */
-async function needsSchemaPush(conn, dbName, usersExists) {
+/**
+ * Legacy drift from pre-migration `drizzle-kit push` era only.
+ * New columns/tables from numbered migrations (0007+, etc.) are applied via `drizzle-kit migrate`.
+ */
+async function needsLegacySchemaPush(conn, dbName, usersExists) {
   if (!usersExists) return false;
   const hasEmailVerifiedCol = await columnExists(
     conn,
@@ -55,23 +58,14 @@ async function needsSchemaPush(conn, dbName, usersExists) {
     dbName,
     "email_verification_tokens"
   );
-  const hasAccountVerifiedCol = await columnExists(
-    conn,
-    dbName,
-    "users",
-    "account_verified_at"
+  return !hasEmailVerifiedCol || !hasEvTable;
+}
+
+async function migrationRowCount(conn) {
+  const [[r]] = await conn.query(
+    `SELECT COUNT(*) AS c FROM ${MIGRATIONS_TABLE}`
   );
-  const hasAccountVerifications = await tableExists(
-    conn,
-    dbName,
-    "account_verifications"
-  );
-  return (
-    !hasEmailVerifiedCol ||
-    !hasEvTable ||
-    !hasAccountVerifiedCol ||
-    !hasAccountVerifications
-  );
+  return Number(r.c);
 }
 
 async function hasMigrationHash(conn, hash) {
@@ -139,42 +133,48 @@ CREATE TABLE IF NOT EXISTS ${MIGRATIONS_TABLE} (
 
     const dbName = await getDbName(conn);
     const usersExists = await tableExists(conn, dbName, "users");
-    let needsPush = await needsSchemaPush(conn, dbName, usersExists);
+    const migrationRows = await migrationRowCount(conn);
+    let needsPush = await needsLegacySchemaPush(conn, dbName, usersExists);
     let has0000 = await hasMigrationHash(conn, hash0000);
 
-    if (has0000 && usersExists && needsPush) {
+    // Only when 0000_init is the sole migration row but legacy columns are still missing.
+    if (has0000 && usersExists && needsPush && migrationRows === 1) {
       console.log(
         "[docker-db-migrate] Removing false baseline for 0000_init (schema behind migration record)."
       );
       await deleteMigrationHash(conn, hash0000);
       has0000 = false;
+      needsPush = await needsLegacySchemaPush(conn, dbName, usersExists);
     }
 
-    if (needsPush) {
+    // Legacy push: tables exist, no migration history. Never push when migrations are already tracked.
+    if (needsPush && migrationRows === 0) {
       console.log(
-        "[docker-db-migrate] Syncing schema with drizzle-kit push (additive; legacy DB missing objects from schema.ts)."
+        "[docker-db-migrate] Syncing legacy schema with drizzle-kit push (no migration history)."
       );
       execSync("npm run db:push -w @treasurer/api", {
         cwd: repoRoot,
         stdio: "inherit",
         env: process.env,
       });
-      needsPush = await needsSchemaPush(conn, dbName, usersExists);
+      needsPush = await needsLegacySchemaPush(conn, dbName, usersExists);
       if (needsPush) {
         console.error(
-          "docker-db-migrate: schema still incomplete after push; check DATABASE_URL and schema."
+          "docker-db-migrate: legacy schema still incomplete after push; check DATABASE_URL and schema."
         );
         process.exit(1);
       }
+    } else if (needsPush && migrationRows > 0) {
+      console.log(
+        "[docker-db-migrate] Legacy columns missing but migration history exists; applying pending SQL migrations instead of push."
+      );
     }
 
     has0000 = await hasMigrationHash(conn, hash0000);
-    const [[{ c: migrationRowCount }]] = await conn.query(
-      `SELECT COUNT(*) AS c FROM ${MIGRATIONS_TABLE}`
-    );
+    const currentMigrationRows = await migrationRowCount(conn);
 
     if (
-      Number(migrationRowCount) === 0 &&
+      currentMigrationRows === 0 &&
       usersExists &&
       !needsPush &&
       !has0000

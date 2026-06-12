@@ -72,6 +72,7 @@ services:
 
   # One-shot: npm run docker:db-backfill-event-og (see root package.json for dev/staging/production profiles).
   db-backfill-event-og:
+    profiles: ["tools"]
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -94,6 +95,7 @@ services:
     restart: "no"
 
   verify-account:
+    profiles: ["tools"]
     build:
       context: .
       dockerfile: apps/api/Dockerfile
