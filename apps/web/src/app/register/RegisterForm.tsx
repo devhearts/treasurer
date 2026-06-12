@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { register as registerUser } from "@/app/actions/auth";
+import { validateUgandaPhone } from "@/lib/phone";
 
 export default function RegisterForm() {
   const router = useRouter();
@@ -24,6 +25,11 @@ export default function RegisterForm() {
     }
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
+      return;
+    }
+    const phoneErr = validateUgandaPhone(phone);
+    if (phoneErr) {
+      setError(phoneErr);
       return;
     }
     setLoading(true);

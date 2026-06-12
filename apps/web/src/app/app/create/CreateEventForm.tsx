@@ -19,10 +19,12 @@ import {
 import { uploadEventImageWithProgress } from "@/lib/upload-event-image-client";
 import type { PaymentProcessorKind } from "@/lib/payments/types";
 import {
+  paymentNetworksForKind,
   paymentPollingWaitLabel,
   paymentReceivedViaPhrase,
 } from "@/lib/payments";
 import { formatUGX, getEventTypeLabel } from "@/lib/data";
+import { validateUgandaPhone } from "@/lib/phone";
 
 const EVENT_TYPES: { value: EventType; label: string }[] = [
   { value: "wedding", label: "Wedding" },
@@ -99,6 +101,7 @@ export default function CreateEventForm({
   const [momoWait, setMomoWait] = useState(false);
   const [momoRef, setMomoRef] = useState<string | null>(null);
   const [momoError, setMomoError] = useState<string | null>(null);
+  const [activateError, setActivateError] = useState<string | null>(null);
   const [subscriptionPaid, setSubscriptionPaid] = useState(false);
   /** Server-verified subscription MoMo reference (required when subscription + MoMo). */
   const [subscriptionPaymentRef, setSubscriptionPaymentRef] = useState<
@@ -170,8 +173,12 @@ export default function CreateEventForm({
   async function startSubMomoPay() {
     setMomoError(null);
     const phone = subPhone.trim() || treasurerPhone.trim();
-    if (!phone) {
-      setMomoError("Enter the Mobile Money number that will pay.");
+    const phoneErr = validateUgandaPhone(
+      phone,
+      paymentNetworksForKind(paymentProcessorKind)
+    );
+    if (phoneErr) {
+      setMomoError(phoneErr);
       return;
     }
     setLoading(true);
@@ -228,6 +235,28 @@ export default function CreateEventForm({
 
   async function handleActivate(e: React.FormEvent) {
     e.preventDefault();
+    setActivateError(null);
+    if (!organizer.trim()) {
+      setActivateError("Organizer is required.");
+      return;
+    }
+    if (!treasurerPhone.trim()) {
+      setActivateError("Treasurer phone is required.");
+      return;
+    }
+    const treasurerPhoneErr = validateUgandaPhone(treasurerPhone);
+    if (treasurerPhoneErr) {
+      setActivateError(treasurerPhoneErr);
+      return;
+    }
+    if (!date.trim()) {
+      setActivateError("Event date is required.");
+      return;
+    }
+    if (!location.trim()) {
+      setActivateError("Location is required.");
+      return;
+    }
     setLoading(true);
     const imageUrls =
       photosRef.current.length > 0
@@ -619,6 +648,11 @@ export default function CreateEventForm({
               )}
             </div>
 
+            {activateError && (
+              <p className="px-4 text-sm text-red-600" role="alert">
+                {activateError}
+              </p>
+            )}
             <div className="p-4 border-t border-muted/20">
               <button
                 type="submit"
@@ -790,6 +824,11 @@ export default function CreateEventForm({
                 </div>
               )}
             </div>
+            {activateError && (
+              <p className="px-4 text-sm text-red-600" role="alert">
+                {activateError}
+              </p>
+            )}
             <div className="p-4 border-t border-muted/20">
               <button
                 type="submit"

@@ -14,7 +14,10 @@ import * as schema from "../database/schema";
 import { SessionService } from "./session.service";
 import { MailService } from "../integrations/mail.service";
 import { formatMysqlDateTimeUtc } from "../common/mysql-datetime";
+import { isValidEmail } from "../common/validation";
 import { normalizeUgandaMsisdnForNetworks } from "../payments/phone";
+
+const PASSWORD_MAX_LENGTH = 128;
 import { AuditService } from "../audit/audit.service";
 import { AuditAction } from "../audit/audit-actions";
 import type { AuditRequestContext } from "../audit/audit-context";
@@ -67,11 +70,19 @@ export class AuthService {
     if (!trimmed || !password) {
       throw new BadRequestException("Email and password are required.");
     }
+    if (!isValidEmail(trimmed)) {
+      throw new BadRequestException("Enter a valid email address.");
+    }
     if (password !== confirmPassword) {
       throw new BadRequestException("Passwords do not match.");
     }
     if (password.length < 6) {
       throw new BadRequestException("Password must be at least 6 characters.");
+    }
+    if (password.length > PASSWORD_MAX_LENGTH) {
+      throw new BadRequestException(
+        `Password must be ${PASSWORD_MAX_LENGTH} characters or fewer.`
+      );
     }
     const phone = normalizeUgandaMsisdnForNetworks(phoneRaw, ["mtn", "airtel"]);
     if (!phone) {
@@ -122,6 +133,9 @@ export class AuthService {
     const trimmed = email.toLowerCase().trim();
     if (!trimmed || !password) {
       throw new BadRequestException("Email and password are required.");
+    }
+    if (!isValidEmail(trimmed)) {
+      throw new BadRequestException("Enter a valid email address.");
     }
     const rows = await this.db
       .select()
@@ -230,6 +244,11 @@ export class AuthService {
         "New password must be at least 6 characters."
       );
     }
+    if (newPassword.length > PASSWORD_MAX_LENGTH) {
+      throw new BadRequestException(
+        `Password must be ${PASSWORD_MAX_LENGTH} characters or fewer.`
+      );
+    }
     const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
     await this.db
       .update(schema.users)
@@ -245,7 +264,7 @@ export class AuthService {
 
   async requestPasswordReset(email: string): Promise<void> {
     const trimmed = email.toLowerCase().trim();
-    if (!trimmed) return;
+    if (!trimmed || !isValidEmail(trimmed)) return;
     this.audit.logSafe({
       actorType: "system",
       action: AuditAction.auth.passwordResetRequested,
@@ -280,6 +299,11 @@ export class AuthService {
     }
     if (newPassword.length < 6) {
       throw new BadRequestException("Password must be at least 6 characters.");
+    }
+    if (newPassword.length > PASSWORD_MAX_LENGTH) {
+      throw new BadRequestException(
+        `Password must be ${PASSWORD_MAX_LENGTH} characters or fewer.`
+      );
     }
     const tokenHash = hashToken(token.trim());
     const nowIso = formatMysqlDateTimeUtc(new Date());

@@ -8,6 +8,10 @@ import {
 } from "@/app/actions/invitations";
 import type { InviteCardContent } from "@/lib/invitations/types";
 import { defaultPhotoUrlForEvent } from "@/lib/invitations/invite-photo";
+import {
+  INVITE_IMAGE_MAX_MB,
+  isInviteImageWithinSizeLimit,
+} from "@/lib/invite-image-upload";
 
 interface InvitePhotoEditorProps {
   invitationId: string;
@@ -34,6 +38,10 @@ export default function InvitePhotoEditor({
 
   async function onFile(file: File) {
     setError(null);
+    if (!isInviteImageWithinSizeLimit(file)) {
+      setError(`Photo must be ${INVITE_IMAGE_MAX_MB} MB or smaller.`);
+      return;
+    }
     setBusy(true);
     const fd = new FormData();
     fd.set("file", file);
