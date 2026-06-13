@@ -31,7 +31,8 @@ CMD ["--help"]
 
 FROM builder AS deposit-reconciliation
 WORKDIR /repo/apps/api
-ENTRYPOINT ["npx", "tsx", "src/payments/deposit-reconciliation-cli.ts"]
+# Use compiled output — tsx does not emit decorator metadata required by Nest DI.
+ENTRYPOINT ["node", "dist/src/payments/deposit-reconciliation-cli.js"]
 
 FROM builder AS event-admin
 WORKDIR /repo/apps/api

@@ -11,7 +11,7 @@
     "db:seed": "npx tsx src/database/seed.ts",
     "db:backfill-event-og": "npx tsx src/database/backfill-event-og-images.ts",
     "verify-account": "npx tsx src/verification/verify-account-cli.ts",
-    "deposit-reconciliation": "npx tsx src/payments/deposit-reconciliation-cli.ts",
+    "deposit-reconciliation": "node dist/src/payments/deposit-reconciliation-cli.js",
     "event-admin": "npx tsx src/events/event-admin-cli.ts",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",

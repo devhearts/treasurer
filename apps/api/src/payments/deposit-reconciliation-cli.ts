@@ -1,7 +1,7 @@
 /**
  * Manual deposit reconciliation (stale unfulfilled payment intents).
  *
- * Local:
+ * Local (run `npm run build -w @treasurer/api` first):
  *   npm run deposit-reconciliation -w @treasurer/api
  *
  * Docker:
