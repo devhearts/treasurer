@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatUGX, formatCalendarDate, isPublicContribution } from "@/lib/data";
+import TreasurerCashBreakdown from "@/components/TreasurerCashBreakdown";
 import { addContribution, setContributionVisibility } from "@/app/actions/events";
 import type { CeremonyEvent } from "@/lib/types";
 import EventPhotoGallery from "@/components/EventPhotoGallery";
@@ -51,6 +52,8 @@ export default function ContributionsPageContent({
   });
 
   const contributionsSorted = event.contributions.slice().reverse();
+  const paidCount = event.contributions.filter((c) => c.status === "paid").length;
+  const pledgedCount = event.contributions.filter((c) => c.status === "pledged").length;
   const filteredContributions = contributionsSorted.filter((c) => {
     if (milestoneFilter === "all") return true;
     if (milestoneFilter === "general") return !c.milestoneId;
@@ -121,6 +124,14 @@ export default function ContributionsPageContent({
             <EventPhotoGallery imageSources={event.imageUrls} />
           </div>
         ) : null}
+
+        <TreasurerCashBreakdown
+          contributions={event.contributions}
+          raisedAmount={event.raisedAmount}
+          paidCount={paidCount}
+          pledgedCount={pledgedCount}
+          totalCount={event.contributions.length}
+        />
 
         <div className="bg-light rounded-xl border border-muted/30 overflow-hidden">
           <div className="p-4 border-b border-muted/20 space-y-3">

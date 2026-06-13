@@ -11,6 +11,7 @@ import {
 import ContributeForm from "./ContributeForm";
 import MilestoneItemsTab from "./MilestoneItemsTab";
 import ContributionReceipt from "@/components/ContributionReceipt";
+import TreasurerCashBreakdown from "@/components/TreasurerCashBreakdown";
 import RecentContributionsCard from "@/components/RecentContributionsCard";
 import EventPhotoGallery from "@/components/EventPhotoGallery";
 import { CeremonyEvent } from "@/lib/types";
@@ -508,15 +509,13 @@ export default function EventDetailContent({
             {privateFlow === "contributions" && (
               <div className="space-y-0">
                 <EventLifecycleControls event={event} />
-                <div className="bg-light rounded-xl border border-muted/30 p-4 mb-4">
-                  <p className="text-xs text-muted uppercase tracking-wide mb-1">Summary</p>
-                  <p className="text-lg font-bold text-surface">
-                    {formatUGX(event.raisedAmount)}
-                  </p>
-                  <p className="text-sm text-muted">
-                    {paidCount} paid · {pledgedCount} pledged · {event.contributions.length} total
-                  </p>
-                </div>
+                <TreasurerCashBreakdown
+                  contributions={event.contributions}
+                  raisedAmount={event.raisedAmount}
+                  paidCount={paidCount}
+                  pledgedCount={pledgedCount}
+                  totalCount={event.contributions.length}
+                />
                 {contributionsBlock}
               </div>
             )}
