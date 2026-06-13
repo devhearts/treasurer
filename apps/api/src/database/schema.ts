@@ -178,12 +178,29 @@ export const paymentIntents = mysqlTable(
   ]
 );
 
+/** Terminal deposit reconciliation outcomes for stale payment intents. */
+export const reconciledPaymentIntents = mysqlTable(
+  "reconciled_payment_intents",
+  {
+    referenceId: varchar("reference_id", { length: 36 }).primaryKey(),
+    outcome: varchar("outcome", { length: 32 }).notNull(), // completed | failed
+    kind: varchar("kind", { length: 32 }).notNull(), // contribution | subscription
+    processor: varchar("processor", { length: 32 }).notNull(),
+    providerStatus: varchar("provider_status", { length: 32 }).notNull(),
+    failureCode: varchar("failure_code", { length: 64 }),
+    failureMessage: text("failure_message"),
+    providerPayload: json("provider_payload").$type<Record<string, unknown>>(),
+    reconciledAt: datetime("reconciled_at", { mode: "string", fsp: 3 }).notNull(),
+  },
+  (t) => [index("idx_reconciled_payment_intents_reconciled_at").on(t.reconciledAt)]
+);
+
 export const paymentStatusEvents = mysqlTable(
   "payment_status_events",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
     referenceId: varchar("reference_id", { length: 36 }).notNull(),
-    source: varchar("source", { length: 32 }).notNull(), // poll | webhook
+    source: varchar("source", { length: 32 }).notNull(), // poll | webhook | reconciliation
     fromStatus: varchar("from_status", { length: 32 }),
     toStatus: varchar("to_status", { length: 32 }).notNull(),
     meta: json("meta").$type<Record<string, unknown>>(),

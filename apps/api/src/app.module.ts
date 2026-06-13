@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { ScheduleModule } from "@nestjs/schedule";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { SentryGlobalFilter, SentryModule } from "@sentry/nestjs/setup";
@@ -24,6 +25,7 @@ import { InternalProxyGuard } from "./common/internal-proxy.guard";
 @Module({
   imports: [
     SentryModule.forRoot(),
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],

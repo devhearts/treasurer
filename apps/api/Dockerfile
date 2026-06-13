@@ -29,6 +29,10 @@ WORKDIR /repo/apps/api
 ENTRYPOINT ["npx", "tsx", "src/verification/verify-account-cli.ts"]
 CMD ["--help"]
 
+FROM builder AS deposit-reconciliation
+WORKDIR /repo/apps/api
+ENTRYPOINT ["npx", "tsx", "src/payments/deposit-reconciliation-cli.ts"]
+
 FROM builder AS event-admin
 WORKDIR /repo/apps/api
 ENTRYPOINT ["npx", "tsx", "src/events/event-admin-cli.ts"]
