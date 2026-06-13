@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { register as registerUser } from "@/app/actions/auth";
 import { validateUgandaPhone } from "@/lib/phone";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function RegisterForm() {
   const router = useRouter();
@@ -88,35 +89,27 @@ export default function RegisterForm() {
         />
       </div>
       <div>
-        <label htmlFor="reg-password" className="sr-only">
-          Password
-        </label>
-        <input
+        <PasswordInput
           id="reg-password"
-          type="password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={setPassword}
           placeholder="Password"
           required
           minLength={6}
           autoComplete="new-password"
-          className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
+          label="Password"
         />
       </div>
       <div>
-        <label htmlFor="reg-confirm-password" className="sr-only">
-          Confirm password
-        </label>
-        <input
+        <PasswordInput
           id="reg-confirm-password"
-          type="password"
           value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
+          onChange={setConfirmPassword}
           placeholder="Confirm password"
           required
           minLength={6}
           autoComplete="new-password"
-          className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
+          label="Confirm password"
         />
       </div>
       <label className="flex items-start gap-3 cursor-pointer">
