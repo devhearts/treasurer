@@ -23,19 +23,22 @@ const WALLET_TX_PAGE_SIZE = 20;
 export async function getWalletTransactions(options?: {
   limit?: number;
   cursor?: string;
+  eventId?: string;
 }): Promise<WalletTransactionsPage> {
   const params = new URLSearchParams();
   params.set("limit", String(options?.limit ?? WALLET_TX_PAGE_SIZE));
   if (options?.cursor) params.set("cursor", options.cursor);
+  if (options?.eventId) params.set("eventId", options.eventId);
   return serverApiJson<WalletTransactionsPage>(
     `wallet/transactions?${params.toString()}`
   );
 }
 
 export async function loadMoreWalletTransactions(
-  cursor: string
+  cursor: string,
+  eventId?: string
 ): Promise<WalletTransactionsPage> {
-  return getWalletTransactions({ cursor, limit: WALLET_TX_PAGE_SIZE });
+  return getWalletTransactions({ cursor, limit: WALLET_TX_PAGE_SIZE, eventId });
 }
 
 export async function getPayoutMethods(): Promise<PayoutMethod[]> {

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth-server";
+import { getMyEvents } from "@/app/actions/events";
 import { getWalletAccount, getWalletTransactions } from "@/app/actions/wallet";
 import { IconBack } from "@/components/Icons";
 import AccountContent from "./AccountContent";
@@ -13,10 +14,15 @@ export default async function AccountPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/");
 
-  const [account, transactionsPage] = await Promise.all([
+  const [account, transactionsPage, events] = await Promise.all([
     getWalletAccount(),
     getWalletTransactions(),
+    getMyEvents(),
   ]);
+
+  const eventFilterOptions = events
+    .map((e) => ({ id: e.id, title: e.title }))
+    .sort((a, b) => a.title.localeCompare(b.title, "en"));
 
   return (
     <main className="min-h-screen bg-cream pb-24">
@@ -40,6 +46,7 @@ export default async function AccountPage() {
         transactionsNextCursor={transactionsPage.nextCursor}
         transactionsHasMore={transactionsPage.hasMore}
         accountVerified={!!user.accountVerified}
+        eventFilterOptions={eventFilterOptions}
       />
     </main>
   );

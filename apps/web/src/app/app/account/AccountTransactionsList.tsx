@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { loadMoreWalletTransactions } from "@/app/actions/wallet";
+import {
+  getWalletTransactions,
+  loadMoreWalletTransactions,
+} from "@/app/actions/wallet";
+import type { AccountEventFilterOption } from "./AccountContent";
 import type { WalletTransaction } from "@/lib/wallet/types";
 
 function formatTxnTime(createdAt: string): string {
@@ -84,30 +88,95 @@ function TxnCard({ tx }: { tx: WalletTransaction }) {
   );
 }
 
+interface TransactionsHeaderProps {
+  showEventFilter: boolean;
+  selectedEventId: string;
+  filterLoading: boolean;
+  eventFilterOptions: AccountEventFilterOption[];
+  onEventFilter: (eventId: string) => void;
+}
+
+function TransactionsHeader({
+  showEventFilter,
+  selectedEventId,
+  filterLoading,
+  eventFilterOptions,
+  onEventFilter,
+}: TransactionsHeaderProps) {
+  return (
+    <div className="flex items-center justify-between gap-3 mb-3">
+      <p className="text-xs uppercase tracking-wider text-muted font-medium flex-shrink-0">
+        Transactions
+      </p>
+      {showEventFilter ? (
+        <select
+          id="account-txn-event-filter"
+          aria-label="Filter by event"
+          value={selectedEventId}
+          onChange={(e) => onEventFilter(e.target.value)}
+          disabled={filterLoading}
+          className="min-w-0 max-w-[58%] text-[11px] border border-muted/40 rounded-md px-2 py-1 text-surface bg-light focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
+        >
+          <option value="">All events</option>
+          {eventFilterOptions.map((event) => (
+            <option key={event.id} value={event.id}>
+              {event.title}
+            </option>
+          ))}
+        </select>
+      ) : null}
+    </div>
+  );
+}
+
 interface AccountTransactionsListProps {
   initialTransactions: WalletTransaction[];
   initialNextCursor: string | null;
   initialHasMore: boolean;
+  eventFilterOptions: AccountEventFilterOption[];
 }
 
 export default function AccountTransactionsList({
   initialTransactions,
   initialNextCursor,
   initialHasMore,
+  eventFilterOptions,
 }: AccountTransactionsListProps) {
+  const [selectedEventId, setSelectedEventId] = useState("");
   const [transactions, setTransactions] = useState(initialTransactions);
   const [cursor, setCursor] = useState(initialNextCursor);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loading, setLoading] = useState(false);
+  const [filterLoading, setFilterLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
+  const activeEventId = selectedEventId || undefined;
+
+  const applyEventFilter = useCallback(async (eventId: string) => {
+    setSelectedEventId(eventId);
+    setFilterLoading(true);
+    setError(null);
+    try {
+      const page = await getWalletTransactions({
+        eventId: eventId || undefined,
+      });
+      setTransactions(page.transactions);
+      setCursor(page.nextCursor);
+      setHasMore(page.hasMore);
+    } catch {
+      setError("Could not load transactions.");
+    } finally {
+      setFilterLoading(false);
+    }
+  }, []);
+
   const loadMore = useCallback(async () => {
-    if (!hasMore || loading || !cursor) return;
+    if (!hasMore || loading || filterLoading || !cursor) return;
     setLoading(true);
     setError(null);
     try {
-      const page = await loadMoreWalletTransactions(cursor);
+      const page = await loadMoreWalletTransactions(cursor, activeEventId);
       setTransactions((prev) => {
         const seen = new Set(prev.map((t) => t.id));
         const added = page.transactions.filter((t) => !seen.has(t.id));
@@ -120,7 +189,7 @@ export default function AccountTransactionsList({
     } finally {
       setLoading(false);
     }
-  }, [cursor, hasMore, loading]);
+  }, [activeEventId, cursor, filterLoading, hasMore, loading]);
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -136,22 +205,43 @@ export default function AccountTransactionsList({
     return () => observer.disconnect();
   }, [hasMore, loadMore]);
 
-  if (transactions.length === 0) {
+  const showEventFilter = eventFilterOptions.length > 0;
+  const header = (
+    <TransactionsHeader
+      showEventFilter={showEventFilter}
+      selectedEventId={selectedEventId}
+      filterLoading={filterLoading}
+      eventFilterOptions={eventFilterOptions}
+      onEventFilter={(eventId) => void applyEventFilter(eventId)}
+    />
+  );
+
+  if (transactions.length === 0 && !filterLoading) {
     return (
-      <p className="text-sm text-muted text-center py-8">
-        No transactions yet. Contributions to your events will appear here.
-      </p>
+      <>
+        {header}
+        <p className="text-sm text-muted text-center py-8">
+          {selectedEventId
+            ? "No transactions for this event yet."
+            : "No transactions yet. Contributions to your events will appear here."}
+        </p>
+      </>
     );
   }
 
   return (
     <>
-      <div className="flex flex-col gap-2">
-        {transactions.map((tx) => (
-          <TxnCard key={tx.id} tx={tx} />
-        ))}
-      </div>
-      {hasMore ? (
+      {header}
+      {filterLoading ? (
+        <p className="text-xs text-muted text-center py-6">Loading…</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {transactions.map((tx) => (
+            <TxnCard key={tx.id} tx={tx} />
+          ))}
+        </div>
+      )}
+      {hasMore && !filterLoading ? (
         <div ref={sentinelRef} className="py-4 flex justify-center" aria-hidden>
           {loading ? (
             <p className="text-xs text-muted">Loading…</p>
@@ -159,7 +249,7 @@ export default function AccountTransactionsList({
             <div className="h-1 w-1" />
           )}
         </div>
-      ) : transactions.length > 0 ? (
+      ) : !filterLoading && transactions.length > 0 ? (
         <p className="text-center text-[11px] text-muted py-4">End of transactions</p>
       ) : null}
       {error ? (

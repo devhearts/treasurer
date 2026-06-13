@@ -79,13 +79,30 @@ export class WalletService {
 
   async listTransactions(
     userId: string,
-    options?: { limit?: number; cursor?: string }
+    options?: { limit?: number; cursor?: string; eventId?: string }
   ) {
     const limit = Math.min(
       Math.max(options?.limit ?? 20, 1),
       50
     );
     const conditions = [eq(schema.walletTransactions.userId, userId)];
+
+    if (options?.eventId) {
+      const owned = await this.db
+        .select({ id: schema.events.id })
+        .from(schema.events)
+        .where(
+          and(
+            eq(schema.events.id, options.eventId),
+            eq(schema.events.userId, userId)
+          )
+        )
+        .limit(1);
+      if (!owned[0]) {
+        return { transactions: [], nextCursor: null, hasMore: false };
+      }
+      conditions.push(eq(schema.walletTransactions.eventId, options.eventId));
+    }
 
     if (options?.cursor) {
       const cur = await this.db
