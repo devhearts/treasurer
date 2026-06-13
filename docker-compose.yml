@@ -72,6 +72,7 @@ services:
 
   # One-shot: npm run docker:db-backfill-event-og (see root package.json for dev/staging/production profiles).
   db-backfill-event-og:
+    profiles: ["tools"]
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -90,6 +91,64 @@ services:
       mysql:
         condition: service_healthy
       garage:
+        condition: service_healthy
+    restart: "no"
+
+  verify-account:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: verify-account
+    env_file:
+      - .env
+      - apps/api/.env
+    environment:
+      DATABASE_URL: mysql://treasurer:treasurer@mysql:3306/treasurer
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      INTERNAL_PROXY_SECRET: ${INTERNAL_PROXY_SECRET:-treasurer-docker-dev-secret}
+      GARAGE_ENDPOINT: http://garage:3900
+      GARAGE_REGION: garage
+      GARAGE_ACCESS_KEY: ${GARAGE_ACCESS_KEY:-GK0123456789abcdef0123456789abcdef}
+      GARAGE_SECRET_KEY: ${GARAGE_SECRET_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      GARAGE_BUCKET: ${GARAGE_BUCKET:-treasurer}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      garage:
+        condition: service_healthy
+    restart: "no"
+
+  deposit-reconciliation:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: deposit-reconciliation
+    env_file:
+      - .env
+      - apps/api/.env
+    environment:
+      DATABASE_URL: mysql://treasurer:treasurer@mysql:3306/treasurer
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
+  event-admin:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: event-admin
+    env_file:
+      - .env
+      - apps/api/.env
+    environment:
+      DATABASE_URL: mysql://treasurer:treasurer@mysql:3306/treasurer
+    depends_on:
+      mysql:
         condition: service_healthy
     restart: "no"
 

@@ -23,6 +23,22 @@ FROM builder AS backfill
 WORKDIR /repo/apps/api
 CMD ["npx", "tsx", "src/database/backfill-event-og-images.ts"]
 
+FROM builder AS verify-account
+WORKDIR /repo/apps/api
+# ENTRYPOINT so `docker compose run verify-account list` passes args to the CLI.
+ENTRYPOINT ["npx", "tsx", "src/verification/verify-account-cli.ts"]
+CMD ["--help"]
+
+FROM builder AS deposit-reconciliation
+WORKDIR /repo/apps/api
+# Use compiled output — tsx does not emit decorator metadata required by Nest DI.
+ENTRYPOINT ["node", "dist/src/payments/deposit-reconciliation-cli.js"]
+
+FROM builder AS event-admin
+WORKDIR /repo/apps/api
+ENTRYPOINT ["npx", "tsx", "src/events/event-admin-cli.ts"]
+CMD ["--help"]
+
 FROM node:22-alpine AS runner
 
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001 -G nodejs

@@ -8,13 +8,18 @@ import * as schema from "../database/schema";
 import { PaymentProcessorFactory } from "./payment-processor.factory";
 import { normalizeUgandaMsisdnForNetworks } from "./phone";
 import { MOMO_PUBLIC_PAYMENT_START_FAILED } from "./momo.messages";
-import type { PaymentPollResult, PaymentProcessorKind } from "./payment.types";
+import type { PaymentPollResult, PaymentProcessorKind, ReconcilePaymentIntentResult } from "./payment.types";
 import { AuditService } from "../audit/audit.service";
 import { AuditAction } from "../audit/audit-actions";
 import { WalletService } from "../wallet/wallet.service";
 import { formatMysqlDateTimeUtc } from "../common/mysql-datetime";
 import { normalizeProviderPollStatus } from "./payment-status";
 import { ContributionNotificationsService } from "../integrations/contribution-notifications.service";
+import {
+  contributionBlockedMessage,
+  eventAcceptsContributions,
+  parseEventLifecycleStatus,
+} from "../events/event-lifecycle";
 
 function paymentNotConfiguredMessage(kind: PaymentProcessorKind): string {
   if (kind === "pawapay") return "PawaPay payments are not configured.";
@@ -56,7 +61,7 @@ export class PaymentsService {
 
   private async appendStatus(
     referenceId: string,
-    source: "poll" | "webhook",
+    source: "poll" | "webhook" | "reconciliation",
     fromStatus: string | null,
     toStatus: string,
     meta?: Record<string, unknown>
@@ -105,6 +110,14 @@ export class PaymentsService {
       .limit(1);
     const event = evRows[0];
     if (!event) return { success: false, error: "Event not found" };
+
+    const eventStatus = parseEventLifecycleStatus(event.status);
+    if (!eventAcceptsContributions(eventStatus)) {
+      return {
+        success: false,
+        error: contributionBlockedMessage(eventStatus),
+      };
+    }
 
     const milestoneId = input.milestoneId?.trim() || null;
     if (milestoneId) {
@@ -262,8 +275,29 @@ export class PaymentsService {
           message: finalized.message ?? undefined,
           viaMobileMoney: true,
         });
+        return { status: "SUCCESSFUL" };
       }
-      return { status: "SUCCESSFUL" };
+
+      if (pending.eventId) {
+        const ev = await this.db
+          .select({ status: schema.events.status, slug: schema.events.slug })
+          .from(schema.events)
+          .where(eq(schema.events.id, pending.eventId))
+          .limit(1);
+        const eventStatus = parseEventLifecycleStatus(ev[0]?.status);
+        if (!eventAcceptsContributions(eventStatus)) {
+          const msg = contributionBlockedMessage(eventStatus);
+          this.audit.logSafe({
+            actorType: "system",
+            action: AuditAction.payment.contributionFailed,
+            entityType: "payment_intent",
+            entityId: referenceId,
+            metadata: { eventSlug: ev[0]?.slug, reason: msg },
+          });
+          return { status: "FAILED", message: msg };
+        }
+      }
+      return { status: "PENDING" };
     }
 
     if (bucket === "failed") {
@@ -322,6 +356,11 @@ export class PaymentsService {
         .limit(1);
       const event = evRows[0];
       if (!event) return null;
+
+      const eventStatus = parseEventLifecycleStatus(event.status);
+      if (!eventAcceptsContributions(eventStatus)) {
+        return null;
+      }
 
       const contributionId = `c${Date.now()}`;
       const date = new Date().toISOString().split("T")[0]!;
@@ -574,5 +613,235 @@ export class PaymentsService {
         "Subscription payment was not verified. Complete Mobile Money payment first."
       );
     }
+  }
+
+  private processorKindFromIntent(
+    processor: string
+  ): PaymentProcessorKind {
+    return processor === "pawapay" ? "pawapay" : "mtn_momo";
+  }
+
+  /** Reconcile a stale payment intent against the provider (background job). */
+  async reconcilePaymentIntent(
+    referenceId: string
+  ): Promise<ReconcilePaymentIntentResult> {
+    this.log.log(`reconcilePaymentIntent start ${referenceId}`);
+
+    const intentRows = await this.db
+      .select()
+      .from(schema.paymentIntents)
+      .where(eq(schema.paymentIntents.referenceId, referenceId))
+      .limit(1);
+    const intent = intentRows[0];
+    if (!intent) {
+      this.log.warn(`reconcilePaymentIntent ${referenceId}: intent not found`);
+      return { terminal: false, reason: "missing" };
+    }
+    if (intent.fulfilled) {
+      this.log.log(
+        `reconcilePaymentIntent ${referenceId}: already fulfilled, skipping`
+      );
+      return { terminal: false, reason: "already_fulfilled" };
+    }
+
+    const processorKind = this.processorKindFromIntent(intent.processor);
+    const processor = this.processors.getProcessorByKind(processorKind);
+    if (!processor.isConfigured()) {
+      this.log.warn(
+        `reconcilePaymentIntent ${referenceId}: processor ${processorKind} not configured`
+      );
+      return { terminal: false, reason: "processor_not_configured" };
+    }
+
+    this.log.log(
+      `reconcilePaymentIntent ${referenceId}: kind=${intent.kind} processor=${processorKind} externalId=${intent.externalId}`
+    );
+
+    let body: {
+      status: string;
+      reason?: { message?: string; code?: string };
+      rawPayload?: Record<string, unknown> | null;
+    };
+    try {
+      body = await processor.getPaymentStatus(referenceId);
+      this.log.log(
+        `reconcilePaymentIntent ${referenceId}: provider status=${body.status}`
+      );
+    } catch (e) {
+      this.log.error(
+        `reconcilePaymentIntent status fetch failed ${referenceId}: ${e instanceof Error ? e.message : String(e)}`
+      );
+      return { terminal: false, reason: "fetch_error" };
+    }
+
+    const { bucket, rawUpper } = normalizeProviderPollStatus(body.status);
+    const providerPayload = body.rawPayload ?? null;
+    const hadTerminalFailure =
+      bucket === "failed"
+        ? await this.alreadyTerminalFailed(referenceId)
+        : false;
+
+    await this.appendStatus(referenceId, "reconciliation", null, rawUpper || "UNKNOWN", {
+      processor: processor.kind,
+      providerPayload,
+    });
+
+    if (bucket === "success") {
+      if (intent.kind === "contribution") {
+        const finalized = await this.finalizeContribution(referenceId);
+        if (finalized) {
+          this.audit.logSafe({
+            actorType: "system",
+            action: AuditAction.payment.contributionCompleted,
+            entityType: "payment_intent",
+            entityId: referenceId,
+            metadata: { source: "reconciliation" },
+          });
+          this.contributionNotifications.notifyPaidContribution({
+            ownerUserId: finalized.ownerUserId,
+            eventSlug: finalized.eventSlug,
+            eventTitle: finalized.eventTitle,
+            contributorName: finalized.contributorName,
+            anonymous: finalized.anonymous,
+            amount: finalized.amount,
+            phone: finalized.phone,
+            message: finalized.message ?? undefined,
+            viaMobileMoney: true,
+          });
+          this.log.log(
+            `reconcilePaymentIntent ${referenceId}: contribution finalized event=${finalized.eventSlug} amount=${finalized.amount}`
+          );
+          return {
+            terminal: true,
+            outcome: "completed",
+            kind: "contribution",
+            processor: processorKind,
+            providerStatus: rawUpper || body.status,
+            providerPayload,
+          };
+        }
+
+        if (intent.eventId) {
+          const ev = await this.db
+            .select({ status: schema.events.status, slug: schema.events.slug })
+            .from(schema.events)
+            .where(eq(schema.events.id, intent.eventId))
+            .limit(1);
+          const eventStatus = parseEventLifecycleStatus(ev[0]?.status);
+          if (!eventAcceptsContributions(eventStatus)) {
+            const msg = contributionBlockedMessage(eventStatus);
+            if (!hadTerminalFailure) {
+              this.audit.logSafe({
+                actorType: "system",
+                action: AuditAction.payment.contributionFailed,
+                entityType: "payment_intent",
+                entityId: referenceId,
+                metadata: {
+                  eventSlug: ev[0]?.slug,
+                  reason: msg,
+                  source: "reconciliation",
+                },
+              });
+            }
+            this.log.warn(
+              `reconcilePaymentIntent ${referenceId}: payment succeeded but event blocked (${msg})`
+            );
+            return {
+              terminal: true,
+              outcome: "failed",
+              kind: "contribution",
+              processor: processorKind,
+              providerStatus: rawUpper || body.status,
+              failureMessage: msg,
+              providerPayload,
+            };
+          }
+        }
+
+        this.log.warn(
+          `reconcilePaymentIntent ${referenceId}: success but finalize returned null, will retry`
+        );
+        return { terminal: false, reason: "pending" };
+      }
+
+      await this.db
+        .update(schema.paymentIntents)
+        .set({ fulfilled: 1, updatedAt: formatMysqlDateTimeUtc(new Date()) })
+        .where(eq(schema.paymentIntents.referenceId, referenceId));
+      this.audit.logSafe({
+        actorType: "system",
+        actorUserId: intent.userId ?? undefined,
+        action: AuditAction.payment.subscriptionCompleted,
+        entityType: "payment_intent",
+        entityId: referenceId,
+        metadata: { source: "reconciliation" },
+      });
+      this.log.log(
+        `reconcilePaymentIntent ${referenceId}: subscription fulfilled userId=${intent.userId}`
+      );
+      return {
+        terminal: true,
+        outcome: "completed",
+        kind: "subscription",
+        processor: processorKind,
+        providerStatus: rawUpper || body.status,
+        providerPayload,
+      };
+    }
+
+    if (bucket === "failed") {
+      const msg =
+        body.reason?.message ||
+        (rawUpper === "REJECTED"
+          ? "Payment was rejected."
+          : "Payment failed.");
+      if (!hadTerminalFailure) {
+        if (intent.kind === "contribution") {
+          let eventSlug: string | undefined;
+          if (intent.eventId) {
+            const ev = await this.db
+              .select({ slug: schema.events.slug })
+              .from(schema.events)
+              .where(eq(schema.events.id, intent.eventId))
+              .limit(1);
+            eventSlug = ev[0]?.slug;
+          }
+          this.audit.logSafe({
+            actorType: "system",
+            action: AuditAction.payment.contributionFailed,
+            entityType: "payment_intent",
+            entityId: referenceId,
+            metadata: { eventSlug, reason: msg, source: "reconciliation" },
+          });
+        } else {
+          this.audit.logSafe({
+            actorType: "system",
+            actorUserId: intent.userId ?? undefined,
+            action: AuditAction.payment.subscriptionFailed,
+            entityType: "payment_intent",
+            entityId: referenceId,
+            metadata: { reason: msg, source: "reconciliation" },
+          });
+        }
+      }
+      this.log.log(
+        `reconcilePaymentIntent ${referenceId}: failed status=${rawUpper} code=${body.reason?.code ?? ""} message=${msg}`
+      );
+      return {
+        terminal: true,
+        outcome: "failed",
+        kind: intent.kind as "contribution" | "subscription",
+        processor: processorKind,
+        providerStatus: rawUpper || body.status,
+        failureCode: body.reason?.code ?? null,
+        failureMessage: msg,
+        providerPayload,
+      };
+    }
+
+    this.log.log(
+      `reconcilePaymentIntent ${referenceId}: still pending (${rawUpper || body.status})`
+    );
+    return { terminal: false, reason: "pending" };
   }
 }

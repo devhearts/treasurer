@@ -49,12 +49,7 @@ services:
         condition: service_started
     command:
       [
-        "npm",
-        "run",
-        "dev",
-        "-w",
-        "@treasurer/web",
-        "--",
-        "--hostname",
-        "0.0.0.0",
+        "sh",
+        "-c",
+        "if [ ! -d /repo/node_modules ] || [ /repo/package-lock.json -nt /repo/node_modules ]; then cd /repo && npm ci; fi; exec npm run dev -w @treasurer/web -- --hostname 0.0.0.0",
       ]

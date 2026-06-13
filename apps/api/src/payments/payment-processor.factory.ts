@@ -39,7 +39,11 @@ export class PaymentProcessorFactory {
   }
 
   getProcessor(): PaymentProcessor {
-    if (this.getProcessorType() === "pawapay") {
+    return this.getProcessorByKind(this.getProcessorType());
+  }
+
+  getProcessorByKind(kind: "mtn_momo" | "pawapay"): PaymentProcessor {
+    if (kind === "pawapay") {
       return this.createPawapay();
     }
     return this.createMtnMomo();
@@ -69,7 +73,11 @@ export class PaymentProcessorFactory {
         const c = cfg();
         if (!c) throw new Error("MoMo is not configured");
         const body = await momoGetRequestToPayStatus(c, referenceId);
-        return { status: body.status, reason: body.reason };
+        return {
+          status: body.status,
+          reason: body.reason,
+          rawPayload: body as unknown as Record<string, unknown>,
+        };
       },
     };
   }
@@ -117,9 +125,10 @@ export class PaymentProcessorFactory {
         if (!c) throw new Error("PawaPay is not configured");
         const rows = await pawapayCheckDepositStatus(c, referenceId);
         if (rows.length === 0) {
-          return { status: "PENDING" };
+          return { status: "PENDING", rawPayload: null };
         }
         const d = rows[0]!;
+        const rawPayload = d as unknown as Record<string, unknown>;
         if (d.status === "FAILED") {
           const msg =
             d.failureReason?.failureMessage ||
@@ -131,9 +140,10 @@ export class PaymentProcessorFactory {
               message: msg,
               code: d.failureReason?.failureCode,
             },
+            rawPayload,
           };
         }
-        return { status: d.status };
+        return { status: d.status, rawPayload };
       },
     };
   }

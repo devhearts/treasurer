@@ -31,6 +31,11 @@ export const AuditAction = {
     milestoneDeleted: "event.milestone.deleted",
     imageUploaded: "event.image.uploaded",
     imageDeleted: "event.image.deleted",
+    paused: "event.paused",
+    resumed: "event.resumed",
+    stopped: "event.stopped",
+    suspended: "event.suspended",
+    unsuspended: "event.unsuspended",
   },
   invitation: {
     draftCreated: "invitation.draft.created",
@@ -40,6 +45,12 @@ export const AuditAction = {
     recipientAdded: "invitation.recipient.added",
     recipientRemoved: "invitation.recipient.removed",
     rsvpSubmitted: "invitation.rsvp.submitted",
+  },
+  verification: {
+    enrolled: "verification.enrolled",
+    submitted: "verification.submitted",
+    approved: "verification.approved",
+    rejected: "verification.rejected",
   },
   payment: {
     contributionInitiated: "payment.contribution.initiated",

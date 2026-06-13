@@ -19,7 +19,30 @@ export interface RequestToPayParams {
 export interface PaymentStatusBody {
   status: string;
   reason?: { message?: string; code?: string };
+  /** Full provider response for reconciliation audit. */
+  rawPayload?: Record<string, unknown> | null;
 }
+
+export type ReconcilePaymentIntentResult =
+  | {
+      terminal: false;
+      reason:
+        | "missing"
+        | "already_fulfilled"
+        | "pending"
+        | "fetch_error"
+        | "processor_not_configured";
+    }
+  | {
+      terminal: true;
+      outcome: "completed" | "failed";
+      kind: "contribution" | "subscription";
+      processor: PaymentProcessorKind;
+      providerStatus: string;
+      failureCode?: string | null;
+      failureMessage?: string | null;
+      providerPayload: Record<string, unknown> | null;
+    };
 
 export interface PaymentProcessor {
   readonly kind: PaymentProcessorKind;

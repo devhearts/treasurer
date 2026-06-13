@@ -223,6 +223,27 @@ export function IconEye({ className }: { className?: string }) {
   );
 }
 
+/** Flip between front and rear camera. */
+export function IconSwitchCamera({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={fill}
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" />
+      <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="m18 8 3-3-3-3" />
+      <path d="m6 16-3 3 3 3" />
+    </svg>
+  );
+}
+
 /** Hidden from public page and receipt. */
 export function IconEyeOff({ className }: { className?: string }) {
   return (

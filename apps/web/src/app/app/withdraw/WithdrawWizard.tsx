@@ -43,6 +43,8 @@ interface WithdrawWizardProps {
   initialBalance: number;
   initialMethods: PayoutMethod[];
   userEmail: string;
+  /** Verified accounts use a single auto-provisioned method; no add/edit/delete. */
+  methodsReadOnly?: boolean;
 }
 
 function maskEmail(email: string): string {
@@ -61,6 +63,7 @@ export default function WithdrawWizard({
   initialBalance,
   initialMethods,
   userEmail,
+  methodsReadOnly = false,
 }: WithdrawWizardProps) {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -446,33 +449,35 @@ export default function WithdrawWizard({
                       )}
                     </div>
                   </button>
-                  <div className="flex flex-col border-l border-muted/20">
-                    <button
-                      type="button"
-                      title="Edit"
-                      disabled={!!methodFormMode || loading}
-                      onClick={() => {
-                        setMethodFormError(null);
-                        setMethodFormMode({ editId: m.id });
-                      }}
-                      className="flex-1 px-3 text-xs text-muted hover:text-accent hover:bg-cream/80 disabled:opacity-40"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      title="Delete"
-                      disabled={!!methodFormMode || loading}
-                      onClick={() => handleDeleteMethod(m)}
-                      className="flex-1 px-3 text-xs text-muted hover:text-red-700 hover:bg-red-50 disabled:opacity-40 border-t border-muted/20"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  {!methodsReadOnly && (
+                    <div className="flex flex-col border-l border-muted/20">
+                      <button
+                        type="button"
+                        title="Edit"
+                        disabled={!!methodFormMode || loading}
+                        onClick={() => {
+                          setMethodFormError(null);
+                          setMethodFormMode({ editId: m.id });
+                        }}
+                        className="flex-1 px-3 text-xs text-muted hover:text-accent hover:bg-cream/80 disabled:opacity-40"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        title="Delete"
+                        disabled={!!methodFormMode || loading}
+                        onClick={() => handleDeleteMethod(m)}
+                        className="flex-1 px-3 text-xs text-muted hover:text-red-700 hover:bg-red-50 disabled:opacity-40 border-t border-muted/20"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
 
-              {!methodFormMode ? (
+              {!methodsReadOnly && !methodFormMode ? (
                 <button
                   type="button"
                   onClick={() => {
@@ -487,7 +492,7 @@ export default function WithdrawWizard({
                   <span className="text-xl">+</span>
                   Add new method
                 </button>
-              ) : addMethodPending ? (
+              ) : !methodsReadOnly && addMethodPending ? (
                 <div className="rounded-xl border border-muted/30 p-4 bg-cream/50 space-y-4">
                   <p className="text-sm font-medium text-surface">
                     Confirm new payout method
@@ -545,7 +550,7 @@ export default function WithdrawWizard({
                     </button>
                   </div>
                 </div>
-              ) : (
+              ) : !methodsReadOnly ? (
                 <PayoutMethodForm
                   mode={methodFormMode === "add" ? "add" : "edit"}
                   initialMethod={editingMethod}
@@ -554,7 +559,7 @@ export default function WithdrawWizard({
                   loading={methodFormLoading}
                   serverError={methodFormError}
                 />
-              )}
+              ) : null}
             </div>
             <button
               type="button"

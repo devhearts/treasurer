@@ -300,6 +300,10 @@ export default function InvitationWizard({
   async function handleAddGuest() {
     const name = guestInput.trim();
     if (!name) return;
+    if (name.length > 255) {
+      setError("Guest name must be 255 characters or fewer.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {

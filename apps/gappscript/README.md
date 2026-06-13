@@ -139,9 +139,14 @@ Configured in [`Config.gs`](mysql-excel-connector/Config.gs). Reporting-focused 
 
 OTP, session, and token tables are omitted by default. Add entries to `EXPORT_TABLES` in `Config.gs` to extend.
 
-## Scheduled sync (optional)
+## Scheduled sync
 
-In the Apps Script editor, run `createHourlyTrigger()` once. This installs an hourly trigger for `syncAllTables`. Remove triggers under **Triggers** in the editor if you no longer need them.
+1. Open the bound spreadsheet.
+2. **Treasurer DB → Enable Scheduled Sync (hourly)** — authorizes the script if prompted, stores the spreadsheet ID, and installs an hourly trigger for `syncAllTables`.
+3. Each run logs a summary to `_meta` columns **E–F** (`last_scheduled_sync_at`, `last_scheduled_sync_summary`).
+4. **Treasurer DB → Disable Scheduled Sync (hourly)** removes the trigger.
+
+Scheduled runs have no UI dialog; use **Executions** in the Apps Script editor to debug failures.
 
 ## Security
 

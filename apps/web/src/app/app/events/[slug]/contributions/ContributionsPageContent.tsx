@@ -7,6 +7,8 @@ import { formatUGX, formatCalendarDate, isPublicContribution } from "@/lib/data"
 import { addContribution, setContributionVisibility } from "@/app/actions/events";
 import type { CeremonyEvent } from "@/lib/types";
 import EventPhotoGallery from "@/components/EventPhotoGallery";
+import EventStatusNotice from "@/components/EventStatusNotice";
+import { publicStatusNotice } from "@/lib/event-lifecycle";
 import {
   IconBack,
   IconAdd,
@@ -15,6 +17,7 @@ import {
   IconEye,
   IconEyeOff,
 } from "@/components/Icons";
+import { validateUgandaPhone } from "@/lib/phone";
 
 interface ContributionsPageContentProps {
   event: CeremonyEvent;
@@ -29,6 +32,8 @@ export default function ContributionsPageContent({
   const [addAnonymous, setAddAnonymous] = useState(false);
   const [addAmount, setAddAmount] = useState("");
   const [addNote, setAddNote] = useState("");
+  const [addPhone, setAddPhone] = useState("");
+  const [addError, setAddError] = useState<string | null>(null);
   /** Empty string = tag to whole event (no milestone). */
   const [addMilestoneId, setAddMilestoneId] = useState("");
   const [addSaving, setAddSaving] = useState(false);
@@ -39,6 +44,11 @@ export default function ContributionsPageContent({
   const [milestoneFilter, setMilestoneFilter] = useState<string>("all");
 
   const hasMilestones = event.milestoneItems.length > 0;
+  const contributionsOpen = (event.status ?? "active") === "active";
+  const statusNotice = publicStatusNotice({
+    status: event.status ?? "active",
+    statusMessage: event.statusMessage,
+  });
 
   const contributionsSorted = event.contributions.slice().reverse();
   const filteredContributions = contributionsSorted.filter((c) => {
@@ -49,12 +59,29 @@ export default function ContributionsPageContent({
 
   async function handleAddContribution(e: React.FormEvent) {
     e.preventDefault();
+    setAddError(null);
+    const amount = Number(addAmount);
+    if (!Number.isFinite(amount) || amount < 1) {
+      setAddError("Enter a valid amount (at least UGX 1).");
+      return;
+    }
+    if (!addAnonymous && !addName.trim()) {
+      setAddError("Enter the contributor name.");
+      return;
+    }
+    if (addPhone.trim()) {
+      const phoneErr = validateUgandaPhone(addPhone);
+      if (phoneErr) {
+        setAddError(phoneErr);
+        return;
+      }
+    }
     setAddSaving(true);
     const result = await addContribution(event.slug, {
       name: addAnonymous ? "Anonymous" : addName.trim(),
       anonymous: addAnonymous,
-      amount: Number(addAmount),
-      phone: "",
+      amount,
+      phone: addPhone.trim(),
       message: addNote || undefined,
       status: "paid",
       date: new Date().toISOString().split("T")[0],
@@ -69,9 +96,11 @@ export default function ContributionsPageContent({
       setAddAnonymous(false);
       setAddAmount("");
       setAddNote("");
+      setAddPhone("");
       setAddMilestoneId("");
+      setAddError(null);
     } else {
-      alert(result.error ?? "Failed to add contribution.");
+      setAddError(result.error ?? "Failed to add contribution.");
     }
   }
 
@@ -95,16 +124,21 @@ export default function ContributionsPageContent({
 
         <div className="bg-light rounded-xl border border-muted/30 overflow-hidden">
           <div className="p-4 border-b border-muted/20 space-y-3">
+            {statusNotice ? (
+              <EventStatusNotice notice={statusNotice} />
+            ) : null}
             <div className="flex items-center justify-between gap-3">
               <h1 className="text-lg font-bold text-surface">All contributions</h1>
-              <button
-                type="button"
-                onClick={() => setAddModalOpen(true)}
-                className="inline-flex items-center gap-1.5 text-sm text-accent font-medium flex-shrink-0"
-              >
-                <IconAdd className="w-4 h-4" />
-                Add
-              </button>
+              {contributionsOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setAddModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 text-sm text-accent font-medium flex-shrink-0"
+                >
+                  <IconAdd className="w-4 h-4" />
+                  Add
+                </button>
+              ) : null}
             </div>
             {hasMilestones && (
               <div>
@@ -251,6 +285,11 @@ export default function ContributionsPageContent({
               Record cash or off-app payment.
             </p>
             <form onSubmit={handleAddContribution} className="space-y-4">
+              {addError && (
+                <p className="text-sm text-red-600" role="alert">
+                  {addError}
+                </p>
+              )}
               {!addAnonymous && (
                 <div>
                   <label className="sr-only">Name</label>
@@ -313,6 +352,24 @@ export default function ContributionsPageContent({
                   </select>
                 </div>
               )}
+              <div>
+                <label
+                  className="block text-xs font-medium text-muted mb-1"
+                  htmlFor="add-contribution-phone"
+                >
+                  Phone (optional)
+                </label>
+                <input
+                  id="add-contribution-phone"
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  value={addPhone}
+                  onChange={(e) => setAddPhone(e.target.value)}
+                  placeholder="e.g. 077xxxxxxx"
+                  className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
+                />
+              </div>
               <div>
                 <label className="sr-only">Note (optional)</label>
                 <input

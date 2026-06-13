@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { login, resendVerificationEmail } from "@/app/actions/auth";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function LoginForm({
   showVerified = false,
@@ -93,15 +94,14 @@ export default function LoginForm({
         />
       </div>
       <div>
-        <label htmlFor="login-password" className="sr-only">Password</label>
-        <input
+        <PasswordInput
           id="login-password"
-          type="password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={setPassword}
           placeholder="Password"
           required
-          className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
+          autoComplete="current-password"
+          label="Password"
         />
       </div>
       <button

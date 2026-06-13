@@ -12,7 +12,10 @@ function syncTable(exportConfig) {
   return rows.length;
 }
 
-function syncAllTables() {
+/**
+ * @returns {string[]}
+ */
+function runSyncAllTables() {
   var results = [];
 
   for (var i = 0; i < EXPORT_TABLES.length; i++) {
@@ -25,7 +28,31 @@ function syncAllTables() {
     }
   }
 
-  SpreadsheetApp.getUi().alert("Sync complete:\n\n" + results.join("\n"));
+  return results;
+}
+
+function syncAllTables() {
+  var results = runSyncAllTables();
+
+  if (hasSpreadsheetUi()) {
+    SpreadsheetApp.getUi().alert("Sync complete:\n\n" + results.join("\n"));
+    return;
+  }
+
+  stampScheduledSyncRun(results);
+  Logger.log("Scheduled sync complete:\n" + results.join("\n"));
+}
+
+/**
+ * @returns {boolean}
+ */
+function hasSpreadsheetUi() {
+  try {
+    SpreadsheetApp.getUi();
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 function syncActiveSheetTab() {

@@ -197,6 +197,50 @@ export class EventsController {
     return { success: true, slug };
   }
 
+  @Post("by-slug/:slug/pause")
+  @UseGuards(SessionGuard)
+  async pauseEvent(
+    @Req() req: Request & { sessionUserId?: string },
+    @Param("slug") slug: string
+  ) {
+    await this.events.pauseEventForOwner(
+      req.sessionUserId!,
+      slug,
+      requestAuditContext(req)
+    );
+    return { success: true };
+  }
+
+  @Post("by-slug/:slug/resume")
+  @UseGuards(SessionGuard)
+  async resumeEvent(
+    @Req() req: Request & { sessionUserId?: string },
+    @Param("slug") slug: string
+  ) {
+    await this.events.resumeEventForOwner(
+      req.sessionUserId!,
+      slug,
+      requestAuditContext(req)
+    );
+    return { success: true };
+  }
+
+  @Post("by-slug/:slug/stop")
+  @UseGuards(SessionGuard)
+  async stopEvent(
+    @Req() req: Request & { sessionUserId?: string },
+    @Param("slug") slug: string,
+    @Body() body: { message: string }
+  ) {
+    await this.events.stopEventForOwner(
+      req.sessionUserId!,
+      slug,
+      body?.message ?? "",
+      requestAuditContext(req)
+    );
+    return { success: true };
+  }
+
   @Post("by-slug/:slug/contributions")
   async addContribution(
     @Param("slug") slug: string,

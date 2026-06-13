@@ -39,6 +39,7 @@ export default async function AccountPage() {
         transactions={transactionsPage.transactions}
         transactionsNextCursor={transactionsPage.nextCursor}
         transactionsHasMore={transactionsPage.hasMore}
+        accountVerified={!!user.accountVerified}
       />
     </main>
   );

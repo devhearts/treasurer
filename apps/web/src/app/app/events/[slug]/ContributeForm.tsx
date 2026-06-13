@@ -13,9 +13,11 @@ import MilestoneCardsRow from "@/components/MilestoneCardsRow";
 import type { MilestoneItem } from "@/lib/types";
 import type { PaymentProcessorKind } from "@/lib/payments/types";
 import {
+  paymentNetworksForKind,
   paymentPollingWaitLabel,
   paymentReceivedViaPhrase,
 } from "@/lib/payments";
+import { validateUgandaPhone } from "@/lib/phone";
 
 interface ContributeFormProps {
   eventId: string;
@@ -164,6 +166,29 @@ export default function ContributeForm({
   }
 
   async function recordContribution(status: "paid" | "pledged") {
+    if (anonymous && status === "pledged") {
+      setMomoError("Pledges cannot be recorded anonymously.");
+      return;
+    }
+    if (!anonymous && !name.trim()) {
+      setMomoError("Enter your name.");
+      return;
+    }
+    const phoneErr = validateUgandaPhone(
+      payerPhone,
+      paymentNetworksForKind(paymentProcessorKind)
+    );
+    if (phoneErr) {
+      setMomoError(phoneErr);
+      return;
+    }
+    const numAmount = Number(amount);
+    if (!Number.isFinite(numAmount) || numAmount < 1000) {
+      setMomoError("Enter a valid amount (at least UGX 1,000).");
+      return;
+    }
+
+    setMomoError(null);
     setLoading(true);
     const result = await addContribution(eventSlug, {
       name: anonymous ? "Anonymous" : name.trim(),
@@ -191,8 +216,15 @@ export default function ContributeForm({
 
   async function startMomoPay() {
     setMomoError(null);
-    if (!payerPhone.trim()) {
-      setMomoError("Enter the Mobile Money number that will pay.");
+    const networks = paymentNetworksForKind(paymentProcessorKind);
+    const phoneErr = validateUgandaPhone(payerPhone, networks);
+    if (phoneErr) {
+      setMomoError(phoneErr);
+      return;
+    }
+    const numAmount = Number(amount);
+    if (!Number.isFinite(numAmount) || numAmount < 1000) {
+      setMomoError("Enter a valid amount (at least UGX 1,000).");
       return;
     }
     setLoading(true);
@@ -370,10 +402,10 @@ export default function ContributeForm({
             </label>
           </div>
 
-          {momoConfigured && (
+          {(momoConfigured || pledgeExpanded) && (
             <div className="mb-4">
               <label className="block text-xs text-muted mb-1" htmlFor="payer-phone">
-                {payerPhoneLabel}
+                {momoConfigured ? payerPhoneLabel : "Your phone number"}
               </label>
               <input
                 id="payer-phone"
@@ -383,6 +415,7 @@ export default function ContributeForm({
                 value={payerPhone}
                 onChange={(e) => setPayerPhone(e.target.value)}
                 placeholder="e.g. 077xxxxxxx"
+                required={pledgeExpanded}
                 className="w-full border border-muted/50 rounded-lg px-4 py-3 text-surface placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
@@ -419,7 +452,10 @@ export default function ContributeForm({
                 <button
                   type="button"
                   disabled={loading || anonymous}
-                  onClick={() => setPledgeExpanded(true)}
+                  onClick={() => {
+                    setMomoError(null);
+                    setPledgeExpanded(true);
+                  }}
                   className="w-full py-3 rounded-lg font-semibold border-2 border-muted/50 text-muted hover:border-muted hover:text-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title={
                     anonymous

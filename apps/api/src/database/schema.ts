@@ -24,6 +24,11 @@ export const users = mysqlTable(
     }),
     /** Uganda MSISDN (256…); null for legacy rows before this column existed. */
     phone: varchar("phone", { length: 32 }),
+    /** Set when account verification is approved (KYC-lite). */
+    accountVerifiedAt: datetime("account_verified_at", {
+      mode: "string",
+      fsp: 3,
+    }),
   },
   (t) => [uniqueIndex("uq_users_email").on(t.email)]
 );
@@ -89,10 +94,16 @@ export const events = mysqlTable(
     subscriptionPaid: tinyint("subscription_paid").notNull().default(0),
     /** Up to 3 Garage object keys (`events/{eventId}/{slot}.ext`); mysql2 may return this column as a JSON string — see `imageUrlsFromRow` in events.service. */
     imageUrls: json("image_urls").$type<string[] | null>(),
+    status: varchar("status", { length: 16 }).notNull().default("active"),
+    statusMessage: text("status_message"),
+    preSuspendStatus: varchar("pre_suspend_status", { length: 16 }),
+    suspendReason: varchar("suspend_reason", { length: 500 }),
+    statusChangedAt: varchar("status_changed_at", { length: 32 }),
   },
   (t) => [
     uniqueIndex("idx_events_slug").on(t.slug),
     index("idx_events_user_id").on(t.userId),
+    index("idx_events_status").on(t.status),
   ]
 );
 
@@ -167,12 +178,29 @@ export const paymentIntents = mysqlTable(
   ]
 );
 
+/** Terminal deposit reconciliation outcomes for stale payment intents. */
+export const reconciledPaymentIntents = mysqlTable(
+  "reconciled_payment_intents",
+  {
+    referenceId: varchar("reference_id", { length: 36 }).primaryKey(),
+    outcome: varchar("outcome", { length: 32 }).notNull(), // completed | failed
+    kind: varchar("kind", { length: 32 }).notNull(), // contribution | subscription
+    processor: varchar("processor", { length: 32 }).notNull(),
+    providerStatus: varchar("provider_status", { length: 32 }).notNull(),
+    failureCode: varchar("failure_code", { length: 64 }),
+    failureMessage: text("failure_message"),
+    providerPayload: json("provider_payload").$type<Record<string, unknown>>(),
+    reconciledAt: datetime("reconciled_at", { mode: "string", fsp: 3 }).notNull(),
+  },
+  (t) => [index("idx_reconciled_payment_intents_reconciled_at").on(t.reconciledAt)]
+);
+
 export const paymentStatusEvents = mysqlTable(
   "payment_status_events",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
     referenceId: varchar("reference_id", { length: 36 }).notNull(),
-    source: varchar("source", { length: 32 }).notNull(), // poll | webhook
+    source: varchar("source", { length: 32 }).notNull(), // poll | webhook | reconciliation
     fromStatus: varchar("from_status", { length: 32 }),
     toStatus: varchar("to_status", { length: 32 }).notNull(),
     meta: json("meta").$type<Record<string, unknown>>(),
@@ -331,6 +359,43 @@ export const payoutMethodOtps = mysqlTable(
     createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
   },
   (t) => [index("idx_payout_method_otps_pending").on(t.pendingId)]
+);
+
+/** Account identity verification (KYC-lite) — one row per user. */
+export const accountVerifications = mysqlTable("account_verifications", {
+  userId: varchar("user_id", { length: 36 }).primaryKey(),
+  status: varchar("status", { length: 32 }).notNull().default("none"),
+  legalName: varchar("legal_name", { length: 255 }),
+  phoneMsisdn: varchar("phone_msisdn", { length: 32 }),
+  selfieKey: varchar("selfie_key", { length: 512 }),
+  idFrontKey: varchar("id_front_key", { length: 512 }),
+  idBackKey: varchar("id_back_key", { length: 512 }),
+  rejectionReason: text("rejection_reason"),
+  submittedAt: datetime("submitted_at", { mode: "string", fsp: 3 }),
+  reviewedAt: datetime("reviewed_at", { mode: "string", fsp: 3 }),
+  reviewedBy: varchar("reviewed_by", { length: 255 }),
+  createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
+  updatedAt: datetime("updated_at", { mode: "string", fsp: 3 }).notNull(),
+});
+
+/** Short-lived QR capture session for desktop → phone camera flow. */
+export const verificationCaptureSessions = mysqlTable(
+  "verification_capture_sessions",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    userId: varchar("user_id", { length: 36 }).notNull(),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+    expiresAt: datetime("expires_at", { mode: "string", fsp: 3 }).notNull(),
+    selfieKey: varchar("selfie_key", { length: 512 }),
+    idFrontKey: varchar("id_front_key", { length: 512 }),
+    idBackKey: varchar("id_back_key", { length: 512 }),
+    consumedAt: datetime("consumed_at", { mode: "string", fsp: 3 }),
+    createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
+  },
+  (t) => [
+    index("idx_verification_capture_token").on(t.tokenHash),
+    index("idx_verification_capture_user").on(t.userId),
+  ]
 );
 
 export const invitations = mysqlTable(

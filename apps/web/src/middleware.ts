@@ -62,5 +62,6 @@ export const config = {
     "/app/:path*",
     "/events/:path*",
     "/invites/:path*",
+    "/verify-capture/:path*",
   ],
 };

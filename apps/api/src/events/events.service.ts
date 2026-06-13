@@ -17,6 +17,20 @@ import type { AuditRequestContext } from "../audit/audit-context";
 import { ConfigService } from "@nestjs/config";
 import { StorageService } from "../integrations/storage.service";
 import { ContributionNotificationsService } from "../integrations/contribution-notifications.service";
+import { isIsoDateString } from "../common/validation";
+import { normalizeUgandaMsisdnForNetworks } from "../payments/phone";
+
+const CONTRIBUTION_MESSAGE_MAX = 2000;
+const UGANDA_PHONE_ERROR =
+  "Enter a valid MTN or Airtel Uganda number (e.g. 07… or 256…).";
+
+function normalizeOptionalUgandaPhone(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  return (
+    normalizeUgandaMsisdnForNetworks(trimmed, ["mtn", "airtel"]) ?? null
+  );
+}
 import type { Readable } from "node:stream";
 import {
   compressEventOgImage,
@@ -27,6 +41,15 @@ import {
   legacyEventOgWebpKey,
   EVENT_OG_CONTENT_TYPE,
 } from "./event-og-image";
+import {
+  assertEventAcceptsContributions,
+  canTreasurerLifecycleAction,
+  EVENT_STATUS_MESSAGE_MAX,
+  parseEventLifecycleStatus,
+  treasurerLifecycleBlockedReason,
+  type EventLifecycleStatus,
+} from "./event-lifecycle";
+import { formatMysqlDateTimeUtc } from "../common/mysql-datetime";
 
 export type CeremonyEventDto = {
   id: string;
@@ -43,6 +66,9 @@ export type CeremonyEventDto = {
   location: string;
   createdAt: string;
   subscriptionPaid: boolean;
+  status: EventLifecycleStatus;
+  statusMessage?: string;
+  statusChangedAt?: string;
   /**
    * On read: public proxied URLs (`/api/v1/events/by-slug/.../gallery/N`).
    * On create (POST body): Garage object keys `events/{eventId}/{slot}.ext`.
@@ -245,6 +271,9 @@ export class EventsService {
       location: row.location,
       createdAt: row.createdAt,
       subscriptionPaid: !!row.subscriptionPaid,
+      status: parseEventLifecycleStatus(row.status),
+      statusMessage: row.statusMessage?.trim() || undefined,
+      statusChangedAt: row.statusChangedAt ?? undefined,
       imageUrls,
       budgetItems: budgetRows.map((b) => ({
         id: b.id,
@@ -365,6 +394,14 @@ export class EventsService {
     if (!date) throw new BadRequestException("Event date is required.");
     if (!location) throw new BadRequestException("Location is required.");
 
+    const normalizedTreasurerPhone = normalizeUgandaMsisdnForNetworks(
+      treasurerPhone,
+      ["mtn", "airtel"]
+    );
+    if (!normalizedTreasurerPhone) {
+      throw new BadRequestException(UGANDA_PHONE_ERROR);
+    }
+
     const targetAmount = Math.max(
       0,
       Math.round(Number(body.targetAmount) || 0)
@@ -399,7 +436,7 @@ export class EventsService {
           title: title.slice(0, 500),
           type: type.slice(0, 32),
           organizer: organizer.slice(0, 255),
-          treasurerPhone: treasurerPhone.slice(0, 32),
+          treasurerPhone: normalizedTreasurerPhone,
           description,
           date: date.slice(0, 32),
           location: location.slice(0, 500),
@@ -469,6 +506,29 @@ export class EventsService {
       );
     }
 
+    const organizer = (event.organizer ?? "").trim();
+    const treasurerPhoneRaw = (event.treasurerPhone ?? "").trim();
+    const date = (event.date ?? "").trim();
+    const location = (event.location ?? "").trim();
+    if (!organizer) throw new BadRequestException("Organizer is required.");
+    if (!treasurerPhoneRaw) {
+      throw new BadRequestException("Treasurer phone is required.");
+    }
+    if (!date) throw new BadRequestException("Event date is required.");
+    if (!location) throw new BadRequestException("Location is required.");
+
+    const normalizedTreasurerPhone = normalizeUgandaMsisdnForNetworks(
+      treasurerPhoneRaw,
+      ["mtn", "airtel"]
+    );
+    if (!normalizedTreasurerPhone) {
+      throw new BadRequestException(UGANDA_PHONE_ERROR);
+    }
+
+    const title = (event.title ?? "").trim() || "Event";
+    const type = (event.type ?? "").trim() || "other";
+    const description = (event.description ?? "").trim();
+
     const targetAmount = Math.max(
       0,
       Math.round(Number(event.targetAmount) || 0)
@@ -499,15 +559,15 @@ export class EventsService {
             id: event.id,
             userId,
             slug,
-            title: event.title,
-            type: event.type,
-            organizer: event.organizer,
-            treasurerPhone: event.treasurerPhone,
-            description: event.description,
+            title: title.slice(0, 500),
+            type: type.slice(0, 32),
+            organizer: organizer.slice(0, 255),
+            treasurerPhone: normalizedTreasurerPhone,
+            description,
             targetAmount,
             raisedAmount: 0,
-            date: event.date,
-            location: event.location,
+            date: date.slice(0, 32),
+            location: location.slice(0, 500),
             createdAt,
             subscriptionPaid: event.subscriptionPaid ? 1 : 0,
             imageUrls: imageKeys,
@@ -572,28 +632,95 @@ export class EventsService {
     const event = await this.getBySlug(eventSlug);
     if (!event) throw new BadRequestException("Event not found");
 
+    assertEventAcceptsContributions(event.status);
+
+    const manual = !!contribution.manual;
+    const status = contribution.status;
+    if (status !== "paid" && status !== "pledged") {
+      throw new BadRequestException("Invalid contribution status.");
+    }
+
     const mid = contribution.milestoneId?.trim() || null;
     if (mid && !event.milestoneItems.some((m) => m.id === mid)) {
       throw new BadRequestException("Invalid milestone.");
     }
 
+    const amount = Math.round(Number(contribution.amount));
+    const minAmount = manual ? 1 : 1000;
+    if (!Number.isFinite(amount) || amount < minAmount) {
+      throw new BadRequestException(
+        manual
+          ? "Enter a valid amount (at least UGX 1)."
+          : "Enter a valid amount (at least UGX 1,000)."
+      );
+    }
+
+    const date = contribution.date?.trim() ?? "";
+    if (!isIsoDateString(date)) {
+      throw new BadRequestException("Invalid date.");
+    }
+
+    const messageRaw = contribution.message?.trim() ?? "";
+    if (messageRaw.length > CONTRIBUTION_MESSAGE_MAX) {
+      throw new BadRequestException(
+        `Message must be ${CONTRIBUTION_MESSAGE_MAX} characters or fewer.`
+      );
+    }
+    const message = messageRaw || null;
+
+    if (contribution.anonymous && status === "pledged") {
+      throw new BadRequestException(
+        "Pledges cannot be recorded anonymously."
+      );
+    }
+
+    let contributorName = contribution.anonymous
+      ? "Anonymous"
+      : (contribution.name?.trim() ?? "");
+    if (!contributorName) {
+      throw new BadRequestException("Enter your name.");
+    }
+
+    let contributorPhone = contribution.phone?.trim() ?? "";
+    if (!manual) {
+      if (!contributorPhone) {
+        throw new BadRequestException("Enter your phone number.");
+      }
+      const normalized = normalizeOptionalUgandaPhone(contributorPhone);
+      if (normalized === null) {
+        throw new BadRequestException(UGANDA_PHONE_ERROR);
+      }
+      contributorPhone = normalized;
+    } else if (contributorPhone) {
+      const normalized = normalizeOptionalUgandaPhone(contributorPhone);
+      if (normalized === null) {
+        throw new BadRequestException(UGANDA_PHONE_ERROR);
+      }
+      contributorPhone = normalized;
+    }
+
+    let pledgeHopeBy: string | null = null;
+    if (status === "pledged" && contribution.pledgeHopeBy?.trim()) {
+      const hopeBy = contribution.pledgeHopeBy.trim();
+      if (!isIsoDateString(hopeBy)) {
+        throw new BadRequestException("Invalid hope-to-pay-by date.");
+      }
+      pledgeHopeBy = hopeBy;
+    }
+
     const id = `c${Date.now()}`;
-    const pledgeHopeBy =
-      contribution.status === "pledged" && contribution.pledgeHopeBy?.trim()
-        ? contribution.pledgeHopeBy.trim()
-        : null;
 
     await this.db.transaction(async (tx) => {
       await tx.insert(schema.contributions).values({
         id,
         eventId: event.id,
-        name: contribution.name,
+        name: contributorName,
         anonymous: contribution.anonymous ? 1 : 0,
-        amount: contribution.amount,
-        phone: contribution.phone,
-        message: contribution.message ?? null,
-        status: contribution.status,
-        date: contribution.date,
+        amount,
+        phone: contributorPhone,
+        message,
+        status,
+        date,
         pledgeHopeBy,
         manual: contribution.manual ? 1 : 0,
         visible: 1,
@@ -601,26 +728,26 @@ export class EventsService {
         paymentReferenceId: null,
       });
 
-      if (contribution.status === "paid") {
+      if (status === "paid") {
         await tx
           .update(schema.events)
           .set({
-            raisedAmount: sql`${schema.events.raisedAmount} + ${contribution.amount}`,
+            raisedAmount: sql`${schema.events.raisedAmount} + ${amount}`,
           })
           .where(eq(schema.events.id, event.id));
       }
     });
 
-    if (contribution.status === "paid") {
+    if (status === "paid") {
       this.contributionNotifications.notifyPaidContribution({
         ownerUserId: event.userId,
         eventSlug: event.slug,
         eventTitle: event.title,
-        contributorName: contribution.name,
+        contributorName: contributorName,
         anonymous: contribution.anonymous,
-        amount: contribution.amount,
-        phone: contribution.phone,
-        message: contribution.message,
+        amount,
+        phone: contributorPhone,
+        message: message ?? undefined,
         manual: contribution.manual,
       });
     }
@@ -961,5 +1088,124 @@ export class EventsService {
     const key = await this.getEventImageKeyForGallerySlot(slug, slot);
     if (!key) return null;
     return this.storage.getObjectStream(key);
+  }
+
+  private async requireOwnerEventRow(userId: string, slug: string) {
+    const rows = await this.db
+      .select()
+      .from(schema.events)
+      .where(eq(schema.events.slug, slug))
+      .limit(1);
+    const row = rows[0];
+    if (!row) throw new NotFoundException("Event not found.");
+    if (!row.userId || row.userId !== userId) {
+      throw new ForbiddenException("Not allowed.");
+    }
+    return row;
+  }
+
+  async pauseEventForOwner(
+    userId: string,
+    slug: string,
+    ctx?: AuditRequestContext
+  ): Promise<void> {
+    const row = await this.requireOwnerEventRow(userId, slug);
+    const status = parseEventLifecycleStatus(row.status);
+    const blocked = treasurerLifecycleBlockedReason(status);
+    if (blocked) throw new BadRequestException(blocked);
+    if (!canTreasurerLifecycleAction(status, "pause")) {
+      throw new BadRequestException("This event cannot be paused.");
+    }
+
+    const now = formatMysqlDateTimeUtc(new Date());
+    await this.db
+      .update(schema.events)
+      .set({ status: "paused", statusChangedAt: now })
+      .where(eq(schema.events.id, row.id));
+
+    this.audit.logSafe({
+      actorType: "user",
+      actorUserId: userId,
+      action: AuditAction.event.paused,
+      entityType: "event",
+      entityId: row.id,
+      metadata: { slug },
+      ctx,
+    });
+  }
+
+  async resumeEventForOwner(
+    userId: string,
+    slug: string,
+    ctx?: AuditRequestContext
+  ): Promise<void> {
+    const row = await this.requireOwnerEventRow(userId, slug);
+    const status = parseEventLifecycleStatus(row.status);
+    const blocked = treasurerLifecycleBlockedReason(status);
+    if (blocked) throw new BadRequestException(blocked);
+    if (!canTreasurerLifecycleAction(status, "resume")) {
+      throw new BadRequestException("This event is not paused.");
+    }
+
+    const now = formatMysqlDateTimeUtc(new Date());
+    await this.db
+      .update(schema.events)
+      .set({ status: "active", statusChangedAt: now })
+      .where(eq(schema.events.id, row.id));
+
+    this.audit.logSafe({
+      actorType: "user",
+      actorUserId: userId,
+      action: AuditAction.event.resumed,
+      entityType: "event",
+      entityId: row.id,
+      metadata: { slug },
+      ctx,
+    });
+  }
+
+  async stopEventForOwner(
+    userId: string,
+    slug: string,
+    message: string,
+    ctx?: AuditRequestContext
+  ): Promise<void> {
+    const row = await this.requireOwnerEventRow(userId, slug);
+    const status = parseEventLifecycleStatus(row.status);
+    const blocked = treasurerLifecycleBlockedReason(status);
+    if (blocked) throw new BadRequestException(blocked);
+    if (!canTreasurerLifecycleAction(status, "stop")) {
+      throw new BadRequestException("This event cannot be stopped.");
+    }
+
+    const statusMessage = message.trim();
+    if (!statusMessage) {
+      throw new BadRequestException("A message is required when stopping an event.");
+    }
+    if (statusMessage.length > EVENT_STATUS_MESSAGE_MAX) {
+      throw new BadRequestException(
+        `Message must be ${EVENT_STATUS_MESSAGE_MAX} characters or fewer.`
+      );
+    }
+
+    const now = formatMysqlDateTimeUtc(new Date());
+    await this.db
+      .update(schema.events)
+      .set({
+        status: "stopped",
+        statusMessage,
+        statusChangedAt: now,
+      })
+      .where(eq(schema.events.id, row.id));
+
+    this.audit.logSafe({
+      actorType: "user",
+      actorUserId: userId,
+      action: AuditAction.event.stopped,
+      entityType: "event",
+      entityId: row.id,
+      metadata: { slug },
+      ctx,
+    });
   }
 }

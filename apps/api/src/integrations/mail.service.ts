@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as nodemailer from "nodemailer";
+import type { VerificationReviewImageUrls } from "../verification/verification.types";
 
 function escapeHtml(s: string): string {
   return s
@@ -233,6 +234,136 @@ export class MailService {
         </table>
         <p><a href="${accountUrl}">View your account</a></p>
         <p style="color:#666;font-size:12px;">CeremonyWallet — withdrawal confirmation</p>
+      `,
+    });
+  }
+
+  async sendVerificationSubmissionToSupport(
+    to: string,
+    details: {
+      userId: string;
+      email: string;
+      accountPhone: string | null;
+      legalName: string;
+      phoneMsisdn: string;
+      submittedAt: string;
+      reviewUrls: VerificationReviewImageUrls;
+    }
+  ): Promise<void> {
+    const t = this.transporter();
+    const from = this.config.get<string>("app.smtp.from") ?? "noreply@localhost";
+    const userId = escapeHtml(details.userId);
+    const email = escapeHtml(details.email);
+    const accountPhone = details.accountPhone?.trim()
+      ? escapeHtml(details.accountPhone.trim())
+      : "—";
+    const legalName = escapeHtml(details.legalName);
+    const phoneMsisdn = escapeHtml(details.phoneMsisdn);
+    const submittedAt = escapeHtml(details.submittedAt);
+    const imageLinks = (["selfie", "idFront", "idBack"] as const)
+      .map((slot) => {
+        const url = details.reviewUrls[slot];
+        if (!url) return `<li>${slot}: unavailable</li>`;
+        return `<li><a href="${escapeHtml(url)}">${slot}</a></li>`;
+      })
+      .join("");
+
+    if (!t) {
+      this.log.log(
+        `Verification submission (no SMTP) for support ${to}: user ${details.userId} (${details.email})`
+      );
+      return;
+    }
+
+    await t.sendMail({
+      from,
+      to,
+      subject: `Account verification submitted — ${details.legalName}`,
+      html: `
+        <p>A user submitted account verification documents for review.</p>
+        <table style="border-collapse:collapse;font-size:14px;margin:16px 0;">
+          <tr><td style="padding:4px 12px 4px 0;color:#666;">User ID</td><td style="padding:4px 0;">${userId}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#666;">Account email</td><td style="padding:4px 0;">${email}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#666;">Registered phone</td><td style="padding:4px 0;">${accountPhone}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#666;">Legal name (ID)</td><td style="padding:4px 0;"><strong>${legalName}</strong></td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#666;">MoMo phone (ID)</td><td style="padding:4px 0;"><strong>${phoneMsisdn}</strong></td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#666;">Submitted at</td><td style="padding:4px 0;">${submittedAt}</td></tr>
+        </table>
+        <p><strong>Review images (1h links):</strong></p>
+        <ul>${imageLinks}</ul>
+        <p style="color:#666;font-size:12px;">CLI: verify-account show --user-id=${userId}</p>
+      `,
+    });
+  }
+
+  async sendVerificationApproved(
+    to: string,
+    summary: {
+      legalName: string;
+      phoneMsisdn: string;
+      withdrawUrl: string;
+      accountUrl: string;
+    }
+  ): Promise<void> {
+    const t = this.transporter();
+    const from = this.config.get<string>("app.smtp.from") ?? "noreply@localhost";
+    const legalName = escapeHtml(summary.legalName.trim() || "Account holder");
+    const phone = escapeHtml(summary.phoneMsisdn);
+    const withdrawUrl = escapeHtml(summary.withdrawUrl);
+    const accountUrl = escapeHtml(summary.accountUrl);
+
+    if (!t) {
+      this.log.log(
+        `Verification approved (no SMTP) for ${to}: ${summary.legalName} · ${summary.phoneMsisdn}`
+      );
+      return;
+    }
+
+    await t.sendMail({
+      from,
+      to,
+      subject: "Your CeremonyWallet account is verified",
+      html: `
+        <p>Good news — your account verification was approved.</p>
+        <p style="margin:16px 0;padding:12px 16px;background:#f4f4f5;border-radius:8px;">
+          <strong>Name on file:</strong> ${legalName}<br/>
+          <strong>Verified payout phone:</strong> ${phone}
+        </p>
+        <p>You can now withdraw funds to your verified mobile money number.</p>
+        <p><a href="${withdrawUrl}">Withdraw funds</a> · <a href="${accountUrl}">View account</a></p>
+        <p style="color:#666;font-size:12px;">CeremonyWallet — account verification</p>
+      `,
+    });
+  }
+
+  async sendVerificationRejected(
+    to: string,
+    summary: { reason: string; verifyAccountUrl: string }
+  ): Promise<void> {
+    const t = this.transporter();
+    const from = this.config.get<string>("app.smtp.from") ?? "noreply@localhost";
+    const reason = escapeHtml(summary.reason.trim() || "No reason provided.");
+    const verifyAccountUrl = escapeHtml(summary.verifyAccountUrl);
+
+    if (!t) {
+      this.log.log(
+        `Verification rejected (no SMTP) for ${to}: ${summary.reason}`
+      );
+      return;
+    }
+
+    await t.sendMail({
+      from,
+      to,
+      subject: "Action needed — account verification",
+      html: `
+        <p>We reviewed your account verification submission and could not approve it at this time.</p>
+        <p style="margin:16px 0;padding:12px 16px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#991b1b;">
+          <strong>Reason:</strong> ${reason}
+        </p>
+        <p>You can review the reason and submit again with updated documents.</p>
+        <p><a href="${verifyAccountUrl}">Verify my account</a></p>
+        <p style="color:#666;font-size:12px;">CeremonyWallet — account verification</p>
       `,
     });
   }
