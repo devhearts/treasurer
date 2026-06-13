@@ -31,6 +31,11 @@ export const AuditAction = {
     milestoneDeleted: "event.milestone.deleted",
     imageUploaded: "event.image.uploaded",
     imageDeleted: "event.image.deleted",
+    paused: "event.paused",
+    resumed: "event.resumed",
+    stopped: "event.stopped",
+    suspended: "event.suspended",
+    unsuspended: "event.unsuspended",
   },
   invitation: {
     draftCreated: "invitation.draft.created",

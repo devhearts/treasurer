@@ -33,7 +33,11 @@
     "docker:verify-account": "docker compose --profile tools --env-file docker/ports.host.default.env run --rm verify-account",
     "docker:verify-account:dev": "docker compose --profile tools -f docker-compose.yml -f docker-compose.dev.yml --env-file docker/ports.host.dev.env run --rm verify-account",
     "docker:verify-account:staging": "docker compose --profile tools --env-file docker/ports.host.staging.env run --rm verify-account",
-    "docker:verify-account:production": "docker compose --profile tools --env-file docker/ports.host.production.env run --rm verify-account"
+    "docker:verify-account:production": "docker compose --profile tools --env-file docker/ports.host.production.env run --rm verify-account",
+    "docker:event-admin": "docker compose --profile tools --env-file docker/ports.host.default.env run --rm event-admin",
+    "docker:event-admin:dev": "docker compose --profile tools -f docker-compose.yml -f docker-compose.dev.yml --env-file docker/ports.host.dev.env run --rm event-admin",
+    "docker:event-admin:staging": "docker compose --profile tools --env-file docker/ports.host.staging.env run --rm event-admin",
+    "docker:event-admin:production": "docker compose --profile tools --env-file docker/ports.host.production.env run --rm event-admin"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

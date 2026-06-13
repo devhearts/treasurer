@@ -1,5 +1,11 @@
 export type EventType = "wedding" | "introduction" | "funeral" | "other";
 
+export type EventLifecycleStatus =
+  | "active"
+  | "paused"
+  | "stopped"
+  | "suspended";
+
 export interface BudgetItem {
   id: string;
   name: string;
@@ -54,6 +60,9 @@ export interface CeremonyEvent {
   createdAt: string;
   slug: string;
   subscriptionPaid: boolean; // Has treasurer paid the subscription fee?
+  status?: EventLifecycleStatus;
+  statusMessage?: string;
+  statusChangedAt?: string;
   /**
    * Public gallery image URLs (same-origin paths under `/api/v1/.../gallery/...`).
    * Populated by the API from Garage keys stored in the database.

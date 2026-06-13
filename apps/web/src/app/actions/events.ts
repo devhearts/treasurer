@@ -286,3 +286,49 @@ export async function setContributionVisibility(
     };
   }
 }
+
+async function lifecycleAction(
+  slug: string,
+  action: "pause" | "resume" | "stop",
+  body?: { message: string }
+): Promise<{ success: true } | { success: false; error: string }> {
+  const user = await getCurrentUser();
+  if (!user) {
+    await clearSession();
+    return { success: false, error: "You must be signed in." };
+  }
+  try {
+    await serverApiJson(
+      `events/by-slug/${encodeURIComponent(slug)}/${action}`,
+      {
+        method: "POST",
+        body: body ? JSON.stringify(body) : undefined,
+      }
+    );
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : `Failed to ${action} event.`,
+    };
+  }
+}
+
+export async function pauseEvent(
+  slug: string
+): Promise<{ success: true } | { success: false; error: string }> {
+  return lifecycleAction(slug, "pause");
+}
+
+export async function resumeEvent(
+  slug: string
+): Promise<{ success: true } | { success: false; error: string }> {
+  return lifecycleAction(slug, "resume");
+}
+
+export async function stopEvent(
+  slug: string,
+  message: string
+): Promise<{ success: true } | { success: false; error: string }> {
+  return lifecycleAction(slug, "stop", { message });
+}

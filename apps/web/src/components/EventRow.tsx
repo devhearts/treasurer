@@ -10,6 +10,10 @@ import {
   hasEventTarget,
 } from "@/lib/data";
 import { firstEventImageSrc } from "@/lib/event-share";
+import {
+  eventStatusBadgeClass,
+  eventStatusLabel,
+} from "@/lib/event-lifecycle";
 import { EventTypeIcon, IconPaid, IconPledge, IconPhone, IconLocation, IconCalendar } from "./Icons";
 
 interface EventRowProps {
@@ -22,6 +26,7 @@ export default function EventRow({ event }: EventRowProps) {
   const paidCount = event.contributions.filter((c) => c.status === "paid").length;
   const pledgedCount = event.contributions.filter((c) => c.status === "pledged").length;
   const thumbSrc = firstEventImageSrc(event);
+  const status = event.status ?? "active";
 
   return (
     <div className="bg-light rounded-xl border border-muted/30 overflow-hidden">
@@ -46,7 +51,16 @@ export default function EventRow({ event }: EventRowProps) {
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-surface truncate">{event.title}</p>
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="font-semibold text-surface truncate">{event.title}</p>
+            {status !== "active" ? (
+              <span
+                className={`inline-flex flex-shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${eventStatusBadgeClass(status)}`}
+              >
+                {eventStatusLabel(status)}
+              </span>
+            ) : null}
+          </div>
           <p className="text-xs text-muted">
             {hasEventTarget(event.targetAmount)
               ? `${formatUGX(event.raisedAmount)} raised · ${progress}%`

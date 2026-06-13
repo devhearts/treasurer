@@ -41,6 +41,15 @@ import {
   legacyEventOgWebpKey,
   EVENT_OG_CONTENT_TYPE,
 } from "./event-og-image";
+import {
+  assertEventAcceptsContributions,
+  canTreasurerLifecycleAction,
+  EVENT_STATUS_MESSAGE_MAX,
+  parseEventLifecycleStatus,
+  treasurerLifecycleBlockedReason,
+  type EventLifecycleStatus,
+} from "./event-lifecycle";
+import { formatMysqlDateTimeUtc } from "../common/mysql-datetime";
 
 export type CeremonyEventDto = {
   id: string;
@@ -57,6 +66,9 @@ export type CeremonyEventDto = {
   location: string;
   createdAt: string;
   subscriptionPaid: boolean;
+  status: EventLifecycleStatus;
+  statusMessage?: string;
+  statusChangedAt?: string;
   /**
    * On read: public proxied URLs (`/api/v1/events/by-slug/.../gallery/N`).
    * On create (POST body): Garage object keys `events/{eventId}/{slot}.ext`.
@@ -259,6 +271,9 @@ export class EventsService {
       location: row.location,
       createdAt: row.createdAt,
       subscriptionPaid: !!row.subscriptionPaid,
+      status: parseEventLifecycleStatus(row.status),
+      statusMessage: row.statusMessage?.trim() || undefined,
+      statusChangedAt: row.statusChangedAt ?? undefined,
       imageUrls,
       budgetItems: budgetRows.map((b) => ({
         id: b.id,
@@ -616,6 +631,8 @@ export class EventsService {
   ): Promise<void> {
     const event = await this.getBySlug(eventSlug);
     if (!event) throw new BadRequestException("Event not found");
+
+    assertEventAcceptsContributions(event.status);
 
     const manual = !!contribution.manual;
     const status = contribution.status;
@@ -1071,5 +1088,124 @@ export class EventsService {
     const key = await this.getEventImageKeyForGallerySlot(slug, slot);
     if (!key) return null;
     return this.storage.getObjectStream(key);
+  }
+
+  private async requireOwnerEventRow(userId: string, slug: string) {
+    const rows = await this.db
+      .select()
+      .from(schema.events)
+      .where(eq(schema.events.slug, slug))
+      .limit(1);
+    const row = rows[0];
+    if (!row) throw new NotFoundException("Event not found.");
+    if (!row.userId || row.userId !== userId) {
+      throw new ForbiddenException("Not allowed.");
+    }
+    return row;
+  }
+
+  async pauseEventForOwner(
+    userId: string,
+    slug: string,
+    ctx?: AuditRequestContext
+  ): Promise<void> {
+    const row = await this.requireOwnerEventRow(userId, slug);
+    const status = parseEventLifecycleStatus(row.status);
+    const blocked = treasurerLifecycleBlockedReason(status);
+    if (blocked) throw new BadRequestException(blocked);
+    if (!canTreasurerLifecycleAction(status, "pause")) {
+      throw new BadRequestException("This event cannot be paused.");
+    }
+
+    const now = formatMysqlDateTimeUtc(new Date());
+    await this.db
+      .update(schema.events)
+      .set({ status: "paused", statusChangedAt: now })
+      .where(eq(schema.events.id, row.id));
+
+    this.audit.logSafe({
+      actorType: "user",
+      actorUserId: userId,
+      action: AuditAction.event.paused,
+      entityType: "event",
+      entityId: row.id,
+      metadata: { slug },
+      ctx,
+    });
+  }
+
+  async resumeEventForOwner(
+    userId: string,
+    slug: string,
+    ctx?: AuditRequestContext
+  ): Promise<void> {
+    const row = await this.requireOwnerEventRow(userId, slug);
+    const status = parseEventLifecycleStatus(row.status);
+    const blocked = treasurerLifecycleBlockedReason(status);
+    if (blocked) throw new BadRequestException(blocked);
+    if (!canTreasurerLifecycleAction(status, "resume")) {
+      throw new BadRequestException("This event is not paused.");
+    }
+
+    const now = formatMysqlDateTimeUtc(new Date());
+    await this.db
+      .update(schema.events)
+      .set({ status: "active", statusChangedAt: now })
+      .where(eq(schema.events.id, row.id));
+
+    this.audit.logSafe({
+      actorType: "user",
+      actorUserId: userId,
+      action: AuditAction.event.resumed,
+      entityType: "event",
+      entityId: row.id,
+      metadata: { slug },
+      ctx,
+    });
+  }
+
+  async stopEventForOwner(
+    userId: string,
+    slug: string,
+    message: string,
+    ctx?: AuditRequestContext
+  ): Promise<void> {
+    const row = await this.requireOwnerEventRow(userId, slug);
+    const status = parseEventLifecycleStatus(row.status);
+    const blocked = treasurerLifecycleBlockedReason(status);
+    if (blocked) throw new BadRequestException(blocked);
+    if (!canTreasurerLifecycleAction(status, "stop")) {
+      throw new BadRequestException("This event cannot be stopped.");
+    }
+
+    const statusMessage = message.trim();
+    if (!statusMessage) {
+      throw new BadRequestException("A message is required when stopping an event.");
+    }
+    if (statusMessage.length > EVENT_STATUS_MESSAGE_MAX) {
+      throw new BadRequestException(
+        `Message must be ${EVENT_STATUS_MESSAGE_MAX} characters or fewer.`
+      );
+    }
+
+    const now = formatMysqlDateTimeUtc(new Date());
+    await this.db
+      .update(schema.events)
+      .set({
+        status: "stopped",
+        statusMessage,
+        statusChangedAt: now,
+      })
+      .where(eq(schema.events.id, row.id));
+
+    this.audit.logSafe({
+      actorType: "user",
+      actorUserId: userId,
+      action: AuditAction.event.stopped,
+      entityType: "event",
+      entityId: row.id,
+      metadata: { slug },
+      ctx,
+    });
   }
 }

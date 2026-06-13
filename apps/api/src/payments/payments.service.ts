@@ -15,6 +15,11 @@ import { WalletService } from "../wallet/wallet.service";
 import { formatMysqlDateTimeUtc } from "../common/mysql-datetime";
 import { normalizeProviderPollStatus } from "./payment-status";
 import { ContributionNotificationsService } from "../integrations/contribution-notifications.service";
+import {
+  contributionBlockedMessage,
+  eventAcceptsContributions,
+  parseEventLifecycleStatus,
+} from "../events/event-lifecycle";
 
 function paymentNotConfiguredMessage(kind: PaymentProcessorKind): string {
   if (kind === "pawapay") return "PawaPay payments are not configured.";
@@ -105,6 +110,14 @@ export class PaymentsService {
       .limit(1);
     const event = evRows[0];
     if (!event) return { success: false, error: "Event not found" };
+
+    const eventStatus = parseEventLifecycleStatus(event.status);
+    if (!eventAcceptsContributions(eventStatus)) {
+      return {
+        success: false,
+        error: contributionBlockedMessage(eventStatus),
+      };
+    }
 
     const milestoneId = input.milestoneId?.trim() || null;
     if (milestoneId) {
@@ -262,8 +275,29 @@ export class PaymentsService {
           message: finalized.message ?? undefined,
           viaMobileMoney: true,
         });
+        return { status: "SUCCESSFUL" };
       }
-      return { status: "SUCCESSFUL" };
+
+      if (pending.eventId) {
+        const ev = await this.db
+          .select({ status: schema.events.status, slug: schema.events.slug })
+          .from(schema.events)
+          .where(eq(schema.events.id, pending.eventId))
+          .limit(1);
+        const eventStatus = parseEventLifecycleStatus(ev[0]?.status);
+        if (!eventAcceptsContributions(eventStatus)) {
+          const msg = contributionBlockedMessage(eventStatus);
+          this.audit.logSafe({
+            actorType: "system",
+            action: AuditAction.payment.contributionFailed,
+            entityType: "payment_intent",
+            entityId: referenceId,
+            metadata: { eventSlug: ev[0]?.slug, reason: msg },
+          });
+          return { status: "FAILED", message: msg };
+        }
+      }
+      return { status: "PENDING" };
     }
 
     if (bucket === "failed") {
@@ -322,6 +356,11 @@ export class PaymentsService {
         .limit(1);
       const event = evRows[0];
       if (!event) return null;
+
+      const eventStatus = parseEventLifecycleStatus(event.status);
+      if (!eventAcceptsContributions(eventStatus)) {
+        return null;
+      }
 
       const contributionId = `c${Date.now()}`;
       const date = new Date().toISOString().split("T")[0]!;

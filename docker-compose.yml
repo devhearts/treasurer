@@ -120,6 +120,22 @@ services:
         condition: service_healthy
     restart: "no"
 
+  event-admin:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: event-admin
+    env_file:
+      - .env
+      - apps/api/.env
+    environment:
+      DATABASE_URL: mysql://treasurer:treasurer@mysql:3306/treasurer
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
   api:
     build:
       context: .

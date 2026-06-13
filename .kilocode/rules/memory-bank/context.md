@@ -9,6 +9,13 @@
 - **Web**: BFF proxy [`apps/web/src/app/api/v1/[[...path]]/route.ts`](apps/web/src/app/api/v1/[[...path]]/route.ts) → `API_INTERNAL_URL`. Server Actions call the API with [`apps/web/src/lib/server-api.ts`](apps/web/src/lib/server-api.ts). Cookie `cerw_session` holds session id. Standalone: `node apps/web/server.js` from the standalone bundle root after `npm run build -w @treasurer/web` (see [`apps/web/Dockerfile`](apps/web/Dockerfile)).
 - **Env samples**: [`env.example`](env.example), [`apps/api/.env.example`](apps/api/.env.example), [`apps/web/.env.example`](apps/web/.env.example).
 
+## Recent: Event lifecycle (pause, stop, suspend)
+
+- **DB** ([`0009_event_lifecycle.sql`](apps/api/drizzle/0009_event_lifecycle.sql)): `events.status` (`active` \| `paused` \| `stopped` \| `suspended`), `status_message`, `pre_suspend_status`, `suspend_reason`, `status_changed_at`; index on `status`.
+- **API** ([`event-lifecycle.ts`](apps/api/src/events/event-lifecycle.ts)): contribution gate (`assertEventAcceptsContributions`); treasurer transitions in [`EventsService`](apps/api/src/events/events.service.ts) — **`POST events/by-slug/:slug/{pause,resume,stop}`** (owner, session). **`stop`** requires a message (max 500 chars); permanent. [`PaymentsService`](apps/api/src/payments/payments.service.ts) gates **`initiateContribution`** and **`finalizeContribution`**; in-flight MoMo that succeeds after pause/stop/suspend returns **`FAILED`** (no contribution row).
+- **Admin CLI**: `npm run event-admin -w @treasurer/api` or `npm run docker:event-admin -- {suspend,unsuspend,show,list}` ([`event-admin-cli.ts`](apps/api/src/events/event-admin-cli.ts)). Suspend stores `pre_suspend_status` + `suspend_reason` (admin-only); unsuspend restores prior status.
+- **Web**: [`EventLifecycleControls`](apps/web/src/app/app/events/[slug]/EventLifecycleControls.tsx) on owner Contributions tab; [`EventStatusNotice`](apps/web/src/components/EventStatusNotice.tsx) replaces contribute form when not active; status badges on [`EventRow`](apps/web/src/components/EventRow.tsx). Helpers in [`event-lifecycle.ts`](apps/web/src/lib/event-lifecycle.ts).
+
 ## Recent: Account verification (KYC-lite)
 
 - **DB** ([`0007_account_verification.sql`](apps/api/drizzle/0007_account_verification.sql)): `users.account_verified_at`, `account_verifications`, `verification_capture_sessions`.
@@ -30,7 +37,7 @@
 - **Table**: `audit_logs` — append-only; no read API or web UI yet (query via DB).
 - **Module**: [`apps/api/src/audit/`](apps/api/src/audit/) — `AuditService.logSafe` (sanitized metadata, request context, warn on write failure), `AuditAction` constants, `requestAuditContext`, `sanitizeAuditMetadata`.
 - **Global interceptor**: [`audit.interceptor.ts`](apps/api/src/audit/audit.interceptor.ts) still logs coarse `http.{METHOD}` on mutating routes (skips `/auth`, `/payments`).
-- **Semantic actions** by domain: **auth** (register/login/logout/password/email), **wallet** (payout methods, withdrawals), **events** (create/update, contributions, milestones, images), **invitations** (draft/publish/recipients/rsvp), **payments** (initiate/complete/failed for contribution + subscription).
+- **Semantic actions** by domain: **auth** (register/login/logout/password/email), **wallet** (payout methods, withdrawals), **events** (create/update, contributions, milestones, images, **pause/resume/stop/suspend**), **invitations** (draft/publish/recipients/rsvp), **payments** (initiate/complete/failed for contribution + subscription).
 - **Metadata rules**: no passwords/tokens/OTP/full MSISDN; auth failures log `reason` only; financial rows include entity IDs and amounts where relevant.
 
 ## Recent: Wallet, account, and withdraw (full-stack)

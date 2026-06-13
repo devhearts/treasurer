@@ -64,6 +64,13 @@
       "when": 1779300000000,
       "tag": "0008_account_verification_auto_enroll",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1779400000000,
+      "tag": "0009_event_lifecycle",
+      "breakpoints": true
     }
   ]
 }

@@ -94,10 +94,16 @@ export const events = mysqlTable(
     subscriptionPaid: tinyint("subscription_paid").notNull().default(0),
     /** Up to 3 Garage object keys (`events/{eventId}/{slot}.ext`); mysql2 may return this column as a JSON string — see `imageUrlsFromRow` in events.service. */
     imageUrls: json("image_urls").$type<string[] | null>(),
+    status: varchar("status", { length: 16 }).notNull().default("active"),
+    statusMessage: text("status_message"),
+    preSuspendStatus: varchar("pre_suspend_status", { length: 16 }),
+    suspendReason: varchar("suspend_reason", { length: 500 }),
+    statusChangedAt: varchar("status_changed_at", { length: 32 }),
   },
   (t) => [
     uniqueIndex("idx_events_slug").on(t.slug),
     index("idx_events_user_id").on(t.userId),
+    index("idx_events_status").on(t.status),
   ]
 );
 

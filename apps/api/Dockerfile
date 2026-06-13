@@ -29,6 +29,11 @@ WORKDIR /repo/apps/api
 ENTRYPOINT ["npx", "tsx", "src/verification/verify-account-cli.ts"]
 CMD ["--help"]
 
+FROM builder AS event-admin
+WORKDIR /repo/apps/api
+ENTRYPOINT ["npx", "tsx", "src/events/event-admin-cli.ts"]
+CMD ["--help"]
+
 FROM node:22-alpine AS runner
 
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001 -G nodejs

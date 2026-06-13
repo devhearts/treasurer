@@ -27,6 +27,9 @@ import {
   eventShareTitle,
   publicEventPath,
 } from "@/lib/event-share";
+import { publicStatusNotice } from "@/lib/event-lifecycle";
+import EventStatusNotice from "@/components/EventStatusNotice";
+import EventLifecycleControls from "./EventLifecycleControls";
 
 interface EventDetailContentProps {
   event: CeremonyEvent;
@@ -188,6 +191,13 @@ export default function EventDetailContent({
   const paidCount = event.contributions.filter((c) => c.status === "paid").length;
   const pledgedCount = event.contributions.filter((c) => c.status === "pledged").length;
 
+  const eventStatus = event.status ?? "active";
+  const contributionsOpen = eventStatus === "active";
+  const statusNotice = publicStatusNotice({
+    status: eventStatus,
+    statusMessage: event.statusMessage,
+  });
+
   const heroInner = (
     <>
       <div className="flex items-start gap-4">
@@ -207,19 +217,21 @@ export default function EventDetailContent({
           </p>
         </div>
       </div>
-      {isPublicView ? (
-        <Link href={`#contribute`} className="cta-primary block text-center mt-6 text-white">
-          Contribute
-        </Link>
-      ) : (
-        <button
-          type="button"
-          onClick={goToContributions}
-          className="cta-primary block text-center mt-6"
-        >
-          Contribute
-        </button>
-      )}
+      {contributionsOpen ? (
+        isPublicView ? (
+          <Link href={`#contribute`} className="cta-primary block text-center mt-6 text-white">
+            Contribute
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={goToContributions}
+            className="cta-primary block text-center mt-6"
+          >
+            Contribute
+          </button>
+        )
+      ) : null}
     </>
   );
 
@@ -319,20 +331,24 @@ export default function EventDetailContent({
       />
 
       <div id="contribute" ref={contributeRef} className="mt-8">
-        <ContributeForm
-          key={`${event.id}-contribute`}
-          eventId={event.id}
-          eventSlug={event.slug}
-          eventTitle={event.title}
-          treasurerPhone={event.treasurerPhone}
-          milestoneItems={event.milestoneItems}
-          flow={isPublicView ? "public" : "private"}
-          momoConfigured={momoConfigured}
-          paymentProcessorKind={paymentProcessorKind}
-          payButtonLabel={payButtonLabel}
-          payerPhoneLabel={payerPhoneLabel}
-          initialMilestoneId={allocateToMilestoneId ?? null}
-        />
+        {contributionsOpen ? (
+          <ContributeForm
+            key={`${event.id}-contribute`}
+            eventId={event.id}
+            eventSlug={event.slug}
+            eventTitle={event.title}
+            treasurerPhone={event.treasurerPhone}
+            milestoneItems={event.milestoneItems}
+            flow={isPublicView ? "public" : "private"}
+            momoConfigured={momoConfigured}
+            paymentProcessorKind={paymentProcessorKind}
+            payButtonLabel={payButtonLabel}
+            payerPhoneLabel={payerPhoneLabel}
+            initialMilestoneId={allocateToMilestoneId ?? null}
+          />
+        ) : statusNotice ? (
+          <EventStatusNotice notice={statusNotice} />
+        ) : null}
       </div>
     </>
   );
@@ -491,6 +507,7 @@ export default function EventDetailContent({
 
             {privateFlow === "contributions" && (
               <div className="space-y-0">
+                <EventLifecycleControls event={event} />
                 <div className="bg-light rounded-xl border border-muted/30 p-4 mb-4">
                   <p className="text-xs text-muted uppercase tracking-wide mb-1">Summary</p>
                   <p className="text-lg font-bold text-surface">

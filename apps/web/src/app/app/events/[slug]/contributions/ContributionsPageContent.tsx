@@ -7,6 +7,8 @@ import { formatUGX, formatCalendarDate, isPublicContribution } from "@/lib/data"
 import { addContribution, setContributionVisibility } from "@/app/actions/events";
 import type { CeremonyEvent } from "@/lib/types";
 import EventPhotoGallery from "@/components/EventPhotoGallery";
+import EventStatusNotice from "@/components/EventStatusNotice";
+import { publicStatusNotice } from "@/lib/event-lifecycle";
 import {
   IconBack,
   IconAdd,
@@ -42,6 +44,11 @@ export default function ContributionsPageContent({
   const [milestoneFilter, setMilestoneFilter] = useState<string>("all");
 
   const hasMilestones = event.milestoneItems.length > 0;
+  const contributionsOpen = (event.status ?? "active") === "active";
+  const statusNotice = publicStatusNotice({
+    status: event.status ?? "active",
+    statusMessage: event.statusMessage,
+  });
 
   const contributionsSorted = event.contributions.slice().reverse();
   const filteredContributions = contributionsSorted.filter((c) => {
@@ -117,16 +124,21 @@ export default function ContributionsPageContent({
 
         <div className="bg-light rounded-xl border border-muted/30 overflow-hidden">
           <div className="p-4 border-b border-muted/20 space-y-3">
+            {statusNotice ? (
+              <EventStatusNotice notice={statusNotice} />
+            ) : null}
             <div className="flex items-center justify-between gap-3">
               <h1 className="text-lg font-bold text-surface">All contributions</h1>
-              <button
-                type="button"
-                onClick={() => setAddModalOpen(true)}
-                className="inline-flex items-center gap-1.5 text-sm text-accent font-medium flex-shrink-0"
-              >
-                <IconAdd className="w-4 h-4" />
-                Add
-              </button>
+              {contributionsOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setAddModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 text-sm text-accent font-medium flex-shrink-0"
+                >
+                  <IconAdd className="w-4 h-4" />
+                  Add
+                </button>
+              ) : null}
             </div>
             {hasMilestones && (
               <div>
