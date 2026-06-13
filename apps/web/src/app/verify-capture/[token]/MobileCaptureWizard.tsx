@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import CameraCapture from "@/components/verification/CameraCapture";
+import StepIndicator from "@/components/wallet/StepIndicator";
 import { SELFIE_CAPTURE_INSTRUCTIONS } from "@/lib/verification/selfie-instructions";
 import {
   fetchPublicCaptureStatus,
@@ -13,6 +14,12 @@ interface MobileCaptureWizardProps {
 }
 
 type Step = "selfie" | "id-front" | "id-back" | "done";
+
+const STEP_ORDER: Exclude<Step, "done">[] = ["selfie", "id-front", "id-back"];
+
+function stepNumber(step: Exclude<Step, "done">): number {
+  return STEP_ORDER.indexOf(step) + 1;
+}
 
 export default function MobileCaptureWizard({ token }: MobileCaptureWizardProps) {
   const [valid, setValid] = useState<boolean | null>(null);
@@ -83,23 +90,27 @@ export default function MobileCaptureWizard({ token }: MobileCaptureWizardProps)
       title: string;
       hint?: string;
       captureLabel: string;
+      confirmLabel: string;
       captureKind: "selfie" | "id";
     }
   > = {
     selfie: {
-      title: "Selfie",
+      title: "Step 1 of 3: Selfie",
       captureLabel: "Capture Selfie",
+      confirmLabel: "Continue to ID front",
       captureKind: "selfie",
     },
     "id-front": {
-      title: "ID front",
+      title: "Step 2 of 3: ID front",
       captureLabel: "Capture ID Front",
+      confirmLabel: "Continue to ID back",
       captureKind: "id",
       hint: "Hold the front of your ID to the camera.",
     },
     "id-back": {
-      title: "ID back",
+      title: "Step 3 of 3: ID back",
       captureLabel: "Capture ID Back",
+      confirmLabel: "Finish",
       captureKind: "id",
       hint: "Hold the back of your ID to the camera.",
     },
@@ -109,14 +120,24 @@ export default function MobileCaptureWizard({ token }: MobileCaptureWizardProps)
 
   return (
     <div className="max-w-md mx-auto px-4 py-6">
+      <h1 className="text-lg font-bold text-surface text-center mb-1">
+        Verify account photos
+      </h1>
+      <p className="text-sm text-muted text-center mb-4">
+        Capture each photo, review it, then continue to the next step.
+      </p>
+      <StepIndicator total={3} current={stepNumber(step)} />
       {error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-4">
           {error}
         </p>
       )}
       <CameraCapture
+        key={step}
         label={current.title}
         captureLabel={current.captureLabel}
+        confirmLabel={current.confirmLabel}
+        confirmDisabled={uploading}
         captureKind={current.captureKind}
         hint={current.hint || undefined}
         instructions={

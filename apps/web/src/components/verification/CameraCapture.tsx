@@ -18,9 +18,13 @@ interface CameraCaptureProps {
   captureKind?: "selfie" | "id";
   /** Override default camera for this capture step. */
   defaultFacingMode?: CameraFacingMode;
+  /** Label for the confirm button shown after capture. */
+  confirmLabel?: string;
   onCapture: (blob: Blob) => void;
   /** Optional fallback when camera cannot start (does not auto-invoke). */
   onUsePhoneInstead?: () => void;
+  /** Disable the confirm button (e.g. while uploading). */
+  confirmDisabled?: boolean;
 }
 
 function FaceOverlayGuide({ maskId }: { maskId: string }) {
@@ -153,14 +157,17 @@ export default function CameraCapture({
   faceGuide = false,
   captureKind,
   defaultFacingMode,
+  confirmLabel = "Continue",
   onCapture,
   onUsePhoneInstead,
+  confirmDisabled = false,
 }: CameraCaptureProps) {
   const preferredFacing = defaultFacingForKind(captureKind, defaultFacingMode);
   const faceMaskId = `face-guide-${useId().replace(/:/g, "")}`;
   const videoRef = useRef<HTMLVideoElement>(null);
   const onCaptureRef = useRef(onCapture);
   const [preview, setPreview] = useState<string | null>(null);
+  const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
   const [starting, setStarting] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [facingMode, setFacingMode] =
@@ -171,6 +178,12 @@ export default function CameraCapture({
   useEffect(() => {
     onCaptureRef.current = onCapture;
   }, [onCapture]);
+
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+  }, [preview]);
 
   useEffect(() => {
     setFacingMode(preferredFacing);
@@ -242,7 +255,7 @@ export default function CameraCapture({
         if (!blob) return;
         const url = URL.createObjectURL(blob);
         setPreview(url);
-        onCaptureRef.current(blob);
+        setCapturedBlob(blob);
       },
       "image/jpeg",
       0.92
@@ -253,6 +266,12 @@ export default function CameraCapture({
     if (preview) URL.revokeObjectURL(preview);
     setFacingMode(preferredFacing);
     setPreview(null);
+    setCapturedBlob(null);
+  }
+
+  function confirmCapture() {
+    if (!capturedBlob) return;
+    onCaptureRef.current(capturedBlob);
   }
 
   function switchCamera() {
@@ -333,15 +352,32 @@ export default function CameraCapture({
         )}
       </div>
 
+      {preview && (
+        <p className="text-sm text-muted text-center">
+          Review your photo. Retake if needed, or continue when it looks good.
+        </p>
+      )}
+
       <div className="flex gap-3 justify-center">
         {preview ? (
-          <button
-            type="button"
-            onClick={retake}
-            className="px-5 py-2.5 rounded-lg border border-muted/40 text-surface text-sm font-medium hover:bg-muted/10"
-          >
-            Retake
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={retake}
+              disabled={confirmDisabled}
+              className="px-5 py-2.5 rounded-lg border border-muted/40 text-surface text-sm font-medium hover:bg-muted/10 disabled:opacity-50"
+            >
+              Retake
+            </button>
+            <button
+              type="button"
+              onClick={confirmCapture}
+              disabled={confirmDisabled}
+              className="px-6 py-2.5 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/90 disabled:opacity-50"
+            >
+              {confirmLabel}
+            </button>
+          </>
         ) : (
           <button
             type="button"

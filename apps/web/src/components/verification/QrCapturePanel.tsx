@@ -81,24 +81,63 @@ export default function QrCapturePanel({ onComplete }: QrCapturePanelProps) {
   return (
     <div className="text-center space-y-4">
       <p className="text-sm text-muted">
-        Scan with your phone to capture selfie and ID photos using your phone
-        camera.
+        Scan with your phone to capture photos one at a time: selfie, then ID
+        front, then ID back. Review each photo on your phone before continuing.
       </p>
       <canvas ref={canvasRef} className="mx-auto rounded-lg border border-muted/30" />
-      <div className="flex justify-center gap-6 text-sm">
-        <SlotCheck label="Selfie" done={poll?.selfie} />
-        <SlotCheck label="ID front" done={poll?.idFront} />
-        <SlotCheck label="ID back" done={poll?.idBack} />
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-surface uppercase tracking-wide">
+          Progress on phone
+        </p>
+        <div className="flex justify-center gap-6 text-sm">
+          <SlotCheck label="Selfie" done={poll?.selfie} active={!poll?.selfie} />
+          <SlotCheck
+            label="ID front"
+            done={poll?.idFront}
+            active={!!poll?.selfie && !poll?.idFront}
+          />
+          <SlotCheck
+            label="ID back"
+            done={poll?.idBack}
+            active={!!poll?.idFront && !poll?.idBack}
+          />
+        </div>
       </div>
-      <p className="text-xs text-muted break-all px-4">{captureUrl}</p>
+      {poll?.selfie && !poll?.idFront && (
+        <p className="text-sm text-muted">Phone: reviewing or capturing ID front…</p>
+      )}
+      {poll?.idFront && !poll?.idBack && (
+        <p className="text-sm text-muted">Phone: reviewing or capturing ID back…</p>
+      )}
+      {poll?.complete && (
+        <p className="text-sm text-accent font-medium">
+          All photos captured on your phone.
+        </p>
+      )}
     </div>
   );
 }
 
-function SlotCheck({ label, done }: { label: string; done?: boolean }) {
+function SlotCheck({
+  label,
+  done,
+  active,
+}: {
+  label: string;
+  done?: boolean;
+  active?: boolean;
+}) {
   return (
-    <span className={done ? "text-accent font-medium" : "text-muted"}>
-      {done ? "✓" : "○"} {label}
+    <span
+      className={
+        done
+          ? "text-accent font-medium"
+          : active
+            ? "text-surface font-medium"
+            : "text-muted"
+      }
+    >
+      {done ? "✓" : active ? "●" : "○"} {label}
     </span>
   );
 }

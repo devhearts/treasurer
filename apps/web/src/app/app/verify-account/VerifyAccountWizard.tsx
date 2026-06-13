@@ -347,69 +347,50 @@ export default function VerifyAccountWizard({
         {step === 3 && captureMode === "device" && (
           <CameraCapture
             key="selfie"
-            label="Selfie"
+            label="Step 1 of 3: Selfie"
             captureLabel="Capture Selfie"
+            confirmLabel="Continue to ID front"
             captureKind="selfie"
             instructions={SELFIE_CAPTURE_INSTRUCTIONS}
             faceGuide
-            onCapture={setSelfie}
+            onCapture={(blob) => {
+              setSelfie(blob);
+              setStep(4);
+            }}
             onUsePhoneInstead={switchToPhoneCapture}
           />
         )}
-        {step === 3 && captureMode === "device" && selfie && (
-          <button
-            type="button"
-            onClick={() => setStep(4)}
-            className="w-full mt-4 bg-accent text-white py-3 rounded-lg font-medium"
-          >
-            Next: ID front
-          </button>
-        )}
 
         {step === 4 && captureMode === "device" && (
-          <>
-            <CameraCapture
-              key="id-front"
-              label="ID front"
-              captureLabel="Capture ID Front"
-              captureKind="id"
-              hint="Hold the front of your ID to the camera."
-              onCapture={setIdFront}
-              onUsePhoneInstead={switchToPhoneCapture}
-            />
-            {idFront && (
-              <button
-                type="button"
-                onClick={() => setStep(5)}
-                className="w-full mt-4 bg-accent text-white py-3 rounded-lg font-medium"
-              >
-                Next: ID back
-              </button>
-            )}
-          </>
+          <CameraCapture
+            key="id-front"
+            label="Step 2 of 3: ID front"
+            captureLabel="Capture ID Front"
+            confirmLabel="Continue to ID back"
+            captureKind="id"
+            hint="Hold the front of your ID to the camera."
+            onCapture={(blob) => {
+              setIdFront(blob);
+              setStep(5);
+            }}
+            onUsePhoneInstead={switchToPhoneCapture}
+          />
         )}
 
         {step === 5 && captureMode === "device" && (
-          <>
-            <CameraCapture
-              key="id-back"
-              label="ID back"
-              captureLabel="Capture ID Back"
-              captureKind="id"
-              hint="Hold the back of your ID to the camera."
-              onCapture={setIdBack}
-              onUsePhoneInstead={switchToPhoneCapture}
-            />
-            {idBack && (
-              <button
-                type="button"
-                onClick={() => setStep(6)}
-                className="w-full mt-4 bg-accent text-white py-3 rounded-lg font-medium"
-              >
-                Review submission
-              </button>
-            )}
-          </>
+          <CameraCapture
+            key="id-back"
+            label="Step 3 of 3: ID back"
+            captureLabel="Capture ID Back"
+            confirmLabel="Review submission"
+            captureKind="id"
+            hint="Hold the back of your ID to the camera."
+            onCapture={(blob) => {
+              setIdBack(blob);
+              setStep(6);
+            }}
+            onUsePhoneInstead={switchToPhoneCapture}
+          />
         )}
 
         {step === 6 && (
@@ -447,9 +428,9 @@ export default function VerifyAccountWizard({
         )}
       </div>
 
-      {step === 3 && captureMode === "device" && !selfie && (
+      {step === 3 && captureMode === "device" && (
         <p className="text-xs text-muted text-center mt-3">
-          Capture a photo to continue.
+          Capture your selfie, review it, then continue to ID photos.
         </p>
       )}
     </div>
