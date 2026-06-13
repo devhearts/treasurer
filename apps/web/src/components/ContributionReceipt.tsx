@@ -71,7 +71,6 @@ function buildReceiptText(
 
   appendContributionSection(lines, `Cash Contributions:`, paid);
   appendContributionSection(lines, `Pledged Contributions:`, pledged);
-  lines.push(`Total Cash Raised: ${formatUGX(raisedAmount)}`);
   if (targetAmount > 0) {
     lines.push(`Target: ${formatUGX(targetAmount)}`);
     lines.push(`Progress: ${progressPct}%`);

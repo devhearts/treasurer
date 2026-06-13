@@ -134,7 +134,7 @@ async function main() {
         }
       );
       if (Object.values(urls).some(Boolean)) {
-        console.log("\nReview image URLs (1h, via API):");
+        console.log("\nReview image URLs (8h, via API):");
         console.log(JSON.stringify(urls, null, 2));
       } else if (!proxySecret) {
         console.warn(

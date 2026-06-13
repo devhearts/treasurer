@@ -289,7 +289,7 @@ export class MailService {
           <tr><td style="padding:4px 12px 4px 0;color:#666;">MoMo phone (ID)</td><td style="padding:4px 0;"><strong>${phoneMsisdn}</strong></td></tr>
           <tr><td style="padding:4px 12px 4px 0;color:#666;">Submitted at</td><td style="padding:4px 0;">${submittedAt}</td></tr>
         </table>
-        <p><strong>Review images (1h links):</strong></p>
+        <p><strong>Review images (8h links):</strong></p>
         <ul>${imageLinks}</ul>
         <p style="color:#666;font-size:12px;">CLI: verify-account show --user-id=${userId}</p>
       `,

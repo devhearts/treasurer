@@ -17,6 +17,25 @@ export function sumContributionAmounts(contributions: Contribution[]): number {
   return contributions.reduce((sum, c) => sum + c.amount, 0);
 }
 
+export interface PaidContributionCashBreakdown {
+  total: number;
+  directToTreasurer: number;
+  platform: number;
+}
+
+/** Split of paid contributions when any were recorded manually by the treasurer. */
+export function getPaidContributionCashBreakdown(
+  contributions: Contribution[]
+): PaidContributionCashBreakdown | null {
+  const paid = contributions.filter((c) => c.status === "paid");
+  if (!paid.some((c) => c.manual)) return null;
+  return {
+    total: sumContributionAmounts(paid),
+    directToTreasurer: sumContributionAmounts(paid.filter((c) => c.manual)),
+    platform: sumContributionAmounts(paid.filter((c) => !c.manual)),
+  };
+}
+
 export function formatUGX(amount: number): string {
   return `UGX ${amount.toLocaleString("en-UG")}`;
 }

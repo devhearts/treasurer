@@ -41,12 +41,14 @@ export class WalletController {
   async transactions(
     @Req() req: Request & { sessionUserId?: string },
     @Query("limit") limit?: string,
-    @Query("cursor") cursor?: string
+    @Query("cursor") cursor?: string,
+    @Query("eventId") eventId?: string
   ) {
     const parsedLimit = limit ? Number.parseInt(limit, 10) : undefined;
     return this.wallet.listTransactions(this.userId(req), {
       limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
       cursor: cursor?.trim() || undefined,
+      eventId: eventId?.trim() || undefined,
     });
   }
 

@@ -6,12 +6,18 @@ import type {
 } from "@/lib/wallet/types";
 import AccountTransactionsList from "./AccountTransactionsList";
 
+export interface AccountEventFilterOption {
+  id: string;
+  title: string;
+}
+
 interface AccountContentProps {
   account: WalletAccountSummary;
   transactions: WalletTransaction[];
   transactionsNextCursor: string | null;
   transactionsHasMore: boolean;
   accountVerified: boolean;
+  eventFilterOptions: AccountEventFilterOption[];
 }
 
 export default function AccountContent({
@@ -20,6 +26,7 @@ export default function AccountContent({
   transactionsNextCursor,
   transactionsHasMore,
   accountVerified,
+  eventFilterOptions,
 }: AccountContentProps) {
   return (
     <>
@@ -66,13 +73,11 @@ export default function AccountContent({
       </section>
 
       <section className="px-4 py-4 max-w-lg mx-auto w-full">
-        <p className="text-xs uppercase tracking-wider text-muted font-medium mb-3">
-          Transactions
-        </p>
         <AccountTransactionsList
           initialTransactions={transactions}
           initialNextCursor={transactionsNextCursor}
           initialHasMore={transactionsHasMore}
+          eventFilterOptions={eventFilterOptions}
         />
       </section>
     </>
