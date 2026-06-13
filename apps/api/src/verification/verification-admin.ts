@@ -13,6 +13,7 @@ import type {
 } from "./verification.types";
 import {
   buildVerificationReviewImageUrl,
+  VERIFICATION_REVIEW_IMAGE_TTL_SEC,
   type VerificationReviewSlot,
 } from "./verification-review-token";
 
@@ -285,7 +286,7 @@ export function proxyReviewImageUrls(
     idFront?: string | null;
     idBack?: string | null;
   },
-  ttlSec = 3600
+  ttlSec = VERIFICATION_REVIEW_IMAGE_TTL_SEC
 ): VerificationReviewImageUrls {
   const out: VerificationReviewImageUrls = {
     selfie: null,

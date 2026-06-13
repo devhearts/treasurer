@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Contribution } from "@/lib/types";
-import { formatCalendarDate, formatUGX } from "@/lib/data";
+import { formatCalendarDate, formatUGX, sumContributionAmounts } from "@/lib/data";
 import { absolutePublicEventUrl } from "@/lib/event-share";
 import { IconCopy, IconReceipt } from "@/components/Icons";
 
@@ -72,6 +72,13 @@ function buildReceiptText(
   appendContributionSection(lines, `Cash Contributions:`, paid);
   appendContributionSection(lines, `Pledged Contributions:`, pledged);
   lines.push(`Total Cash Raised: ${formatUGX(raisedAmount)}`);
+  const hasManualPaid = paid.some((c) => c.manual);
+  if (hasManualPaid) {
+    const directTotal = sumContributionAmounts(paid.filter((c) => c.manual));
+    const platformTotal = sumContributionAmounts(paid.filter((c) => !c.manual));
+    lines.push(`  Total Direct to treasurer: ${formatUGX(directTotal)}`);
+    lines.push(`  Total through the CW Platform: ${formatUGX(platformTotal)}`);
+  }
   if (targetAmount > 0) {
     lines.push(`Target: ${formatUGX(targetAmount)}`);
     lines.push(`Progress: ${progressPct}%`);

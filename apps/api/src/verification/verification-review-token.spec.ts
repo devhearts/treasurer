@@ -1,5 +1,6 @@
 import {
   buildVerificationReviewImageUrl,
+  VERIFICATION_REVIEW_IMAGE_TTL_SEC,
   signVerificationReviewToken,
   verifyVerificationReviewToken,
 } from "./verification-review-token";
@@ -9,7 +10,7 @@ describe("verification review image tokens", () => {
   const userId = "5d44911f-7183-47f3-a169-5b51c2eb8091";
 
   it("signs and verifies a review link", () => {
-    const exp = Math.floor(Date.now() / 1000) + 3600;
+    const exp = Math.floor(Date.now() / 1000) + VERIFICATION_REVIEW_IMAGE_TTL_SEC;
     const sig = signVerificationReviewToken(userId, "selfie", exp, secret);
     expect(
       verifyVerificationReviewToken(userId, "selfie", exp, sig, secret)

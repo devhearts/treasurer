@@ -2,6 +2,9 @@ import { createHmac, timingSafeEqual } from "crypto";
 
 export type VerificationReviewSlot = "selfie" | "idFront" | "idBack";
 
+/** Signed proxy links for KYC review images (support email, CLI, admin). */
+export const VERIFICATION_REVIEW_IMAGE_TTL_SEC = 8 * 60 * 60;
+
 const REVIEW_SLOTS: VerificationReviewSlot[] = ["selfie", "idFront", "idBack"];
 
 export function isVerificationReviewSlot(
@@ -52,7 +55,7 @@ export function buildVerificationReviewImageUrl(
   userId: string,
   slot: VerificationReviewSlot,
   secret: string,
-  ttlSec = 3600
+  ttlSec = VERIFICATION_REVIEW_IMAGE_TTL_SEC
 ): string | null {
   if (!secret.trim()) return null;
   const exp = Math.floor(Date.now() / 1000) + ttlSec;

@@ -83,7 +83,7 @@
 - **All contributions** (`ContributionsPageContent`): per-row toggle (Public / Hidden); server action `setContributionVisibility` in `src/app/actions/events.ts` (owner-only). Page `contributions/page.tsx` enforces same owner check as the event page.
 - **`events.raised_amount`**: only **visible** contributions count. Toggling visibility updates `raised_amount` in `setContributionVisibility`; `initDb` reconciles all events from `SUM(amount)` where `visible` is true (legacy repair).
 - **Public** (`/events/[slug]` via `EventDetailContent`): hero “raised” uses `event.raisedAmount`; `RecentContributionsCard` gets visible-only list.
-- **Receipt** (`ContributionReceipt`): visible-only rows; `raisedAmount` prop is `event.raisedAmount` (matches total).
+- **Receipt** (`ContributionReceipt`): visible-only rows; `raisedAmount` prop is `event.raisedAmount` (matches total). When any visible paid contribution is manual, receipt adds a breakdown under Total Cash Raised: **Total Direct to treasurer** (manual paid) and **Total through the CW Platform** (platform paid).
 - **Invites** (`InviteCardGenerator`): per-contributor list uses visible + non-anonymous only.
 - **Helpers**: `isPublicContribution`, `filterPublicContributions`, `sumContributionAmounts` in `src/lib/data.ts`.
 
