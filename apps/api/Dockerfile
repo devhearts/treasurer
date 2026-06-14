@@ -39,6 +39,10 @@ WORKDIR /repo/apps/api
 ENTRYPOINT ["npx", "tsx", "src/events/event-admin-cli.ts"]
 CMD ["--help"]
 
+FROM builder AS reconcile-raised-amounts
+WORKDIR /repo/apps/api
+ENTRYPOINT ["npx", "tsx", "src/events/reconcile-raised-amounts-cli.ts"]
+
 FROM node:22-alpine AS runner
 
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001 -G nodejs
