@@ -2,6 +2,7 @@
  * Repair events.raised_amount from visible paid contributions.
  *
  *   npm run reconcile-raised-amounts -w @treasurer/api
+ *   npm run docker:reconcile-raised-amounts:staging
  */
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";

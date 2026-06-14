@@ -42,7 +42,11 @@
     "docker:event-admin": "docker compose --profile tools --env-file docker/ports.host.default.env run --rm event-admin",
     "docker:event-admin:dev": "docker compose --profile tools -f docker-compose.yml -f docker-compose.dev.yml --env-file docker/ports.host.dev.env run --rm event-admin",
     "docker:event-admin:staging": "docker compose --profile tools --env-file docker/ports.host.staging.env run --rm event-admin",
-    "docker:event-admin:production": "docker compose --profile tools --env-file docker/ports.host.production.env run --rm event-admin"
+    "docker:event-admin:production": "docker compose --profile tools --env-file docker/ports.host.production.env run --rm event-admin",
+    "docker:reconcile-raised-amounts": "docker compose --profile tools --env-file docker/ports.host.default.env run --rm reconcile-raised-amounts",
+    "docker:reconcile-raised-amounts:dev": "docker compose --profile tools -f docker-compose.yml -f docker-compose.dev.yml --env-file docker/ports.host.dev.env run --rm reconcile-raised-amounts",
+    "docker:reconcile-raised-amounts:staging": "docker compose --profile tools --env-file docker/ports.host.staging.env run --rm reconcile-raised-amounts",
+    "docker:reconcile-raised-amounts:production": "docker compose --profile tools --env-file docker/ports.host.production.env run --rm reconcile-raised-amounts"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
