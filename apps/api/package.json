@@ -13,6 +13,7 @@
     "verify-account": "npx tsx src/verification/verify-account-cli.ts",
     "deposit-reconciliation": "node dist/src/payments/deposit-reconciliation-cli.js",
     "event-admin": "npx tsx src/events/event-admin-cli.ts",
+    "reconcile-raised-amounts": "npx tsx src/events/reconcile-raised-amounts-cli.ts",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
