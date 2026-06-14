@@ -7,8 +7,8 @@ import * as schema from "../database/schema";
 import { formatMysqlDateTimeUtc } from "../common/mysql-datetime";
 import { PaymentsService } from "./payments.service";
 
-/** Only reconcile intents older than this (3 hours). */
-export const STALE_INTENT_AGE_MS = 3 * 60 * 60 * 1000;
+/** Only reconcile intents older than this (30 minutes). */
+export const STALE_INTENT_AGE_MS =  30 * 60 * 1000;
 
 export type ReconciliationRunSummary = {
   scanned: number;
