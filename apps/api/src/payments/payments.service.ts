@@ -20,6 +20,7 @@ import {
   eventAcceptsContributions,
   parseEventLifecycleStatus,
 } from "../events/event-lifecycle";
+import { syncEventRaisedAmount } from "../events/event-raised-amount";
 
 function paymentNotConfiguredMessage(kind: PaymentProcessorKind): string {
   if (kind === "pawapay") return "PawaPay payments are not configured.";
@@ -382,12 +383,7 @@ export class PaymentsService {
         paymentReferenceId: referenceId,
       });
 
-      await tx
-        .update(schema.events)
-        .set({
-          raisedAmount: sql`${schema.events.raisedAmount} + ${row.amount}`,
-        })
-        .where(eq(schema.events.id, event.id));
+      await syncEventRaisedAmount(tx, event.id);
 
       if (event.userId) {
         await this.walletService.creditFromContribution(tx, {

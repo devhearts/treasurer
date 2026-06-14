@@ -17,6 +17,10 @@ import type { AuditRequestContext } from "../audit/audit-context";
 import { ConfigService } from "@nestjs/config";
 import { StorageService } from "../integrations/storage.service";
 import { ContributionNotificationsService } from "../integrations/contribution-notifications.service";
+import {
+  computeRaisedAmountFromRows,
+  syncEventRaisedAmount,
+} from "./event-raised-amount";
 import { isIsoDateString } from "../common/validation";
 import { normalizeUgandaMsisdnForNetworks } from "../payments/phone";
 
@@ -210,6 +214,7 @@ export class EventsService {
   private raisedForMilestone(
     contributionRows: {
       amount: number;
+      status: string;
       milestoneId?: string | null;
       visible?: number | null;
     }[],
@@ -218,6 +223,7 @@ export class EventsService {
     return contributionRows.reduce((sum, c) => {
       if ((c.milestoneId ?? null) !== milestoneId) return sum;
       if (c.visible === 0) return sum;
+      if (c.status !== "paid") return sum;
       return sum + c.amount;
     }, 0);
   }
@@ -266,7 +272,7 @@ export class EventsService {
       treasurerPhone: row.treasurerPhone,
       description: row.description,
       targetAmount: row.targetAmount,
-      raisedAmount: row.raisedAmount,
+      raisedAmount: computeRaisedAmountFromRows(contributionRows),
       date: row.date,
       location: row.location,
       createdAt: row.createdAt,
@@ -729,12 +735,7 @@ export class EventsService {
       });
 
       if (status === "paid") {
-        await tx
-          .update(schema.events)
-          .set({
-            raisedAmount: sql`${schema.events.raisedAmount} + ${amount}`,
-          })
-          .where(eq(schema.events.id, event.id));
+        await syncEventRaisedAmount(tx, event.id);
       }
     });
 
@@ -846,7 +847,6 @@ export class EventsService {
     const wasVisible = contrib.visible !== false;
     if (wasVisible === visible) return;
 
-    const delta = visible ? contrib.amount : -contrib.amount;
     await this.db.transaction(async (tx) => {
       await tx
         .update(schema.contributions)
@@ -858,12 +858,7 @@ export class EventsService {
           )
         );
 
-      await tx
-        .update(schema.events)
-        .set({
-          raisedAmount: sql`GREATEST(0, ${schema.events.raisedAmount} + ${delta})`,
-        })
-        .where(eq(schema.events.id, event.id));
+      await syncEventRaisedAmount(tx, event.id);
     });
     this.audit.logUserAction(
       userId,
