@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getMyEvents } from "@/app/actions/events";
 import Link from "next/link";
+import { EVENT_TYPE_FILTER_LABELS } from "@/lib/data";
 import { EventType } from "@/lib/types";
 import EventsList from "./EventsList";
 
@@ -14,9 +15,13 @@ export default async function EventsPage() {
 
   const tabs: { value: FilterValue; label: string; type?: EventType }[] = [
     { value: "all", label: "All" },
-    { value: "wedding", label: "Weddings", type: "wedding" },
-    { value: "introduction", label: "Kwanjula", type: "introduction" },
-    { value: "funeral", label: "Mabugo", type: "funeral" },
+    { value: "wedding", label: EVENT_TYPE_FILTER_LABELS.wedding, type: "wedding" },
+    {
+      value: "introduction",
+      label: EVENT_TYPE_FILTER_LABELS.introduction,
+      type: "introduction",
+    },
+    { value: "funeral", label: EVENT_TYPE_FILTER_LABELS.funeral, type: "funeral" },
   ];
 
   return (

@@ -23,15 +23,12 @@ import {
   paymentPollingWaitLabel,
   paymentReceivedViaPhrase,
 } from "@/lib/payments";
-import { formatUGX, getEventTypeLabel } from "@/lib/data";
+import { EVENT_TYPE_LABELS, formatUGX, getEventTypeLabel } from "@/lib/data";
 import { validateUgandaPhone } from "@/lib/phone";
 
-const EVENT_TYPES: { value: EventType; label: string }[] = [
-  { value: "wedding", label: "Wedding" },
-  { value: "introduction", label: "Kwanjula" },
-  { value: "funeral", label: "Mabugo" },
-  { value: "other", label: "Other" },
-];
+const EVENT_TYPES: { value: EventType; label: string }[] = (
+  ["wedding", "introduction", "funeral", "other"] as const
+).map((value) => ({ value, label: EVENT_TYPE_LABELS[value] }));
 
 const MOMO_POLL_MS = 2500;
 const MOMO_FIRST_POLL_MS = 1200;

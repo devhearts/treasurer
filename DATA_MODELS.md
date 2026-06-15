@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the data models used in the TreasurerPro application - a contribution management platform for Ugandan social events.
+This document describes the data models used in the TreasurerPro application - a contribution management platform for social events.
 
 ## Data Models
 
@@ -106,8 +106,8 @@ All data is stored in the browser's localStorage with the key: `ceremonywallet_e
 
 The application includes 3 example events:
 1. **Wedding** - Sarah & James
-2. **Introduction Ceremony (Kwanjula)** - Moses & Flavia  
-3. **Funeral (Mabugo)** - Mr. Kato's burial
+2. **Introduction** - Moses & Flavia  
+3. **Condolences** - Mr. Kato's burial
 
 ## Related Files
 

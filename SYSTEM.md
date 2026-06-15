@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-**CeremonyWallet** (repository name: **treasurer**) is a contribution management web application for Ugandan social events: weddings, introductions (kwanjula), and funerals (mabugo). It positions itself as a **digital treasurer**: treasurers pay a flat one-time subscription to create and manage events; MoMo contributions credit the event owner’s **CeremonyWallet balance**, which can be withdrawn to saved Mobile Money or bank payout methods (MTN / Airtel / bank).
+**CeremonyWallet** (repository name: **treasurer**) is a contribution management web application for social events: weddings, introductions, and condolences. It positions itself as a **digital treasurer**: treasurers pay a flat one-time subscription to create and manage events; MoMo contributions credit the event owner’s **CeremonyWallet balance**, which can be withdrawn to saved Mobile Money or bank payout methods (MTN / Airtel / bank).
 
 The application is a single-page-oriented Next.js site with client-side persistence (localStorage). There is no backend database or authentication in the current implementation.
 
@@ -12,7 +12,7 @@ The application is a single-page-oriented Next.js site with client-side persiste
 
 ### Treasurers (event organizers)
 
-- Create events (wedding, kwanjula, mabugo, or other).
+- Create events (wedding, introduction, condolence, fundraising tithe and offertories, or other).
 - Set event details, target amount, and budget breakdown.
 - Pay a one-time 50,000 UGX subscription to activate the event (payment is simulated in-app).
 - Share the event link; receive contributions directly to their Mobile Money number.
@@ -94,7 +94,7 @@ treasurer/
 - **Server vs client**: On the server, `loadEvents()` returns seed data only. In the browser, it reads/writes localStorage; if empty, it initializes from seed and then saves.
 - **API**: `getAllEvents()`, `getEventBySlug(slug)`, `addEvent(event)`, `addContribution(eventSlug, contribution)`.
 - **Helpers**: `formatUGX`, `getProgressPercent`, `getEventTypeLabel`, `getEventTypeEmoji`.
-- **Seed**: Three demo events (wedding, kwanjula, mabugo) with budgets and contributions.
+- **Seed**: Three demo events (wedding, introduction, condolence) with budgets and contributions.
 
 Important: All mutations (`addEvent`, `addContribution`) only run in the client (localStorage). Server-rendered pages that call `getEventBySlug` or `getAllEvents` see only seed data until the client hydrates and uses the same module, which then reads from localStorage.
 
@@ -105,7 +105,7 @@ Important: All mutations (`addEvent`, `addContribution`) only run in the client 
 | Route | Description |
 |-------|-------------|
 | `/` | Home: hero, “How it works”, featured events (first 3), “Why CeremonyWallet”, 50k UGX CTA, footer. |
-| `/events` | List all events; filter tabs (All, Weddings, Kwanjula, Mabugo) — filter state is present but not wired to filter the list. |
+| `/events` | List all events; filter tabs (All, Weddings, Introductions, Condolences) — filter state is present but not wired to filter the list. |
 | `/events/[slug]` | Event detail: header, about, budget breakdown, contributions list, contribution receipt block, contribute form (right column). For weddings, link to `/events/[slug]/invite`. |
 | `/events/[slug]/invite` | Wedding-only; 404 for non-wedding. Invitation card generator (personal message, per-contributor invites, custom invite). Copy / WhatsApp share. |
 | `/create` | Create event: 3-step wizard (Event details → Budget → Subscribe). On “Activate”, event is appended via `addEvent()` and user is redirected to `/events/{slug}`. |
@@ -119,7 +119,7 @@ Slug for a new event is derived from the title (lowercase, strip non-alphanumeri
 ### Create event (treasurer)
 
 1. Open `/create`.
-2. Step 1: Choose type (wedding / kwanjula / funeral / other), title, organizer name, treasurer Mobile Money number, description, date, location.
+2. Step 1: Choose type (wedding / introduction / condolence / fundraising tithe and offertories / other), title, organizer name, treasurer Mobile Money number, description, date, location.
 3. Step 2: Target amount (UGX), optional budget items (name + amount). Summary shown.
 4. Step 3: Subscription 50,000 UGX — instructions to pay to “CeremonyWallet” (business number 123456), then checkbox “I have made the payment” and “Activate My Event”.
 5. Submit: short delay (simulated payment), then `addEvent()` and redirect to `/events/{slug}`.
@@ -176,4 +176,4 @@ Slug for a new event is derived from the title (lowercase, strip non-alphanumeri
 
 ## 12. Summary
 
-CeremonyWallet is a Next.js 16 + React 19 + TypeScript + Tailwind 4 front-end for Ugandan ceremony fundraising. It provides event creation (with a simulated treasurer subscription), contribution recording (pay/pledge, direct to treasurer Mobile Money), receipt generation, and wedding-specific invitation card generation with WhatsApp sharing. Data lives only in the browser via localStorage and seed data, with no backend or authentication.
+CeremonyWallet is a Next.js 16 + React 19 + TypeScript + Tailwind 4 front-end for social event fundraising. It provides event creation (with a simulated treasurer subscription), contribution recording (pay/pledge, direct to treasurer Mobile Money), receipt generation, and wedding-specific invitation card generation with WhatsApp sharing. Data lives only in the browser via localStorage and seed data, with no backend or authentication.

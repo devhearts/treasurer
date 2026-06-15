@@ -16,7 +16,7 @@ export const TERMS_META = {
 } as const;
 
 export const TERMS_INTRO =
-  'Please read these Terms and Conditions ("Terms", "Agreement") carefully before using CeremonyWallet ("Platform", "Service", "we", "us", "our"), a digital treasury and fundraising management platform owned and operated by Luak Holdings Limited, a company incorporated under the laws of Uganda. CeremonyWallet is designed for Ugandan social ceremonies including weddings, kwanjula (introduction ceremonies), mabugo, and other community events. By accessing or using CeremonyWallet, you agree to be bound by these Terms. If you do not agree, you must discontinue use immediately.';
+  'Please read these Terms and Conditions ("Terms", "Agreement") carefully before using CeremonyWallet ("Platform", "Service", "we", "us", "our"), a digital treasury and fundraising management platform owned and operated by Luak Holdings Limited, a company incorporated under the laws of Uganda. CeremonyWallet is designed for social events including weddings, introductions, condolences, fundraising tithe and offertories, and other community events. By accessing or using CeremonyWallet, you agree to be bound by these Terms. If you do not agree, you must discontinue use immediately.';
 
 export const TERMS_SECTIONS: TermsSection[] = [
   {
@@ -37,7 +37,7 @@ export const TERMS_SECTIONS: TermsSection[] = [
       "CeremonyWallet is a digital treasurer platform that enables individuals and groups to:",
     ],
     list: [
-      'Create and manage ceremony fundraising campaigns ("Ceremony Wallets") for events such as weddings, kwanjula, mabugo, and other social occasions.',
+      'Create and manage ceremony fundraising campaigns ("Ceremony Wallets") for events such as weddings, introductions, condolences, fundraising tithe and offertories, and other social occasions.',
       "Collect monetary contributions via Mobile Money (including MTN Mobile Money, Airtel Money, and other supported payment rails) and other integrated payment methods.",
       "Track pledges made by guests and contributors in real time.",
       "Monitor and report contributions transparently to all authorised stakeholders.",

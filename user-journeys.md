@@ -1,6 +1,6 @@
 # CeremonyWallet — User Journeys (Mobile First)
 
-User journeys for the contribution management platform (weddings, kwanjula, mabugo). All contributions go directly to the treasurer via Mobile Money; the platform never holds money.
+User journeys for the contribution management platform (weddings, introductions, condolences, and fundraising tithe and offertories). All contributions go directly to the treasurer via Mobile Money; the platform never holds money.
 
 **Mobile-first:** These journeys assume the primary device is a **phone**. Each outcome is achieved in **3 steps or fewer**. Interactions are tap/scroll, one-handed use where possible, and flows that work on small screens and variable connectivity. Payment is Mobile Money on the same device; sharing is via WhatsApp, SMS, or the native share sheet.
 
@@ -13,7 +13,7 @@ User journeys for the contribution management platform (weddings, kwanjula, mabu
 | Step | Mobile action | Where |
 |------|----------------|--------|
 | 1 | Open the site on phone; tap to create an event and pay 50,000 UGX subscription via Mobile Money (USSD or MoMo app) | `/` → `/create` |
-| 2 | Complete the wizard: event type (wedding / kwanjula / mabugo), name, date, Mobile Money number; one step per screen, thumb-friendly | `/create` (wizard) |
+| 2 | Complete the wizard: event type (wedding / introduction / condolence / fundraising), name, date, Mobile Money number; one step per screen, thumb-friendly | `/create` (wizard) |
 | 3 | Tap finish; see event page with “Share” or “Copy link” for the event | `/events/[slug]` |
 
 **Outcome:** Treasurer has an active event and a link to share from their phone. All steps work on a small screen.
