@@ -14,15 +14,12 @@ import {
   isEventImageWithinSizeLimit,
 } from "@/lib/event-image-upload";
 import { uploadEventImageWithProgress } from "@/lib/upload-event-image-client";
-import { formatUGX, getEventTypeLabel } from "@/lib/data";
+import { EVENT_TYPE_LABELS, formatUGX, getEventTypeLabel } from "@/lib/data";
 import { validateUgandaPhone } from "@/lib/phone";
 
-const EVENT_TYPES: { value: EventType; label: string }[] = [
-  { value: "wedding", label: "Wedding" },
-  { value: "introduction", label: "Kwanjula" },
-  { value: "funeral", label: "Mabugo" },
-  { value: "other", label: "Other" },
-];
+const EVENT_TYPES: { value: EventType; label: string }[] = (
+  ["wedding", "introduction", "funeral", "other"] as const
+).map((value) => ({ value, label: EVENT_TYPE_LABELS[value] }));
 
 const GRID = "gap-4";
 

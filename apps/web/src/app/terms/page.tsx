@@ -5,7 +5,7 @@ import TermsContent from "@/components/legal/TermsContent";
 export const metadata = {
   title: "Terms and Conditions – CeremonyWallet",
   description:
-    "Terms and Conditions of Use for CeremonyWallet, a digital treasury platform for Ugandan social ceremonies.",
+    "Terms and Conditions of Use for CeremonyWallet, a digital treasury platform for social events.",
 };
 
 export default function TermsPage() {

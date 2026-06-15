@@ -20,7 +20,7 @@ export default async function AppHome() {
             <span className="block text-accent">for Every Ceremony</span>
           </h1>
           <p className="text-light/80 text-sm mb-8">
-            Track contributions for weddings, kwanjula, and mabugo. Your wallet balance is ready to withdraw anytime.
+            Track contributions for weddings, introductions, and condolences. Your wallet balance is ready to withdraw anytime.
           </p>
           <Link
             href="/app/create"

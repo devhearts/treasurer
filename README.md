@@ -1,10 +1,10 @@
 # CeremonyWallet
 
-A contribution management platform for Ugandan social events (weddings, kwanjula, mabugo). Treasurers pay a flat subscription fee to create and manage events, and the platform never holds money—all contributions go directly to the treasurer via Mobile Money.
+A contribution management platform for social events (weddings, introductions, condolences, and fundraising tithe and offertories). Treasurers pay a flat subscription fee to create and manage events, and the platform never holds money—all contributions go directly to the treasurer via Mobile Money.
 
 ## Features
 
-- **Event Management**: Create and manage wedding, kwanjula, and mabugo events
+- **Event Management**: Create and manage wedding, introduction, condolence, and fundraising events
 - **Contribution Tracking**: Track all contributions with detailed receipts
 - **Wedding Invitations**: Generate personalized invitation cards for contributors
 - **Treasurer Model**: Flat 50,000 UGX subscription fee—no platform fees on contributions
@@ -99,7 +99,7 @@ The SQLite database file is created at `data/ceremonywallet.db` on first use. To
 ### For Treasurers
 
 1. **Subscribe**: Pay 50,000 UGX to activate your treasurer account
-2. **Create Event**: Set up your wedding, kwanjula, or mabugo event
+2. **Create Event**: Set up your wedding, introduction, condolence, or fundraising event
 3. **Share Link**: Share the event page with contributors
 4. **Receive Funds**: Contributors pay directly to your Mobile Money number
 

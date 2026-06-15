@@ -35,7 +35,7 @@ export default function LandingPage() {
           <span className="block text-accent">for Every Ceremony</span>
         </h1>
         <p className="text-muted text-sm mb-10">
-          Track contributions for weddings, kwanjula, and mabugo. Making fundraising seamless.
+          Track contributions for weddings, introductions, and condolences. Making fundraising seamless.
         </p>
         <Link
           href="/register"

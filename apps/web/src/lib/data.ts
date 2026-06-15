@@ -125,14 +125,22 @@ export function getProgressPercent(raised: number, target: number): number {
   return Math.min(Math.round((raised / target) * 100), 100);
 }
 
+export const EVENT_TYPE_LABELS: Record<string, string> = {
+  wedding: "Wedding",
+  introduction: "Give away, Introductions",
+  funeral: "Condolences",
+  other: "Fundraising tithe, offertories",
+};
+
+/** Shorter labels for filter tabs and compact UI. */
+export const EVENT_TYPE_FILTER_LABELS: Record<string, string> = {
+  wedding: "Weddings",
+  introduction: "Introductions",
+  funeral: "Condolences",
+};
+
 export function getEventTypeLabel(type: string): string {
-  const labels: Record<string, string> = {
-    wedding: "Wedding",
-    introduction: "Introduction (Kwanjula)",
-    funeral: "Funeral (Mabugo)",
-    other: "Other Ceremony",
-  };
-  return labels[type] ?? "Ceremony";
+  return EVENT_TYPE_LABELS[type] ?? "Ceremony";
 }
 
 export function getEventTypeKey(type: string): string {

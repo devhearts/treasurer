@@ -14,9 +14,9 @@ const siteUrl =
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl.endsWith("/") ? siteUrl : `${siteUrl}/`),
-  title: "CeremonyWallet – Digital Treasurer for Ugandan Social Events",
+  title: "CeremonyWallet – Digital Treasurer for Social Events",
   description:
-    "Manage contributions for weddings, introductions (kwanjula), and funerals (mabugo) transparently. Collect via Mobile Money, track pledges, and keep everyone informed.",
+    "Manage contributions for weddings, introductions, and condolences transparently. Collect via Mobile Money, track pledges, and keep everyone informed.",
 };
 
 export default function RootLayout({

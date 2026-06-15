@@ -37,7 +37,7 @@ export default function OnboardingPage() {
             <span className="flex items-center justify-center w-8 h-8 rounded-full bg-accent text-white text-sm font-bold flex-shrink-0">1</span>
             <div>
               <p className="font-medium text-surface text-sm">Choose event type</p>
-              <p className="text-muted text-xs">Wedding, Kwanjula, Mabugo, or other</p>
+              <p className="text-muted text-xs">Wedding, introductions, condolences, or fundraising tithe and offertories</p>
             </div>
           </div>
           <div className="flex items-start gap-3 p-4 rounded-xl bg-muted/10 border border-muted/20">
