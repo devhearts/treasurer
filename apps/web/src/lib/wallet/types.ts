@@ -63,6 +63,20 @@ export interface WithdrawFeeQuote {
   platformFeeRate: number;
 }
 
+export interface WithdrawEventOption {
+  id: string;
+  title: string;
+  slug: string;
+  platformRaised: number;
+  withdrawnSoFar: number;
+  pendingWithdrawals: number;
+  availableToWithdraw: number;
+}
+
+export interface WithdrawEventOptionsPage {
+  events: WithdrawEventOption[];
+}
+
 export interface WithdrawInitiateResult {
   withdrawalId: string;
   reference: string;

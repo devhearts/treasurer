@@ -139,11 +139,17 @@ export class WalletController {
     return this.withdrawals.quote(body.grossAmount);
   }
 
+  @Get("withdrawals/event-options")
+  eventOptions(@Req() req: Request & { sessionUserId?: string }) {
+    return this.withdrawals.listEventOptions(this.userId(req));
+  }
+
   @Post("withdrawals/initiate")
   async initiate(
     @Req() req: Request & { sessionUserId?: string },
     @Body()
     body: {
+      eventId: string;
       methodId: string;
       grossAmount: number;
       idempotencyKey?: string;

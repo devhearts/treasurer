@@ -10,6 +10,7 @@ import type {
   WalletTransaction,
   WalletTransactionsPage,
   WithdrawFeeQuote,
+  WithdrawEventOptionsPage,
   WithdrawInitiateResult,
   WithdrawPollResult,
 } from "@/lib/wallet/types";
@@ -124,6 +125,12 @@ export async function deletePayoutMethod(
   );
 }
 
+export async function getWithdrawEventOptions(): Promise<WithdrawEventOptionsPage> {
+  return serverApiJson<WithdrawEventOptionsPage>(
+    "wallet/withdrawals/event-options"
+  );
+}
+
 export async function quoteWithdraw(
   grossAmount: number
 ): Promise<ActionResult<WithdrawFeeQuote>> {
@@ -139,6 +146,7 @@ export async function quoteWithdraw(
 }
 
 export async function initiateWithdraw(body: {
+  eventId: string;
   methodId: string;
   grossAmount: number;
   idempotencyKey?: string;

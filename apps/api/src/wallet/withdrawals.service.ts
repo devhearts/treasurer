@@ -46,6 +46,13 @@ import { normalizeProviderPollStatus } from "../payments/payment-status";
 import { maskMsisdn, shortId } from "./withdraw-log.util";
 import { AuditService } from "../audit/audit.service";
 import { AuditAction } from "../audit/audit-actions";
+import {
+  assertEventWithdrawAllowed,
+  assertIdempotentWithdrawalEvent,
+  getEventForOwner,
+  getWithdrawalEventId,
+  listWithdrawEventOptions,
+} from "./withdraw-event-availability";
 
 const MIN_WITHDRAW_GROSS = 5000;
 const MAX_OTP_ATTEMPTS = 5;
@@ -108,18 +115,28 @@ export class WithdrawalsService {
     );
   }
 
+  async listEventOptions(userId: string) {
+    const events = await listWithdrawEventOptions(this.db, userId);
+    return { events };
+  }
+
   async initiate(
     userId: string,
     userEmail: string,
     body: {
+      eventId: string;
       methodId: string;
       grossAmount: number;
       idempotencyKey?: string;
     }
   ) {
     await this.verification.assertAccountVerified(userId);
+    const eventId = body.eventId?.trim();
+    if (!eventId) {
+      throw new BadRequestException("Select an event to withdraw from.");
+    }
     this.log.debug(
-      `initiate user=${shortId(userId)} method=${shortId(body.methodId)} gross=${body.grossAmount}`
+      `initiate user=${shortId(userId)} event=${shortId(eventId)} method=${shortId(body.methodId)} gross=${body.grossAmount}`
     );
     const fees = this.quote(body.grossAmount);
     const wallet = await this.wallet.getOrCreateWallet(userId);
@@ -144,6 +161,7 @@ export class WithdrawalsService {
         )
         .limit(1);
       if (existing[0]) {
+        await assertIdempotentWithdrawalEvent(this.db, existing[0].id, eventId);
         this.log.debug(
           `initiate idempotent hit withdrawal=${shortId(existing[0].id)} ref=${existing[0].reference}`
         );
@@ -151,25 +169,35 @@ export class WithdrawalsService {
       }
     }
 
+    const event = await getEventForOwner(this.db, userId, eventId);
+    await assertEventWithdrawAllowed(this.db, userId, eventId, body.grossAmount);
+
     const id = randomUUID();
     const reference = generateWithdrawReference();
     const now = formatMysqlDateTimeUtc(new Date());
 
-    await this.db.insert(schema.withdrawals).values({
-      id,
-      reference,
-      userId,
-      methodId: method.id,
-      grossAmount: fees.grossAmount,
-      momoFee: fees.momoFee,
-      platformFee: fees.platformFee,
-      netAmount: fees.netAmount,
-      status: "pending_otp",
-      failureReason: null,
-      processorRef: null,
-      idempotencyKey: body.idempotencyKey ?? null,
-      createdAt: now,
-      updatedAt: now,
+    await this.db.transaction(async (tx) => {
+      await tx.insert(schema.withdrawals).values({
+        id,
+        reference,
+        userId,
+        methodId: method.id,
+        grossAmount: fees.grossAmount,
+        momoFee: fees.momoFee,
+        platformFee: fees.platformFee,
+        netAmount: fees.netAmount,
+        status: "pending_otp",
+        failureReason: null,
+        processorRef: null,
+        idempotencyKey: body.idempotencyKey ?? null,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await tx.insert(schema.withdrawalEvents).values({
+        withdrawalId: id,
+        eventId,
+        createdAt: now,
+      });
     });
 
     await this.sendOtp(id, userEmail, fees, method.label, method.msisdn);
@@ -188,6 +216,8 @@ export class WithdrawalsService {
       { type: "withdrawal", id },
       {
         withdrawalId: id,
+        eventId,
+        eventTitle: event.title,
         amount: fees.grossAmount,
         currency: "UGX",
         methodId: method.id,
@@ -339,6 +369,16 @@ export class WithdrawalsService {
         ? `${method.accountNumber} · ${method.branch ?? ""} · ${method.swift ?? ""}`
         : `${method.msisdn} · Withdrawal`;
 
+    const eventId = await getWithdrawalEventId(this.db, w.id);
+    if (!eventId) {
+      throw new BadRequestException(
+        "This withdrawal is not linked to an event. Please start a new withdrawal."
+      );
+    }
+    await assertEventWithdrawAllowed(this.db, userId, eventId, w.grossAmount, {
+      excludeWithdrawalId: w.id,
+    });
+
     try {
       await this.db.transaction(async (tx) => {
         await this.wallet.debitForWithdrawal(tx, {
@@ -348,6 +388,7 @@ export class WithdrawalsService {
           title: method.label,
           description,
           badge,
+          eventId,
         });
       });
     } catch {

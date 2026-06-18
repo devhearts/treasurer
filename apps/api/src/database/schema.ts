@@ -328,6 +328,17 @@ export const withdrawalOtps = mysqlTable(
   (t) => [index("idx_withdrawal_otps_withdrawal").on(t.withdrawalId)]
 );
 
+/** Links a withdrawal to the event it draws platform funds from. */
+export const withdrawalEvents = mysqlTable(
+  "withdrawal_events",
+  {
+    withdrawalId: varchar("withdrawal_id", { length: 36 }).primaryKey(),
+    eventId: varchar("event_id", { length: 36 }).notNull(),
+    createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
+  },
+  (t) => [index("idx_withdrawal_events_event").on(t.eventId)]
+);
+
 /** Draft payout method awaiting email OTP before insert. */
 export const payoutMethodPending = mysqlTable(
   "payout_method_pending",

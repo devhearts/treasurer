@@ -212,6 +212,7 @@ export class WalletService {
       title: string;
       description: string;
       badge: string;
+      eventId?: string | null;
     }
   ): Promise<void> {
     const wallet = await this.getOrCreateWallet(input.userId, tx);
@@ -229,7 +230,7 @@ export class WalletService {
       title: input.title,
       description: input.description,
       badge: input.badge,
-      eventId: null,
+      eventId: input.eventId ?? null,
       contributionId: null,
       withdrawalId: input.withdrawalId,
       createdAt: now,

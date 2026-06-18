@@ -30,6 +30,7 @@ import {
 } from "@/lib/event-share";
 import { publicStatusNotice } from "@/lib/event-lifecycle";
 import EventStatusNotice from "@/components/EventStatusNotice";
+import PublicEventTopChrome from "@/components/PublicEventTopChrome";
 import EventLifecycleControls from "./EventLifecycleControls";
 
 interface EventDetailContentProps {
@@ -254,14 +255,30 @@ export default function EventDetailContent({
 
   const hasEventPhotos = Boolean(event.imageUrls && event.imageUrls.length > 0);
 
-  const photoGallery = hasEventPhotos ? (
-    <div className="pt-2 mb-4">
-      <EventPhotoGallery
-        imageSources={event.imageUrls!}
-        mergeFooter={galleryMergeFooter}
-      />
-    </div>
+  const eventPhotoGallery = hasEventPhotos ? (
+    <EventPhotoGallery
+      imageSources={event.imageUrls!}
+      mergeFooter={galleryMergeFooter}
+    />
   ) : null;
+
+  const publicHeroOrGallery = hasEventPhotos ? (
+    <div className="relative pt-2 mb-4">
+      <PublicEventTopChrome
+        onShare={() => void handleShare()}
+        variant="overlay"
+      />
+      {eventPhotoGallery}
+    </div>
+  ) : (
+    <div className="bg-surface text-light rounded-xl p-6 mb-4">
+      <PublicEventTopChrome
+        onShare={() => void handleShare()}
+        variant="inline"
+      />
+      {heroInner}
+    </div>
+  );
 
   const shareRow = (
     <div className="flex gap-2 mb-4">
@@ -435,10 +452,12 @@ export default function EventDetailContent({
           </div>
         ) : null}
 
-        {photoGallery}
+        {isPublicView ? publicHeroOrGallery : null}
+        {!isPublicView && hasEventPhotos ? (
+          <div className="pt-2 mb-4">{eventPhotoGallery}</div>
+        ) : null}
         {isPublicView ? (
           <>
-            {!hasEventPhotos ? heroBlock : null}
             {shareRow}
             {aboutBudget}
             {contributionsBlock}

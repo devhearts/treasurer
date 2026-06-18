@@ -1,3 +1,5 @@
+import type { CeremonyEvent } from "@/lib/types";
+
 export type EventLifecycleStatus =
   | "active"
   | "paused"
@@ -56,4 +58,34 @@ export function eventStatusBadgeClass(status: EventLifecycleStatus): string {
     default:
       return "bg-accent/10 text-accent border-accent/20";
   }
+}
+
+export type TreasurerEventSection = "active" | "inactive" | "archived";
+
+export type GroupedTreasurerEvents = Record<
+  TreasurerEventSection,
+  CeremonyEvent[]
+>;
+
+export function treasurerEventSection(
+  status?: EventLifecycleStatus
+): TreasurerEventSection {
+  const s = status ?? "active";
+  if (s === "paused") return "inactive";
+  if (s === "stopped" || s === "suspended") return "archived";
+  return "active";
+}
+
+export function groupEventsByTreasurerSection<
+  T extends { status?: EventLifecycleStatus },
+>(events: T[]): Record<TreasurerEventSection, T[]> {
+  const groups: Record<TreasurerEventSection, T[]> = {
+    active: [],
+    inactive: [],
+    archived: [],
+  };
+  for (const event of events) {
+    groups[treasurerEventSection(event.status)].push(event);
+  }
+  return groups;
 }
