@@ -78,6 +78,47 @@ function formatEventWithdrawnLine(event: WithdrawEventOption): string {
   return `Withdrawn ${formatUGX(0)}`;
 }
 
+function EventOptionButton({
+  event,
+  selected,
+  onSelect,
+}: {
+  event: WithdrawEventOption;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`flex items-center gap-3.5 p-4 rounded-xl border-[1.5px] text-left transition-colors w-full ${
+        selected
+          ? "border-accent bg-lime/10"
+          : "border-muted/30 hover:bg-lime/5"
+      }`}
+    >
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-surface truncate">{event.title}</p>
+        <p className="text-xs text-muted mt-1">
+          Raised {formatUGX(event.platformRaised)} · {formatEventWithdrawnLine(event)}
+        </p>
+        <p className="text-xs text-accent font-medium mt-1">
+          Available {formatUGX(event.availableToWithdraw)}
+        </p>
+      </div>
+      <div
+        className={`w-[18px] h-[18px] rounded-full border-[1.5px] flex-shrink-0 ${
+          selected ? "border-accent bg-accent" : "border-muted/40"
+        }`}
+      >
+        {selected && (
+          <div className="w-2 h-2 bg-white rounded-full m-auto mt-[3px]" />
+        )}
+      </div>
+    </button>
+  );
+}
+
 export default function WithdrawWizard({
   initialBalance,
   initialMethods,
@@ -132,9 +173,16 @@ export default function WithdrawWizard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pollResult, setPollResult] = useState<WithdrawPollResult | null>(null);
+  const [showIneligibleEvents, setShowIneligibleEvents] = useState(false);
 
   const selectedMethod = methods.find((m) => m.id === selectedMethodId);
   const selectedEvent = eventOptions.find((e) => e.id === selectedEventId);
+  const eligibleEvents = eventOptions.filter(
+    (e) => e.availableToWithdraw >= MIN_WITHDRAW
+  );
+  const ineligibleEvents = eventOptions.filter(
+    (e) => e.availableToWithdraw < MIN_WITHDRAW
+  );
   const eventMaxAmount = selectedEvent
     ? Math.min(initialBalance, selectedEvent.availableToWithdraw)
     : 0;
@@ -310,6 +358,11 @@ export default function WithdrawWizard({
   async function goToStep2() {
     if (!selectedEventId) {
       setError("Select an event to withdraw from.");
+      return;
+    }
+    const event = eventOptions.find((e) => e.id === selectedEventId);
+    if (!event || event.availableToWithdraw < MIN_WITHDRAW) {
+      setError("Select an event with available funds to withdraw.");
       return;
     }
     setError(null);
@@ -512,54 +565,85 @@ export default function WithdrawWizard({
                   Back to account
                 </Link>
               </div>
+            ) : eligibleEvents.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-muted mb-4">
+                  No events currently have enough available funds to withdraw
+                  (minimum UGX 5,000).
+                </p>
+                {ineligibleEvents.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowIneligibleEvents((v) => !v)}
+                    className="text-sm text-accent hover:underline"
+                  >
+                    {showIneligibleEvents
+                      ? "Hide unavailable events"
+                      : `Show ${ineligibleEvents.length} unavailable event${ineligibleEvents.length === 1 ? "" : "s"}`}
+                  </button>
+                ) : null}
+                {showIneligibleEvents ? (
+                  <div className="flex flex-col gap-2.5 mt-4 text-left">
+                    {ineligibleEvents.map((event) => (
+                      <div
+                        key={event.id}
+                        className="opacity-60 pointer-events-none"
+                      >
+                        <EventOptionButton
+                          event={event}
+                          selected={false}
+                          onSelect={() => {}}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             ) : (
               <div className="flex flex-col gap-2.5">
-                {eventOptions.map((event) => {
-                  const disabled = event.availableToWithdraw < MIN_WITHDRAW;
-                  return (
+                {eligibleEvents.map((event) => (
+                  <EventOptionButton
+                    key={event.id}
+                    event={event}
+                    selected={selectedEventId === event.id}
+                    onSelect={() => setSelectedEventId(event.id)}
+                  />
+                ))}
+                {ineligibleEvents.length > 0 ? (
+                  <div className="pt-2">
                     <button
-                      key={event.id}
                       type="button"
-                      disabled={disabled}
-                      onClick={() => setSelectedEventId(event.id)}
-                      className={`flex items-center gap-3.5 p-4 rounded-xl border-[1.5px] text-left transition-colors ${
-                        selectedEventId === event.id
-                          ? "border-accent bg-lime/10"
-                          : "border-muted/30"
-                      } ${disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-lime/5"}`}
+                      onClick={() => setShowIneligibleEvents((v) => !v)}
+                      className="w-full text-sm text-muted hover:text-accent py-2"
                     >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-surface truncate">
-                          {event.title}
-                        </p>
-                        <p className="text-xs text-muted mt-1">
-                          Raised {formatUGX(event.platformRaised)} ·{" "}
-                          {formatEventWithdrawnLine(event)}
-                        </p>
-                        <p className="text-xs text-accent font-medium mt-1">
-                          Available {formatUGX(event.availableToWithdraw)}
-                        </p>
-                      </div>
-                      <div
-                        className={`w-[18px] h-[18px] rounded-full border-[1.5px] flex-shrink-0 ${
-                          selectedEventId === event.id
-                            ? "border-accent bg-accent"
-                            : "border-muted/40"
-                        }`}
-                      >
-                        {selectedEventId === event.id && (
-                          <div className="w-2 h-2 bg-white rounded-full m-auto mt-[3px]" />
-                        )}
-                      </div>
+                      {showIneligibleEvents
+                        ? "Hide unavailable events"
+                        : `Show ${ineligibleEvents.length} unavailable event${ineligibleEvents.length === 1 ? "" : "s"}`}
                     </button>
-                  );
-                })}
+                    {showIneligibleEvents ? (
+                      <div className="flex flex-col gap-2.5">
+                        {ineligibleEvents.map((event) => (
+                          <div
+                            key={event.id}
+                            className="opacity-60 pointer-events-none"
+                          >
+                            <EventOptionButton
+                              event={event}
+                              selected={false}
+                              onSelect={() => {}}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             )}
             <button
               type="button"
               onClick={goToStep2}
-              disabled={!selectedEventId || eventOptions.length === 0}
+              disabled={!selectedEventId || eligibleEvents.length === 0}
               className="w-full mt-7 bg-accent hover:bg-accent/90 text-white font-bold py-4 rounded-lg disabled:opacity-50"
             >
               Continue →
