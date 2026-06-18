@@ -232,6 +232,12 @@ export default function EventDetailContent({
             Contribute
           </button>
         )
+      ) : isPublicView && statusNotice ? (
+        <EventStatusNotice
+          notice={statusNotice}
+          variant="hero"
+          className="mt-6 text-center"
+        />
       ) : null}
     </>
   );
@@ -347,7 +353,7 @@ export default function EventDetailContent({
             payerPhoneLabel={payerPhoneLabel}
             initialMilestoneId={allocateToMilestoneId ?? null}
           />
-        ) : statusNotice ? (
+        ) : statusNotice && !isPublicView ? (
           <EventStatusNotice notice={statusNotice} />
         ) : null}
       </div>
