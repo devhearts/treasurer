@@ -64,6 +64,20 @@ function isEditFormMode(mode: MethodFormMode): mode is { editId: string } {
   return mode !== null && mode !== "add";
 }
 
+function formatEventWithdrawnLine(event: WithdrawEventOption): string {
+  if (event.withdrawnSoFar > 0 || event.pendingWithdrawals > 0) {
+    const parts = [`Withdrawn ${formatUGX(event.withdrawnSoFar)}`];
+    if (event.pendingWithdrawals > 0) {
+      parts.push(`Pending ${formatUGX(event.pendingWithdrawals)}`);
+    }
+    return parts.join(" · ");
+  }
+  if (event.legacyWithdrawnAttributed > 0) {
+    return `Withdrawn (before tracking) ${formatUGX(event.legacyWithdrawnAttributed)}`;
+  }
+  return `Withdrawn ${formatUGX(0)}`;
+}
+
 export default function WithdrawWizard({
   initialBalance,
   initialMethods,
@@ -124,6 +138,9 @@ export default function WithdrawWizard({
   const eventMaxAmount = selectedEvent
     ? Math.min(initialBalance, selectedEvent.availableToWithdraw)
     : 0;
+  const showLegacyNotice = eventOptions.some(
+    (e) => e.legacyWithdrawnAttributed > 0
+  );
 
   const refreshEventOptions = useCallback(async () => {
     const page = await getWithdrawEventOptions();
@@ -477,6 +494,12 @@ export default function WithdrawWizard({
                 {preselectNotice}
               </p>
             ) : null}
+            {showLegacyNotice ? (
+              <p className="text-sm text-muted bg-cream border border-muted/30 rounded-lg px-3 py-2 mb-4">
+                Some past withdrawals were made before event tracking. Amounts
+                are estimated oldest-event-first.
+              </p>
+            ) : null}
             {eventOptions.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-sm text-muted mb-4">
@@ -510,11 +533,8 @@ export default function WithdrawWizard({
                           {event.title}
                         </p>
                         <p className="text-xs text-muted mt-1">
-                          Raised {formatUGX(event.platformRaised)} · Withdrawn{" "}
-                          {formatUGX(event.withdrawnSoFar)}
-                          {event.pendingWithdrawals > 0
-                            ? ` · Pending ${formatUGX(event.pendingWithdrawals)}`
-                            : ""}
+                          Raised {formatUGX(event.platformRaised)} ·{" "}
+                          {formatEventWithdrawnLine(event)}
                         </p>
                         <p className="text-xs text-accent font-medium mt-1">
                           Available {formatUGX(event.availableToWithdraw)}

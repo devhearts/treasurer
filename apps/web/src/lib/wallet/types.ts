@@ -70,6 +70,8 @@ export interface WithdrawEventOption {
   platformRaised: number;
   withdrawnSoFar: number;
   pendingWithdrawals: number;
+  legacyWithdrawnAttributed: number;
+  hasTrackedWithdrawals: boolean;
   availableToWithdraw: number;
 }
 

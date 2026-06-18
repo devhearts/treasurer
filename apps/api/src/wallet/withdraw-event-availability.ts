@@ -3,7 +3,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from "@nestjs/common";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import type { DrizzleDb } from "../database/database.module";
 import * as schema from "../database/schema";
 
@@ -11,6 +11,8 @@ export interface EventWithdrawAvailability {
   platformRaised: number;
   withdrawnSoFar: number;
   pendingWithdrawals: number;
+  legacyWithdrawnAttributed: number;
+  hasTrackedWithdrawals: boolean;
   availableToWithdraw: number;
 }
 
@@ -25,9 +27,35 @@ const PENDING_WITHDRAWAL_STATUSES = ["pending_otp", "processing"] as const;
 export function computeAvailableToWithdraw(
   platformRaised: number,
   withdrawnSoFar: number,
-  pendingWithdrawals: number
+  pendingWithdrawals: number,
+  legacyAttributed = 0
 ): number {
-  return Math.max(0, platformRaised - withdrawnSoFar - pendingWithdrawals);
+  return Math.max(
+    0,
+    platformRaised - withdrawnSoFar - pendingWithdrawals - legacyAttributed
+  );
+}
+
+export function allocateLegacyWithdrawalsFifo(
+  legacyPool: number,
+  events: Array<{
+    eventId: string;
+    platformRaised: number;
+    hasTrackedWithdrawals: boolean;
+  }>
+): Map<string, number> {
+  const result = new Map<string, number>();
+  let remaining = legacyPool;
+  for (const event of events) {
+    if (event.hasTrackedWithdrawals) {
+      result.set(event.eventId, 0);
+      continue;
+    }
+    const attributed = Math.min(event.platformRaised, remaining);
+    result.set(event.eventId, attributed);
+    remaining -= attributed;
+  }
+  return result;
 }
 
 export function aggregateWithdrawalAmounts(
@@ -95,6 +123,44 @@ async function sumPlatformRaised(
   return Number(rows[0]?.total ?? 0);
 }
 
+async function sumLegacyUnallocatedWithdrawals(
+  db: DrizzleDb,
+  userId: string
+): Promise<number> {
+  const rows = await db
+    .select({
+      total: sql<number>`coalesce(sum(${schema.withdrawals.grossAmount}), 0)`,
+    })
+    .from(schema.withdrawals)
+    .leftJoin(
+      schema.withdrawalEvents,
+      eq(schema.withdrawalEvents.withdrawalId, schema.withdrawals.id)
+    )
+    .where(
+      and(
+        eq(schema.withdrawals.userId, userId),
+        eq(schema.withdrawals.status, "completed"),
+        isNull(schema.withdrawalEvents.withdrawalId)
+      )
+    );
+  return Number(rows[0]?.total ?? 0);
+}
+
+async function listTrackedEventIds(
+  db: DrizzleDb,
+  userId: string
+): Promise<Set<string>> {
+  const rows = await db
+    .selectDistinct({ eventId: schema.withdrawalEvents.eventId })
+    .from(schema.withdrawalEvents)
+    .innerJoin(
+      schema.withdrawals,
+      eq(schema.withdrawalEvents.withdrawalId, schema.withdrawals.id)
+    )
+    .where(eq(schema.withdrawals.userId, userId));
+  return new Set(rows.map((r) => r.eventId));
+}
+
 async function listWithdrawalAmountsForEvent(
   db: DrizzleDb,
   userId: string,
@@ -124,28 +190,119 @@ async function listWithdrawalAmountsForEvent(
   return rows;
 }
 
+function buildEventAvailability(
+  platformRaised: number,
+  withdrawnSoFar: number,
+  pendingWithdrawals: number,
+  legacyWithdrawnAttributed: number,
+  hasTrackedWithdrawals: boolean
+): EventWithdrawAvailability {
+  return {
+    platformRaised,
+    withdrawnSoFar,
+    pendingWithdrawals,
+    legacyWithdrawnAttributed,
+    hasTrackedWithdrawals,
+    availableToWithdraw: computeAvailableToWithdraw(
+      platformRaised,
+      withdrawnSoFar,
+      pendingWithdrawals,
+      legacyWithdrawnAttributed
+    ),
+  };
+}
+
+async function computeUserEventAvailabilities(
+  db: DrizzleDb,
+  userId: string,
+  options?: { excludeWithdrawalId?: string }
+): Promise<Map<string, EventWithdrawAvailability>> {
+  const eventRows = await db
+    .select({
+      id: schema.events.id,
+      createdAt: schema.events.createdAt,
+    })
+    .from(schema.events)
+    .where(eq(schema.events.userId, userId));
+
+  const [legacyPool, trackedEventIds] = await Promise.all([
+    sumLegacyUnallocatedWithdrawals(db, userId),
+    listTrackedEventIds(db, userId),
+  ]);
+
+  const sortedForFifo = [...eventRows].sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt)
+  );
+
+  const fifoInputs: Array<{
+    eventId: string;
+    platformRaised: number;
+    hasTrackedWithdrawals: boolean;
+  }> = [];
+  const eventAmounts = new Map<
+    string,
+    {
+      platformRaised: number;
+      withdrawnSoFar: number;
+      pendingWithdrawals: number;
+      hasTrackedWithdrawals: boolean;
+    }
+  >();
+
+  for (const event of sortedForFifo) {
+    const [platformRaised, withdrawalRows] = await Promise.all([
+      sumPlatformRaised(db, userId, event.id),
+      listWithdrawalAmountsForEvent(db, userId, event.id, options),
+    ]);
+    const { withdrawnSoFar, pendingWithdrawals } =
+      aggregateWithdrawalAmounts(withdrawalRows);
+    const hasTrackedWithdrawals = trackedEventIds.has(event.id);
+    fifoInputs.push({ eventId: event.id, platformRaised, hasTrackedWithdrawals });
+    eventAmounts.set(event.id, {
+      platformRaised,
+      withdrawnSoFar,
+      pendingWithdrawals,
+      hasTrackedWithdrawals,
+    });
+  }
+
+  const legacyMap = allocateLegacyWithdrawalsFifo(legacyPool, fifoInputs);
+  const result = new Map<string, EventWithdrawAvailability>();
+
+  for (const event of eventRows) {
+    const amounts = eventAmounts.get(event.id)!;
+    const legacyWithdrawnAttributed = legacyMap.get(event.id) ?? 0;
+    result.set(
+      event.id,
+      buildEventAvailability(
+        amounts.platformRaised,
+        amounts.withdrawnSoFar,
+        amounts.pendingWithdrawals,
+        legacyWithdrawnAttributed,
+        amounts.hasTrackedWithdrawals
+      )
+    );
+  }
+
+  return result;
+}
+
 export async function computeEventWithdrawAvailability(
   db: DrizzleDb,
   userId: string,
   eventId: string,
   options?: { excludeWithdrawalId?: string }
 ): Promise<EventWithdrawAvailability> {
-  const [platformRaised, withdrawalRows] = await Promise.all([
-    sumPlatformRaised(db, userId, eventId),
-    listWithdrawalAmountsForEvent(db, userId, eventId, options),
-  ]);
-  const { withdrawnSoFar, pendingWithdrawals } =
-    aggregateWithdrawalAmounts(withdrawalRows);
-  return {
-    platformRaised,
-    withdrawnSoFar,
-    pendingWithdrawals,
-    availableToWithdraw: computeAvailableToWithdraw(
-      platformRaised,
-      withdrawnSoFar,
-      pendingWithdrawals
-    ),
-  };
+  const availabilities = await computeUserEventAvailabilities(
+    db,
+    userId,
+    options
+  );
+  const availability = availabilities.get(eventId);
+  if (!availability) {
+    throw new NotFoundException("Event not found.");
+  }
+  return availability;
 }
 
 export async function assertEventWithdrawAllowed(
@@ -195,20 +352,17 @@ export async function listWithdrawEventOptions(
     .from(schema.events)
     .where(eq(schema.events.userId, userId));
 
-  const options: WithdrawEventOptionRow[] = [];
-  for (const event of eventRows) {
-    const availability = await computeEventWithdrawAvailability(
-      db,
-      userId,
-      event.id
-    );
-    options.push({
+  const availabilities = await computeUserEventAvailabilities(db, userId);
+
+  const options: WithdrawEventOptionRow[] = eventRows.map((event) => {
+    const availability = availabilities.get(event.id)!;
+    return {
       id: event.id,
       title: event.title,
       slug: event.slug,
       ...availability,
-    });
-  }
+    };
+  });
 
   options.sort((a, b) => {
     if (b.availableToWithdraw !== a.availableToWithdraw) {

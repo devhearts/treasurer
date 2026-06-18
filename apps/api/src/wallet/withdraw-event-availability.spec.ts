@@ -1,15 +1,68 @@
 import {
   aggregateWithdrawalAmounts,
+  allocateLegacyWithdrawalsFifo,
   computeAvailableToWithdraw,
 } from "./withdraw-event-availability";
 
 describe("computeAvailableToWithdraw", () => {
+  it("subtracts completed, pending, and legacy from platform raised", () => {
+    expect(computeAvailableToWithdraw(500_000, 200_000, 50_000, 100_000)).toBe(
+      150_000
+    );
+  });
+
   it("subtracts completed and pending from platform raised", () => {
     expect(computeAvailableToWithdraw(500_000, 200_000, 50_000)).toBe(250_000);
   });
 
   it("clamps negative availability to zero", () => {
     expect(computeAvailableToWithdraw(100_000, 80_000, 50_000)).toBe(0);
+  });
+});
+
+describe("allocateLegacyWithdrawalsFifo", () => {
+  it("returns zero attribution when legacy pool is empty", () => {
+    const map = allocateLegacyWithdrawalsFifo(0, [
+      { eventId: "a", platformRaised: 500_000, hasTrackedWithdrawals: false },
+    ]);
+    expect(map.get("a")).toBe(0);
+  });
+
+  it("attributes to a single untracked event capped at platformRaised", () => {
+    const map = allocateLegacyWithdrawalsFifo(200_000, [
+      { eventId: "a", platformRaised: 500_000, hasTrackedWithdrawals: false },
+    ]);
+    expect(map.get("a")).toBe(200_000);
+    expect(
+      computeAvailableToWithdraw(500_000, 0, 0, map.get("a")!)
+    ).toBe(300_000);
+  });
+
+  it("attributes oldest untracked events first", () => {
+    const map = allocateLegacyWithdrawalsFifo(500_000, [
+      { eventId: "a", platformRaised: 500_000, hasTrackedWithdrawals: false },
+      { eventId: "b", platformRaised: 300_000, hasTrackedWithdrawals: false },
+    ]);
+    expect(map.get("a")).toBe(500_000);
+    expect(map.get("b")).toBe(0);
+  });
+
+  it("skips tracked events in FIFO", () => {
+    const map = allocateLegacyWithdrawalsFifo(500_000, [
+      { eventId: "a", platformRaised: 500_000, hasTrackedWithdrawals: true },
+      { eventId: "b", platformRaised: 300_000, hasTrackedWithdrawals: false },
+    ]);
+    expect(map.get("a")).toBe(0);
+    expect(map.get("b")).toBe(300_000);
+  });
+
+  it("caps attribution per event at platformRaised when pool is larger", () => {
+    const map = allocateLegacyWithdrawalsFifo(1_000_000, [
+      { eventId: "a", platformRaised: 200_000, hasTrackedWithdrawals: false },
+      { eventId: "b", platformRaised: 100_000, hasTrackedWithdrawals: false },
+    ]);
+    expect(map.get("a")).toBe(200_000);
+    expect(map.get("b")).toBe(100_000);
   });
 });
 
