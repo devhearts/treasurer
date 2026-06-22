@@ -1,0 +1,1 @@
+ALTER TABLE `events` ADD COLUMN `type_label` varchar(48);

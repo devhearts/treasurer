@@ -22,6 +22,7 @@ export default async function EventsPage() {
       type: "introduction",
     },
     { value: "funeral", label: EVENT_TYPE_FILTER_LABELS.funeral, type: "funeral" },
+    { value: "charity", label: EVENT_TYPE_FILTER_LABELS.charity, type: "charity" },
   ];
 
   return (

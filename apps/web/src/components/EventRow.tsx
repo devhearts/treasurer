@@ -93,7 +93,7 @@ export default function EventRow({ event }: EventRowProps) {
               </span>
             </div>
             <div className="text-muted">
-              <span className="text-surface font-medium">{getEventTypeLabel(event.type)}</span>
+              <span className="text-surface font-medium">{getEventTypeLabel(event.type, event.typeLabel)}</span>
               <span className="mx-2">·</span>
               <span>Organizer: {event.organizer}</span>
             </div>

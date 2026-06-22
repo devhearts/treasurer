@@ -25,6 +25,7 @@ import { isIsoDateString } from "../common/validation";
 import { normalizeUgandaMsisdnForNetworks } from "../payments/phone";
 
 const CONTRIBUTION_MESSAGE_MAX = 2000;
+const OTHER_EVENT_TYPE_LABEL_MAX = 48;
 const UGANDA_PHONE_ERROR =
   "Enter a valid MTN or Airtel Uganda number (e.g. 07… or 256…).";
 
@@ -61,6 +62,7 @@ export type CeremonyEventDto = {
   slug: string;
   title: string;
   type: string;
+  typeLabel?: string | null;
   organizer: string;
   treasurerPhone: string;
   description: string;
@@ -170,6 +172,23 @@ function imageUrlsFromRow(raw: unknown): string[] | undefined {
 }
 
 /** Drizzle wraps driver errors in `cause`; MySQL duplicate key uses errno 1062 there. */
+function normalizeTypeLabel(
+  type: string,
+  raw: string | null | undefined
+): string | null {
+  if (type !== "other") return null;
+  const label = (raw ?? "").trim();
+  if (!label) {
+    throw new BadRequestException("Please specify the event type.");
+  }
+  if (label.length > OTHER_EVENT_TYPE_LABEL_MAX) {
+    throw new BadRequestException(
+      `Event type must be ${OTHER_EVENT_TYPE_LABEL_MAX} characters or fewer.`
+    );
+  }
+  return label;
+}
+
 function isMysqlDuplicateKeyError(e: unknown): boolean {
   let cur: unknown = e;
   for (let i = 0; i < 12 && cur != null; i++) {
@@ -268,6 +287,7 @@ export class EventsService {
       slug: row.slug,
       title: row.title,
       type: row.type,
+      typeLabel: row.typeLabel?.trim() || undefined,
       organizer: row.organizer,
       treasurerPhone: row.treasurerPhone,
       description: row.description,
@@ -367,6 +387,7 @@ export class EventsService {
     body: {
       title: string;
       type: string;
+      typeLabel?: string | null;
       organizer: string;
       treasurerPhone: string;
       description: string;
@@ -390,6 +411,7 @@ export class EventsService {
 
     const title = (body.title ?? "").trim() || "Event";
     const type = (body.type ?? "").trim() || "other";
+    const typeLabel = normalizeTypeLabel(type, body.typeLabel);
     const organizer = (body.organizer ?? "").trim();
     const treasurerPhone = (body.treasurerPhone ?? "").trim();
     const description = (body.description ?? "").trim();
@@ -441,6 +463,7 @@ export class EventsService {
         .set({
           title: title.slice(0, 500),
           type: type.slice(0, 32),
+          typeLabel,
           organizer: organizer.slice(0, 255),
           treasurerPhone: normalizedTreasurerPhone,
           description,
@@ -533,6 +556,7 @@ export class EventsService {
 
     const title = (event.title ?? "").trim() || "Event";
     const type = (event.type ?? "").trim() || "other";
+    const typeLabel = normalizeTypeLabel(type, event.typeLabel);
     const description = (event.description ?? "").trim();
 
     const targetAmount = Math.max(
@@ -567,6 +591,7 @@ export class EventsService {
             slug,
             title: title.slice(0, 500),
             type: type.slice(0, 32),
+            typeLabel,
             organizer: organizer.slice(0, 255),
             treasurerPhone: normalizedTreasurerPhone,
             description,

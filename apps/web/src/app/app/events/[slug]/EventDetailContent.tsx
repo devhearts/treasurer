@@ -207,7 +207,7 @@ export default function EventDetailContent({
           <EventTypeIcon type={event.type} className="w-6 h-6" />
         </div>
         <div className="min-w-0">
-          <p className="text-light/70 text-sm">{getEventTypeLabel(event.type)}</p>
+          <p className="text-light/70 text-sm">{getEventTypeLabel(event.type, event.typeLabel)}</p>
           <h1 className="text-xl font-bold truncate">{event.title}</h1>
           <p className="text-2xl font-bold text-accent mt-2">
             {formatUGX(event.raisedAmount)}

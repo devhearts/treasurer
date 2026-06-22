@@ -107,7 +107,7 @@ export function buildEventShareBlurb(
   event: CeremonyEvent,
   absoluteUrl: string
 ): string {
-  const type = getEventTypeLabel(event.type);
+  const type = getEventTypeLabel(event.type, event.typeLabel);
   const when = formatCalendarDate(event.date, "long");
   const loc = event.location.trim();
   let out = `${event.title.trim()}\n`;
@@ -128,7 +128,7 @@ export function buildEventOgDescription(
   event: CeremonyEvent,
   maxLen = 200
 ): string {
-  const type = getEventTypeLabel(event.type);
+  const type = getEventTypeLabel(event.type, event.typeLabel);
   const loc = event.location.trim() || "Uganda";
   const when = formatCalendarDate(event.date, "short");
   let s = `${type} · ${loc} · ${when}. `;

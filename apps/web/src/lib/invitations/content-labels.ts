@@ -66,6 +66,25 @@ function baseLabelsByEventType(
         receptionNote: "Gathering note (optional)",
         footer: "Footer note",
       };
+    case "charity":
+      return {
+        name1: "Cause or beneficiary",
+        name2: "Organiser (optional)",
+        headline: "Headline",
+        subtitle: "Subtitle (optional)",
+        tagline: "Tagline (optional)",
+        hostLine: "Hosted by (optional)",
+        honoree: "Beneficiary (optional)",
+        familyLine: "Supporting organisation (optional)",
+        date: "Date",
+        time: "Time",
+        venue: "Venue",
+        location: "Location",
+        dressCode: "Dress code (optional)",
+        ceremonyNote: "Event note (optional)",
+        receptionNote: "Gathering note (optional)",
+        footer: "Footer note",
+      };
     default:
       return {
         name1: "Host name",
@@ -105,7 +124,7 @@ export function getInviteFieldLabel(
   if (fieldCfg?.label) return fieldCfg.label;
 
   const eventTypeKey = (
-    ["wedding", "introduction", "funeral", "other"] as const
+    ["wedding", "introduction", "funeral", "charity", "other"] as const
   ).includes(eventType as EventType)
     ? (eventType as EventType)
     : "other";
@@ -128,6 +147,8 @@ export function defaultInviteFooter(eventType: EventType | string): string {
       return "Your presence is requested";
     case "funeral":
       return "Condolences and support welcome";
+    case "charity":
+      return "Your support makes a difference";
     default:
       return "We hope you can join us";
   }

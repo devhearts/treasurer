@@ -150,6 +150,7 @@ export default function AccountTransactionsList({
   const [filterLoading, setFilterLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const loadingRef = useRef(false);
 
   const activeEventId = selectedEventId || undefined;
 
@@ -172,7 +173,8 @@ export default function AccountTransactionsList({
   }, []);
 
   const loadMore = useCallback(async () => {
-    if (!hasMore || loading || filterLoading || !cursor) return;
+    if (!hasMore || loadingRef.current || filterLoading || !cursor) return;
+    loadingRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -187,13 +189,14 @@ export default function AccountTransactionsList({
     } catch {
       setError("Could not load more transactions.");
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
-  }, [activeEventId, cursor, filterLoading, hasMore, loading]);
+  }, [activeEventId, cursor, filterLoading, hasMore]);
 
   useEffect(() => {
     const el = sentinelRef.current;
-    if (!el || !hasMore) return;
+    if (!el || !hasMore || filterLoading) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -203,7 +206,7 @@ export default function AccountTransactionsList({
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [hasMore, loadMore]);
+  }, [filterLoading, hasMore, loadMore, transactions.length]);
 
   const showEventFilter = eventFilterOptions.length > 0;
   const header = (

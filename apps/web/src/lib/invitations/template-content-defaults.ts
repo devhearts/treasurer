@@ -11,7 +11,7 @@ import { defaultInviteFooter } from "./content-labels";
 
 type EventSlice = Pick<
   CeremonyEvent,
-  "title" | "organizer" | "date" | "location" | "type" | "description"
+  "title" | "organizer" | "date" | "location" | "type" | "typeLabel" | "description"
 >;
 
 export function defaultTemplateForEvent(eventType: EventType | string): InviteTemplateId {
@@ -22,6 +22,8 @@ export function defaultTemplateForEvent(eventType: EventType | string): InviteTe
       return "minimal";
     case "funeral":
       return "memorial";
+    case "charity":
+      return "celebrate";
     default:
       return "celebrate";
   }
@@ -134,6 +136,7 @@ export function templateContentDefaults(
 ): Partial<InviteCardContent> {
   const def = getInviteTemplate(templateId);
   const type = event.type;
+  const typeLabel = getEventTypeLabel(event.type, event.typeLabel);
   const { name1, name2 } = namesFromEvent(event);
   const title = event.title.trim();
   const org = event.organizer.trim();
@@ -178,7 +181,7 @@ export function templateContentDefaults(
       return {
         name1,
         name2,
-        headline: getEventTypeLabel(type),
+        headline: typeLabel,
         date: fmtDate,
         venue,
         location: locationLine,
@@ -220,7 +223,7 @@ export function templateContentDefaults(
       return {
         name1,
         name2,
-        headline: getEventTypeLabel(type),
+        headline: typeLabel,
         subtitle: "We would love to see you there",
         date: fmtDate,
         venue,
@@ -236,7 +239,7 @@ export function templateContentDefaults(
           ? "Wedding"
           : type === "other"
             ? "Birthday"
-            : getEventTypeLabel(type);
+            : typeLabel;
       return {
         name1: name1.toUpperCase(),
         name2: name2 ? name2.toUpperCase() : "",
@@ -280,7 +283,7 @@ export function templateContentDefaults(
       }
       return {
         name1: title || name1,
-        headline: title || getEventTypeLabel(type),
+        headline: title || typeLabel,
         hostLine: org ? `Presented by ${org}` : "You are invited",
         date: fmtDate,
         venue,
@@ -299,7 +302,7 @@ export function templateContentDefaults(
             ? "Wedding celebration"
             : type === "other"
               ? "Baby shower"
-              : getEventTypeLabel(type),
+              : typeLabel,
         subtitle: type === "other" ? "Oh baby!" : "Come celebrate with us",
         date: fmtDate,
         venue,
@@ -316,7 +319,7 @@ export function templateContentDefaults(
       return {
         name1: (title.split(/\s+/)[0] || name1).toUpperCase().replace(/\s/g, "_"),
         name2: name2 ? name2.toUpperCase().replace(/\s/g, "_") : "",
-        headline: (title || getEventTypeLabel(type)).toUpperCase(),
+        headline: (title || typeLabel).toUpperCase(),
         tagline: "ACCESS GRANTED",
         hostLine: org ? org.toUpperCase() : undefined,
         date: iso ? iso.replace(/-/g, ".") : fmtDate,
@@ -420,7 +423,7 @@ export function templateContentDefaults(
         name1,
         name2,
         subtitle: "PLEASE SAVE THE DATE FOR",
-        tagline: (title || getEventTypeLabel(type)).toUpperCase(),
+        tagline: (title || typeLabel).toUpperCase(),
         date: iso,
         time: "",
         venue,
@@ -441,8 +444,8 @@ export function templateContentDefaults(
         tagline:
           type === "other" && title
             ? title.replace(/\bfundraiser\b/i, "Annual Fundraiser")
-            : `${getEventTypeLabel(type)} Event`,
-        headline: (title || getEventTypeLabel(type)).toUpperCase(),
+            : `${typeLabel} Event`,
+        headline: (title || typeLabel).toUpperCase(),
         date: formatWeekdayComma(event.date),
         time: `${formatMonthDayUpper(event.date)}${iso ? " AT 8:00 PM" : ""}`,
         venue: (venue || "VENUE TBA").toUpperCase(),

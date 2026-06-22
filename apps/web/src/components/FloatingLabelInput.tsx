@@ -13,6 +13,8 @@ interface FloatingLabelInputProps {
   hint?: string;
   inputMode?: "numeric" | "text";
   min?: number;
+  maxLength?: number;
+  className?: string;
 }
 
 export default function FloatingLabelInput({
@@ -26,13 +28,15 @@ export default function FloatingLabelInput({
   hint,
   inputMode,
   min,
+  maxLength,
+  className,
 }: FloatingLabelInputProps) {
   const [focused, setFocused] = useState(false);
   const hasValue = value.trim().length > 0;
   const float = focused || hasValue;
 
   return (
-    <div className="relative">
+    <div className={className}>
       <div className="relative">
         <input
           id={id}
@@ -45,6 +49,7 @@ export default function FloatingLabelInput({
           placeholder={float ? undefined : placeholder}
           inputMode={inputMode}
           min={min}
+          maxLength={maxLength}
           aria-describedby={hint ? `${id}-hint` : undefined}
           className="peer w-full border border-muted/50 rounded-lg px-4 pt-5 pb-2 h-14 text-surface placeholder-transparent focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent text-base bg-light"
         />

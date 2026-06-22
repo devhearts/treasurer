@@ -15,6 +15,7 @@
 - **API** ([`event-lifecycle.ts`](apps/api/src/events/event-lifecycle.ts)): contribution gate (`assertEventAcceptsContributions`); treasurer transitions in [`EventsService`](apps/api/src/events/events.service.ts) — **`POST events/by-slug/:slug/{pause,resume,stop}`** (owner, session). **`stop`** requires a message (max 500 chars); permanent. [`PaymentsService`](apps/api/src/payments/payments.service.ts) gates **`initiateContribution`** and **`finalizeContribution`**; in-flight MoMo that succeeds after pause/stop/suspend returns **`FAILED`** (no contribution row).
 - **Admin CLI**: `npm run event-admin -w @treasurer/api` or `npm run docker:event-admin -- {suspend,unsuspend,show,list}` ([`event-admin-cli.ts`](apps/api/src/events/event-admin-cli.ts)). Suspend stores `pre_suspend_status` + `suspend_reason` (admin-only); unsuspend restores prior status.
 - **Web**: [`EventLifecycleControls`](apps/web/src/app/app/events/[slug]/EventLifecycleControls.tsx) on owner Contributions tab; [`EventStatusNotice`](apps/web/src/components/EventStatusNotice.tsx) replaces contribute form when not active; status badges on [`EventRow`](apps/web/src/components/EventRow.tsx). Helpers in [`event-lifecycle.ts`](apps/web/src/lib/event-lifecycle.ts).
+- **Progress report PDF** ([`0012_event_progress_reports.sql`](apps/api/drizzle/0012_event_progress_reports.sql)): stopped events only; owner requests async PDF via **`POST/GET events/by-slug/:slug/progress-report`** and downloads **`GET .../progress-report/download`**. PDF stored in Garage (`events/{eventId}/progress-reports/{id}.pdf`); server generation with **pdfkit** ([`event-progress-report-pdf.ts`](apps/api/src/events/event-progress-report-pdf.ts)). UI: [`EventProgressReportPanel`](apps/web/src/components/EventProgressReportPanel.tsx) in lifecycle controls — poll while pending, download + regenerate when ready.
 
 ## Recent: Account verification (KYC-lite)
 
@@ -161,10 +162,16 @@
 - **Grouping** ([`event-lifecycle.ts`](apps/web/src/lib/event-lifecycle.ts)): `groupEventsByTreasurerSection` — **active** (default), **inactive** (paused), **archived** (stopped/suspended). Empty sections hidden.
 - **UI**: [`TreasurerEventSections`](apps/web/src/components/TreasurerEventSections.tsx) used on [`/app/events`](apps/web/src/app/app/events/EventsList.tsx) (with type filter tabs) and app home [`HomeEventsList`](apps/web/src/components/HomeEventsList.tsx) (active capped at 5 on home). **Archived** section is collapsible (`<details>`) and **collapsed by default**.
 
+## Recent: CeremonyWallet favicon (web)
+
+- **`apps/web/src/app/icon.svg`**: green wallet app icon (Next.js auto-serves as `/icon.svg`).
+- **`favicon.ico`** and **`apple-icon.png`** regenerated from `icon.svg` so browser tabs and iOS home-screen bookmarks no longer show the default Next.js/Vercel triangle.
+- In-app branding uses stroke **`IconWallet`** in navbars and auth pages (unchanged).
+
 ## Recent: Event terminology (user-facing labels)
 
 - **Social events** replaces "Ugandan social events" in marketing copy and legal text.
-- Event type labels ([`EVENT_TYPE_LABELS`](apps/web/src/lib/data.ts)): **Give away, Introductions** (`introduction`), **Condolences** (`funeral`), **Fundraising tithe, offertories** (`other`). Filter tabs use shorter **Introductions** / **Condolences** via `EVENT_TYPE_FILTER_LABELS`. Internal enum values (`wedding` \| `introduction` \| `funeral` \| `other`) unchanged.
+- Event type labels ([`EVENT_TYPE_LABELS`](apps/web/src/lib/data.ts)): **Give away, Introductions** (`introduction`), **Condolences** (`funeral`), **Charity** (`charity`), **Fundraising tithe, offertories** (`other`). Filter tabs use shorter **Introductions** / **Condolences** / **Charity** via `EVENT_TYPE_FILTER_LABELS`. Internal enum values (`wedding` \| `introduction` \| `funeral` \| `charity` \| `other`). When **`other`** is selected, create/edit wizards require a custom **`typeLabel`** (max 48 chars, DB column `type_label`); [`getEventTypeLabel`](apps/web/src/lib/data.ts) shows it everywhere instead of the generic “other” label.
 
 ## Recent: Owner event edit (3-step wizard)
 - **API**: **`GET events/by-slug/:slug/for-edit`** (session) returns **`{ event, imageGarageKeys }`** or **404** if missing or not owner. **`PATCH events/by-slug/:slug`** updates core fields + optional **`imageUrls`** (Garage keys validated with `headObject`); removed keys are deleted from Garage after commit; budget row updated when `targetAmount` set; audit `event.updated`. Implementation in [`events.service.ts`](apps/api/src/events/events.service.ts) / [`events.controller.ts`](apps/api/src/events/events.controller.ts).

@@ -129,6 +129,7 @@ export const EVENT_TYPE_LABELS: Record<string, string> = {
   wedding: "Wedding",
   introduction: "Give away, Introductions",
   funeral: "Condolences",
+  charity: "Charity",
   other: "Fundraising tithe, offertories",
 };
 
@@ -137,14 +138,24 @@ export const EVENT_TYPE_FILTER_LABELS: Record<string, string> = {
   wedding: "Weddings",
   introduction: "Introductions",
   funeral: "Condolences",
+  charity: "Charity",
 };
 
-export function getEventTypeLabel(type: string): string {
+export const OTHER_EVENT_TYPE_LABEL_MAX = 48;
+
+export function getEventTypeLabel(
+  type: string,
+  typeLabel?: string | null
+): string {
+  if (type === "other" && typeLabel?.trim()) {
+    return typeLabel.trim();
+  }
   return EVENT_TYPE_LABELS[type] ?? "Ceremony";
 }
 
 export function getEventTypeKey(type: string): string {
-  return type in { wedding: 1, introduction: 1, funeral: 1, other: 1 }
+  return type in
+    { wedding: 1, introduction: 1, funeral: 1, charity: 1, other: 1 }
     ? type
     : "other";
 }

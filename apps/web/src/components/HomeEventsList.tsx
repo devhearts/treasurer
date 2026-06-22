@@ -46,7 +46,7 @@ function HomeEventRow({ event }: { event: CeremonyEvent }) {
       <div className="min-w-0 flex-1">
         <p className="font-semibold text-surface truncate">{event.title}</p>
         <p className="text-xs text-muted">
-          {getEventTypeLabel(event.type)} · {formatUGX(event.raisedAmount)} raised
+          {getEventTypeLabel(event.type, event.typeLabel)} · {formatUGX(event.raisedAmount)} raised
         </p>
       </div>
       <span
