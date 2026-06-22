@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { IconList, IconUser, IconWallet } from "./Icons";
+import { usePathname, useRouter } from "next/navigation";
+import { IconInvite, IconList, IconUser, IconWallet } from "./Icons";
 import { clearSession } from "@/app/actions/auth";
 
 interface NavbarProfileProps {
@@ -12,11 +12,19 @@ interface NavbarProfileProps {
   balanceCompact: string;
 }
 
+function eventSlugFromPathname(pathname: string | null): string | null {
+  if (!pathname) return null;
+  const match = /^\/app\/events\/([^/]+)/.exec(pathname);
+  return match?.[1] ?? null;
+}
+
 export default function NavbarProfile({
   sessionLabel,
   balanceCompact,
 }: NavbarProfileProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const eventSlug = eventSlugFromPathname(pathname);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -75,6 +83,17 @@ export default function NavbarProfile({
             </span>
           </Link>
           <div className="border-t border-muted/20 my-1 sm:hidden" />
+          {eventSlug ? (
+            <Link
+              href={`/app/events/${eventSlug}/invite`}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 px-4 py-2 text-sm text-surface hover:bg-muted/10"
+            >
+              <IconInvite className="w-4 h-4 text-accent" aria-hidden />
+              <span className="sm:hidden">Invitations</span>
+              <span className="hidden sm:inline">Invitation cards</span>
+            </Link>
+          ) : null}
           <Link
             href="/app/profile"
             onClick={() => setOpen(false)}

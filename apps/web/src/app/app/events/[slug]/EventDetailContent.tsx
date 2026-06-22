@@ -21,7 +21,6 @@ import {
   IconBack,
   IconShare,
   IconCopy,
-  IconInvite,
 } from "@/components/Icons";
 import {
   buildEventShareBlurb,
@@ -511,16 +510,6 @@ export default function EventDetailContent({
                 {!hasEventPhotos ? heroBlock : null}
                 {shareRow}
                 {aboutBudget}
-                <div className="mt-4">
-                  <Link
-                    href={`/app/events/${event.slug}/invite`}
-                    className="flex items-center justify-center gap-2 p-4 rounded-xl border border-muted/30 text-surface font-medium hover:bg-muted/10"
-                  >
-                    <IconInvite className="w-5 h-5 text-accent" />
-                    <span className="sm:hidden">Invitations</span>
-                    <span className="hidden sm:inline">Invitation cards</span>
-                  </Link>
-                </div>
                 <p className="text-center text-sm text-muted mt-6 mb-2">
                   Use <strong className="text-surface">Milestones</strong> for sub-goals, or <strong className="text-surface">Contributions</strong> to pay and record receipts.
                 </p>
