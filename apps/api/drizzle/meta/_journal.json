@@ -92,6 +92,13 @@
       "when": 1779700000000,
       "tag": "0012_event_type_label",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1779800000000,
+      "tag": "0013_event_progress_reports",
+      "breakpoints": true
     }
   ]
 }
