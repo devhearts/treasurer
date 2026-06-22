@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getMyEvents } from "@/app/actions/events";
 import HomeEventsList from "@/components/HomeEventsList";
+import SiteFooter from "@/components/SiteFooter";
 import { groupEventsByTreasurerSection } from "@/lib/event-lifecycle";
 
 export default async function AppHome() {
@@ -68,13 +69,7 @@ export default async function AppHome() {
           <HomeEventsList events={events} activeLimit={5} />
         </section>
       )}
-      <footer className="bg-surface text-light/70 py-6 mt-8">
-        <div className="max-w-lg mx-auto px-4 text-center text-sm">
-          <span className="font-semibold text-light">CeremonyWallet</span>
-          <span className="mx-2">·</span>
-          <span>Making fundraising seamless.</span>
-        </div>
-      </footer>
+      <SiteFooter className="mt-8" />
     </main>
   );
 }

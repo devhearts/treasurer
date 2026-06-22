@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import EventDetailContent from "@/app/app/events/[slug]/EventDetailContent";
+import SiteFooter from "@/components/SiteFooter";
 import {
   paymentCtaLabel,
   paymentNetworksForKind,
@@ -90,15 +91,18 @@ export default async function PublicEventPage({
   );
 
   return (
-    <EventDetailContent
-      key={`${event.id}-${allocateToMilestoneId ?? ""}`}
-      event={event}
-      isPublicView
-      momoConfigured={cfg.paymentsConfigured}
-      paymentProcessorKind={cfg.processorKind}
-      payButtonLabel={paymentCtaLabel(cfg.processorKind)}
-      payerPhoneLabel={`${paymentNetworksText(networks)} number (paying wallet)`}
-      allocateToMilestoneId={allocateToMilestoneId}
-    />
+    <div className="min-h-screen flex flex-col bg-light">
+      <EventDetailContent
+        key={`${event.id}-${allocateToMilestoneId ?? ""}`}
+        event={event}
+        isPublicView
+        momoConfigured={cfg.paymentsConfigured}
+        paymentProcessorKind={cfg.processorKind}
+        payButtonLabel={paymentCtaLabel(cfg.processorKind)}
+        payerPhoneLabel={`${paymentNetworksText(networks)} number (paying wallet)`}
+        allocateToMilestoneId={allocateToMilestoneId}
+      />
+      <SiteFooter />
+    </div>
   );
 }

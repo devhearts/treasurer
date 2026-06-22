@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { IconWallet } from "@/components/Icons";
+import SiteFooter from "@/components/SiteFooter";
 import CheckEmailActions from "./CheckEmailActions";
 
 export const metadata = {
@@ -53,6 +54,8 @@ export default async function CheckEmailPage({
           </Link>
         </p>
       </div>
+
+      <SiteFooter />
     </main>
   );
 }

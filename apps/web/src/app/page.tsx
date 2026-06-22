@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { IconWallet } from "@/components/Icons";
+import SiteFooter from "@/components/SiteFooter";
 
 export default function LandingPage() {
   return (
@@ -51,20 +52,7 @@ export default function LandingPage() {
         </p>
       </section>
 
-      <footer className="bg-surface text-light/70 py-6 mt-auto">
-        <div className="max-w-lg mx-auto px-4 text-center text-sm space-y-2">
-          <p>
-            <span className="font-semibold text-light">CeremonyWallet</span>
-            <span className="mx-2">·</span>
-            <span>Making fundraising seamless.</span>
-          </p>
-          <p>
-            <Link href="/terms" className="text-light/90 hover:text-light hover:underline">
-              Terms and Conditions
-            </Link>
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </main>
   );
 }

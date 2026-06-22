@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { IconWallet } from "@/components/Icons";
+import SiteFooter from "@/components/SiteFooter";
 import RegisterForm from "./RegisterForm";
 
 export const metadata = {
@@ -33,6 +34,8 @@ export default function RegisterPage() {
           </Link>
         </p>
       </div>
+
+      <SiteFooter />
     </main>
   );
 }

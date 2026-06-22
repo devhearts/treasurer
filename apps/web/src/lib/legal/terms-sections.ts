@@ -1,5 +1,7 @@
 /** CeremonyWallet Terms and Conditions — source: repo root terms.txt */
 
+import { SUPPORT_EMAIL } from "@/lib/site";
+
 export type TermsSection = {
   title: string;
   paragraphs?: string[];
@@ -57,7 +59,7 @@ export const TERMS_SECTIONS: TermsSection[] = [
           "Provide accurate, complete, and current information during registration.",
           "Maintain the accuracy of your registration information and update it promptly when it changes.",
           "Keep your account credentials (username, password, and any PIN or authentication codes) confidential and secure.",
-          "Immediately notify us at support@ceremonywallet.com if you suspect any unauthorised access to your account.",
+          `Immediately notify us at ${SUPPORT_EMAIL} if you suspect any unauthorised access to your account.`,
         ],
       },
       {
@@ -148,7 +150,7 @@ export const TERMS_SECTIONS: TermsSection[] = [
     list: [
       "If a ceremony is cancelled by the Organiser, the Organiser is responsible for communicating with contributors and making arrangements for refunds directly.",
       "CeremonyWallet may, at its sole discretion, facilitate refunds in cases of proven fraud, duplicate transactions, or technical errors.",
-      "All refund requests must be submitted in writing to support@ceremonywallet.com within 14 days of the original transaction.",
+      `All refund requests must be submitted in writing to ${SUPPORT_EMAIL} within 14 days of the original transaction.`,
       "Refunds, where approved, will be processed within 7–14 business days and are subject to any applicable Payment Provider reversal fees.",
     ],
   },
@@ -254,7 +256,7 @@ export const TERMS_SECTIONS: TermsSection[] = [
   {
     title: "15. Termination",
     paragraphs: [
-      "CeremonyWallet may, at its sole discretion, suspend, restrict, or terminate your access to the Platform at any time without prior notice if we reasonably determine that you have breached these Terms, engaged in fraudulent activity, or if required to do so by applicable law or regulation. You may terminate your account at any time by contacting us at support@ceremonywallet.com. Termination does not relieve you of any obligations or liabilities incurred prior to termination. Sections 9, 10, 11, 12, 13, and 18 shall survive any termination of these Terms.",
+      `CeremonyWallet may, at its sole discretion, suspend, restrict, or terminate your access to the Platform at any time without prior notice if we reasonably determine that you have breached these Terms, engaged in fraudulent activity, or if required to do so by applicable law or regulation. You may terminate your account at any time by contacting us at ${SUPPORT_EMAIL}. Termination does not relieve you of any obligations or liabilities incurred prior to termination. Sections 9, 10, 11, 12, 13, and 18 shall survive any termination of these Terms.`,
     ],
   },
   {
@@ -318,7 +320,7 @@ export const TERMS_SECTIONS: TermsSection[] = [
     list: [
       "CeremonyWallet",
       "Website: https://ceremonywallet.com",
-      "General Support: support@ceremonywallet.com",
+      `General Support: ${SUPPORT_EMAIL}`,
       "Legal Matters: legal@ceremonywallet.com",
       "Privacy Inquiries: privacy@ceremonywallet.com",
     ],

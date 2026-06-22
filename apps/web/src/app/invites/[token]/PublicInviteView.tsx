@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import SiteFooter from "@/components/SiteFooter";
 import InviteCardPreview from "@/components/invitations/InviteCardPreview";
 import { eventHasGalleryPhoto } from "@/lib/invitations/invite-photo";
 import type { PublicInvitePayload, RsvpStatus } from "@/lib/invitations/types";
@@ -275,10 +276,10 @@ export default function PublicInviteView({
             View event page →
           </Link>
         </div>
+      </div>
 
-        <p className="text-center text-[11px] text-muted mt-8 print:hidden">
-          CeremonyWallet
-        </p>
+      <div className="print:hidden">
+        <SiteFooter />
       </div>
     </div>
   );

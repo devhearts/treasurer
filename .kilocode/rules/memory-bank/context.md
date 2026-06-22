@@ -159,7 +159,7 @@
 ## Recent: Treasurer event list sections
 
 - **Grouping** ([`event-lifecycle.ts`](apps/web/src/lib/event-lifecycle.ts)): `groupEventsByTreasurerSection` — **active** (default), **inactive** (paused), **archived** (stopped/suspended). Empty sections hidden.
-- **UI**: [`TreasurerEventSections`](apps/web/src/components/TreasurerEventSections.tsx) used on [`/app/events`](apps/web/src/app/app/events/EventsList.tsx) (with type filter tabs) and app home [`HomeEventsList`](apps/web/src/components/HomeEventsList.tsx) (active capped at 5 on home).
+- **UI**: [`TreasurerEventSections`](apps/web/src/components/TreasurerEventSections.tsx) used on [`/app/events`](apps/web/src/app/app/events/EventsList.tsx) (with type filter tabs) and app home [`HomeEventsList`](apps/web/src/components/HomeEventsList.tsx) (active capped at 5 on home). **Archived** section is collapsible (`<details>`) and **collapsed by default**.
 
 ## Recent: Event terminology (user-facing labels)
 
