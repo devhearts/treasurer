@@ -1,9 +1,11 @@
+import { formatUGX } from "../common/format-ugx";
 import {
-  formatCalendarDate,
-  formatDateTime,
-  formatUGX,
-  progressPercent,
-} from "../common/format-ugx";
+  buildFinancialSummaryRows,
+  formatProgressDisplay,
+  formatReportCalendarDate,
+  formatReportDateTime,
+  formatReportTimestamp,
+} from "./event-progress-report-format";
 import type {
   ProgressReportContributionRow,
   ProgressReportData,
@@ -295,28 +297,38 @@ function paidStatusLabel(c: ProgressReportContributionRow): string {
   return "Paid";
 }
 
-function pledgedStatusLabel(c: ProgressReportContributionRow): string {
+function pledgedStatusLabel(
+  c: ProgressReportContributionRow,
+  timeZone: string
+): string {
   if (c.pledgeHopeBy) {
-    return `Pledged · by ${formatCalendarDate(c.pledgeHopeBy, "short")}`;
+    return `Pledged · by ${formatReportCalendarDate(c.pledgeHopeBy, timeZone, "short")}`;
   }
   return "Pledged";
 }
 
 function renderMilestoneRow(m: ProgressReportMilestoneRow): string {
-  const pct = progressPercent(m.raisedAmount, m.targetAmount);
+  const progressLabel = formatProgressDisplay(m.raisedAmount, m.targetAmount);
+  const barWidth =
+    m.targetAmount > 0
+      ? Math.min(100, Math.round((m.raisedAmount / m.targetAmount) * 100))
+      : 0;
+  const progressText =
+    progressLabel === "—" ? "—" : `${progressLabel} complete`;
   return `
     <div class="milestone-row">
       <div class="milestone-top">
         <span class="milestone-name">${escapeHtml(m.name)}</span>
         <span class="milestone-figures"><b>${escapeHtml(formatUGX(m.raisedAmount))}</b> of ${escapeHtml(formatUGX(m.targetAmount))}</span>
       </div>
-      <div class="bar-track"><div class="bar-fill" style="width: ${pct}%;"></div></div>
-      <div class="milestone-pct">${pct}% complete</div>
+      <div class="bar-track"><div class="bar-fill" style="width: ${barWidth}%;"></div></div>
+      <div class="milestone-pct">${escapeHtml(progressText)}</div>
     </div>`;
 }
 
 function renderCashContributionRows(
-  items: ProgressReportContributionRow[]
+  items: ProgressReportContributionRow[],
+  timeZone: string
 ): string {
   return items
     .map(
@@ -325,14 +337,15 @@ function renderCashContributionRows(
               <td class="muted-cell">${escapeHtml(c.name)}</td>
               <td class="amount">${escapeHtml(formatUGX(c.amount))}</td>
               <td><span class="status-chip paid">${escapeHtml(paidStatusLabel(c))}</span></td>
-              <td class="muted-cell">${escapeHtml(formatCalendarDate(c.date, "short"))}</td>
+              <td class="muted-cell">${escapeHtml(formatReportTimestamp(c.recordedAt, timeZone, c.recordedAtHasTime))}</td>
             </tr>`
     )
     .join("");
 }
 
 function renderPledgedContributionRows(
-  items: ProgressReportContributionRow[]
+  items: ProgressReportContributionRow[],
+  timeZone: string
 ): string {
   return items
     .map(
@@ -340,19 +353,22 @@ function renderPledgedContributionRows(
             <tr>
               <td class="muted-cell">${escapeHtml(c.name)}</td>
               <td class="amount">${escapeHtml(formatUGX(c.amount))}</td>
-              <td><span class="status-chip pledged">${escapeHtml(pledgedStatusLabel(c))}</span></td>
+              <td><span class="status-chip pledged">${escapeHtml(pledgedStatusLabel(c, timeZone))}</span></td>
               <td class="muted-cell">${escapeHtml(c.milestoneName ?? "—")}</td>
             </tr>`
     )
     .join("");
 }
 
-function renderWithdrawalRows(items: ProgressReportWithdrawalRow[]): string {
+function renderWithdrawalRows(
+  items: ProgressReportWithdrawalRow[],
+  timeZone: string
+): string {
   return items
     .map(
       (w) => `
             <tr>
-              <td class="muted-cell">${escapeHtml(formatCalendarDate(w.createdAt, "short"))}</td>
+              <td class="muted-cell">${escapeHtml(formatReportDateTime(w.createdAt, timeZone))}</td>
               <td class="muted-cell">${escapeHtml(w.reference)}</td>
               <td class="muted-cell">${escapeHtml(w.methodLabel)}</td>
               <td class="muted-cell">${escapeHtml(w.status)}</td>
@@ -364,18 +380,31 @@ function renderWithdrawalRows(items: ProgressReportWithdrawalRow[]): string {
 
 export function buildProgressReportHtml(data: ProgressReportData): string {
   const { event } = data;
-  const eventProgress = progressPercent(event.raisedAmount, event.targetAmount);
+  const timeZone = data.timeZone;
   const paid = data.contributions.filter((c) => c.status === "paid");
   const pledged = data.contributions.filter((c) => c.status === "pledged");
   const typeLabel = formatEventTypeLabel(event.type, event.typeLabel);
   const { withdrawSummary } = data;
+  const financialSummaryRows = buildFinancialSummaryRows({
+    targetAmount: event.targetAmount,
+    raisedAmount: event.raisedAmount,
+    paidCount: paid.length,
+    pledgedCount: pledged.length,
+    withdrawnSoFar: withdrawSummary.withdrawnSoFar,
+    cashBreakdown: data.cashBreakdown,
+  })
+    .map(
+      (row) =>
+        `<tr><td class="label">${escapeHtml(row.label)}</td><td class="value${row.accent ? " accent" : ""}">${escapeHtml(row.value)}</td></tr>`
+    )
+    .join("");
 
   const stopMessageRow = event.statusMessage?.trim()
     ? `<tr class="stop-row"><td class="label" colspan="2">"${escapeHtml(event.statusMessage.trim())}"</td></tr>`
     : "";
 
   const stoppedOnRow = event.statusChangedAt
-    ? `<tr><td class="label">Stopped on</td><td class="value">${escapeHtml(formatDateTime(event.statusChangedAt))}</td></tr>`
+    ? `<tr><td class="label">Stopped on</td><td class="value">${escapeHtml(formatReportDateTime(event.statusChangedAt, timeZone))}</td></tr>`
     : "";
 
   const milestonesSection =
@@ -398,10 +427,10 @@ export function buildProgressReportHtml(data: ProgressReportData): string {
         </div>
         <table class="contrib-table">
           <thead>
-            <tr><th>Contributor</th><th>Amount</th><th>Status</th><th>Date</th></tr>
+            <tr><th>Contributor</th><th>Amount</th><th>Status</th><th>Date &amp; time</th></tr>
           </thead>
           <tbody>
-            ${renderCashContributionRows(paid)}
+            ${renderCashContributionRows(paid, timeZone)}
           </tbody>
         </table>
       </div>`
@@ -421,7 +450,7 @@ export function buildProgressReportHtml(data: ProgressReportData): string {
             <tr><th>Contributor</th><th>Amount</th><th>Status</th><th>Milestone</th></tr>
           </thead>
           <tbody>
-            ${renderPledgedContributionRows(pledged)}
+            ${renderPledgedContributionRows(pledged, timeZone)}
           </tbody>
         </table>
       </div>`
@@ -443,10 +472,10 @@ export function buildProgressReportHtml(data: ProgressReportData): string {
       <div class="sub-block">
         <table class="withdraw-table">
           <thead>
-            <tr><th>Date</th><th>Reference</th><th>Method</th><th>Status</th><th>Net</th></tr>
+            <tr><th>Date &amp; time</th><th>Reference</th><th>Method</th><th>Status</th><th>Net</th></tr>
           </thead>
           <tbody>
-            ${renderWithdrawalRows(data.withdrawals)}
+            ${renderWithdrawalRows(data.withdrawals, timeZone)}
           </tbody>
         </table>
       </div>`
@@ -469,7 +498,7 @@ export function buildProgressReportHtml(data: ProgressReportData): string {
 
   <div class="doc-head">
     <span class="doc-title">Ceremony<span>Wallet</span> · Event Progress Report</span>
-    <span class="doc-gen">Generated on ${escapeHtml(formatDateTime(data.generatedAt))}</span>
+    <span class="doc-gen">Generated on ${escapeHtml(formatReportDateTime(data.generatedAt, timeZone))}</span>
   </div>
 
   <div class="summary-tables">
@@ -480,7 +509,7 @@ export function buildProgressReportHtml(data: ProgressReportData): string {
           <tr><td class="label">Event</td><td class="value">${escapeHtml(event.title)}</td></tr>
           <tr><td class="label">Type</td><td class="value">${escapeHtml(typeLabel)}</td></tr>
           <tr><td class="label">Organizer</td><td class="value">${escapeHtml(event.organizer)}</td></tr>
-          <tr><td class="label">Event date</td><td class="value">${escapeHtml(formatCalendarDate(event.date))}</td></tr>
+          <tr><td class="label">Event date</td><td class="value">${escapeHtml(formatReportCalendarDate(event.date, timeZone))}</td></tr>
           <tr><td class="label">Location</td><td class="value">${escapeHtml(event.location)}</td></tr>
           <tr><td class="label">Treasurer phone</td><td class="value">${escapeHtml(event.treasurerPhone)}</td></tr>
           ${stoppedOnRow}
@@ -492,12 +521,7 @@ export function buildProgressReportHtml(data: ProgressReportData): string {
       <table>
         <caption>Financial summary</caption>
         <tbody>
-          <tr><td class="label">Target</td><td class="value">${escapeHtml(formatUGX(event.targetAmount))}</td></tr>
-          <tr><td class="label">Total raised</td><td class="value accent">${escapeHtml(formatUGX(event.raisedAmount))}</td></tr>
-          <tr><td class="label">Progress</td><td class="value accent">${eventProgress}%</td></tr>
-          <tr><td class="label">Cash contributions</td><td class="value">${paid.length}</td></tr>
-          <tr><td class="label">Pledged contributions</td><td class="value">${pledged.length}</td></tr>
-          <tr><td class="label">Withdrawn so far</td><td class="value">${escapeHtml(formatUGX(withdrawSummary.withdrawnSoFar))}</td></tr>
+          ${financialSummaryRows}
         </tbody>
       </table>
     </div>
@@ -515,7 +539,7 @@ export function buildProgressReportHtml(data: ProgressReportData): string {
 
   <footer>
     <p class="brand">Ceremony<span>Wallet</span></p>
-    <p>Generated on ${escapeHtml(formatDateTime(data.generatedAt))}</p>
+    <p>Generated on ${escapeHtml(formatReportDateTime(data.generatedAt, timeZone))}</p>
     <p>Event slug: ${escapeHtml(data.eventSlug)}</p>
   </footer>
 

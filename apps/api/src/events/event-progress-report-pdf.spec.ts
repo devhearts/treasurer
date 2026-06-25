@@ -6,7 +6,14 @@ import {
 
 const fixture: ProgressReportData = {
   generatedAt: "2026-06-22T10:00:00.000Z",
+  timeZone: "Africa/Kampala",
   eventSlug: "jane-john-wedding",
+  cashBreakdown: {
+    totalCashRaised: 500_000,
+    directToTreasurer: 500_000,
+    platform: 0,
+    hasSplit: true,
+  },
   event: {
     title: "Jane & John Wedding",
     type: "wedding",
@@ -30,13 +37,18 @@ const fixture: ProgressReportData = {
       amount: 500_000,
       status: "paid",
       date: "2026-05-01",
+      recordedAt: "2026-05-01T14:30:00.000Z",
+      recordedAtHasTime: true,
       milestoneName: "Venue",
+      manual: true,
     },
     {
       name: "Anonymous",
       amount: 200_000,
       status: "pledged",
       date: "2026-05-10",
+      recordedAt: "2026-05-10",
+      recordedAtHasTime: false,
       pledgeHopeBy: "2026-06-30",
     },
   ],
@@ -68,7 +80,9 @@ describe("buildProgressReportHtml", () => {
     expect(html).toContain("Jane &amp; John Wedding");
     expect(html).toContain("Cash contributions");
     expect(html).toContain("Pledged contributions");
-    expect(html).toContain("Withdrawals");
+    expect(html).toContain("Total Cash Raised");
+    expect(html).toContain("Total Direct to treasurer");
+    expect(html).toContain("Date &amp; time");
   });
 });
 

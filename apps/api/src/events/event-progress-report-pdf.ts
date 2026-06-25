@@ -1,15 +1,17 @@
 import PDFDocument from "pdfkit";
-import {
-  formatCalendarDate,
-  formatDateTime,
-  formatUGX,
-  progressPercent,
-} from "../common/format-ugx";
+import { formatUGX } from "../common/format-ugx";
 import {
   INTER_BOLD,
   INTER_REGULAR,
   registerInterFonts,
 } from "./event-progress-report-fonts";
+import {
+  buildFinancialSummaryRows,
+  formatProgressDisplay,
+  formatReportCalendarDate,
+  formatReportDateTime,
+  formatReportTimestamp,
+} from "./event-progress-report-format";
 import type {
   ProgressReportContributionRow,
   ProgressReportData,
@@ -63,9 +65,12 @@ function paidStatusLabel(c: ProgressReportContributionRow): string {
   return "Paid";
 }
 
-function pledgedStatusLabel(c: ProgressReportContributionRow): string {
+function pledgedStatusLabel(
+  c: ProgressReportContributionRow,
+  timeZone: string
+): string {
   if (c.pledgeHopeBy) {
-    return `Pledged · by ${formatCalendarDate(c.pledgeHopeBy, "short")}`;
+    return `Pledged · by ${formatReportCalendarDate(c.pledgeHopeBy, timeZone, "short")}`;
   }
   return "Pledged";
 }
@@ -211,12 +216,12 @@ export async function buildProgressReportPdf(
   const doc = new PDFDocument({ size: "A4", margin: 0 });
   registerInterFonts(doc);
   const { event } = data;
-  const eventProgress = progressPercent(event.raisedAmount, event.targetAmount);
+  const timeZone = data.timeZone;
   const paid = data.contributions.filter((c) => c.status === "paid");
   const pledged = data.contributions.filter((c) => c.status === "pledged");
   const typeLabel = formatEventTypeLabel(event.type, event.typeLabel);
   const { withdrawSummary } = data;
-  const generatedOn = `Generated on ${formatDateTime(data.generatedAt)}`;
+  const generatedOn = `Generated on ${formatReportDateTime(data.generatedAt, timeZone)}`;
 
   doc.rect(0, 0, PAGE_WIDTH, 6).fill(COLORS.goldLine);
   doc.y = 6;
@@ -249,14 +254,14 @@ export async function buildProgressReportPdf(
     { label: "Event", value: event.title },
     { label: "Type", value: typeLabel },
     { label: "Organizer", value: event.organizer },
-    { label: "Event date", value: formatCalendarDate(event.date) },
+    { label: "Event date", value: formatReportCalendarDate(event.date, timeZone) },
     { label: "Location", value: event.location },
     { label: "Treasurer phone", value: event.treasurerPhone },
   ];
   if (event.statusChangedAt) {
     leftRows.push({
       label: "Stopped on",
-      value: formatDateTime(event.statusChangedAt),
+      value: formatReportDateTime(event.statusChangedAt, timeZone),
     });
   }
   const leftHeight = drawSummaryTable(
@@ -273,21 +278,14 @@ export async function buildProgressReportPdf(
     MARGIN + colWidth,
     colWidth,
     "Financial summary",
-    [
-      { label: "Target", value: formatUGX(event.targetAmount) },
-      {
-        label: "Total raised",
-        value: formatUGX(event.raisedAmount),
-        accent: true,
-      },
-      { label: "Progress", value: `${eventProgress}%`, accent: true },
-      { label: "Cash contributions", value: String(paid.length) },
-      { label: "Pledged contributions", value: String(pledged.length) },
-      {
-        label: "Withdrawn so far",
-        value: formatUGX(withdrawSummary.withdrawnSoFar),
-      },
-    ]
+    buildFinancialSummaryRows({
+      targetAmount: event.targetAmount,
+      raisedAmount: event.raisedAmount,
+      paidCount: paid.length,
+      pledgedCount: pledged.length,
+      withdrawnSoFar: withdrawSummary.withdrawnSoFar,
+      cashBreakdown: data.cashBreakdown,
+    })
   );
   doc.y = summaryTop + Math.max(leftHeight, rightHeight) + 8;
 
@@ -297,7 +295,7 @@ export async function buildProgressReportPdf(
   if (data.milestones.length > 0) {
     sectionLabel(doc, "Milestones");
     for (const m of data.milestones) {
-      const pct = progressPercent(m.raisedAmount, m.targetAmount);
+      const progressLabel = formatProgressDisplay(m.raisedAmount, m.targetAmount);
       const blockHeight = 54;
       const top = cardBoxStart(doc, blockHeight);
       doc
@@ -319,7 +317,11 @@ export async function buildProgressReportPdf(
       doc
         .roundedRect(MARGIN + 16, barY, CONTENT_WIDTH - 32, 8, 4)
         .fill(COLORS.creamEdge);
-      if (pct > 0) {
+      if (m.targetAmount > 0) {
+        const pct = Math.min(
+          100,
+          Math.round((m.raisedAmount / m.targetAmount) * 100)
+        );
         doc
           .roundedRect(
             MARGIN + 16,
@@ -334,10 +336,15 @@ export async function buildProgressReportPdf(
         .fillColor(COLORS.inkSoft)
         .font(INTER_BOLD)
         .fontSize(8)
-        .text(`${pct}% complete`, MARGIN + 16, barY + 12, {
-          width: CONTENT_WIDTH - 32,
-          align: "right",
-        });
+        .text(
+          progressLabel === "—" ? "—" : `${progressLabel} complete`,
+          MARGIN + 16,
+          barY + 12,
+          {
+            width: CONTENT_WIDTH - 32,
+            align: "right",
+          }
+        );
       doc.y = top + blockHeight + 8;
     }
   }
@@ -360,13 +367,13 @@ export async function buildProgressReportPdf(
           { header: "Contributor", width: CONTENT_WIDTH * 0.28 },
           { header: "Amount", width: CONTENT_WIDTH * 0.18, align: "right" },
           { header: "Status", width: CONTENT_WIDTH * 0.24 },
-          { header: "Date", width: CONTENT_WIDTH * 0.3 },
+          { header: "Date & time", width: CONTENT_WIDTH * 0.3 },
         ],
         paid.map((c) => [
           c.name,
           formatUGX(c.amount),
           paidStatusLabel(c),
-          formatCalendarDate(c.date, "short"),
+          formatReportTimestamp(c.recordedAt, timeZone, c.recordedAtHasTime),
         ])
       );
     }
@@ -389,7 +396,7 @@ export async function buildProgressReportPdf(
         pledged.map((c) => [
           c.name,
           formatUGX(c.amount),
-          pledgedStatusLabel(c),
+          pledgedStatusLabel(c, timeZone),
           c.milestoneName ?? "•",
         ])
       );
@@ -402,14 +409,14 @@ export async function buildProgressReportPdf(
     drawTable(
       doc,
       [
-        { header: "Date", width: CONTENT_WIDTH * 0.16 },
+        { header: "Date & time", width: CONTENT_WIDTH * 0.16 },
         { header: "Reference", width: CONTENT_WIDTH * 0.24 },
         { header: "Method", width: CONTENT_WIDTH * 0.18 },
         { header: "Status", width: CONTENT_WIDTH * 0.14 },
         { header: "Net", width: CONTENT_WIDTH * 0.14, align: "right" },
       ],
       data.withdrawals.map((w) => [
-        formatCalendarDate(w.createdAt, "short"),
+        formatReportDateTime(w.createdAt, timeZone),
         w.reference,
         w.methodLabel,
         w.status,

@@ -1,10 +1,13 @@
 import type { EventWithdrawAvailability } from "../wallet/withdraw-event-availability";
+import type { PaidCashBreakdown } from "./event-progress-report-format";
 
 export type ProgressReportContributionRow = {
   name: string;
   amount: number;
   status: "paid" | "pledged";
   date: string;
+  recordedAt: string;
+  recordedAtHasTime: boolean;
   milestoneName?: string;
   manual?: boolean;
   pledgeHopeBy?: string;
@@ -43,10 +46,12 @@ export type ProgressReportEventDetails = {
 
 export type ProgressReportData = {
   generatedAt: string;
+  timeZone: string;
   eventSlug: string;
   event: ProgressReportEventDetails;
   milestones: ProgressReportMilestoneRow[];
   contributions: ProgressReportContributionRow[];
   withdrawals: ProgressReportWithdrawalRow[];
   withdrawSummary: EventWithdrawAvailability;
+  cashBreakdown: PaidCashBreakdown;
 };
