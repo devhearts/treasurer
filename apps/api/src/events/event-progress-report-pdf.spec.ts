@@ -57,7 +57,7 @@ const fixture: ProgressReportData = {
       createdAt: "2026-06-18T09:00:00.000Z",
       reference: "CW-2026-0618090000",
       status: "completed",
-      methodLabel: "MTN MoMo",
+      methodPhone: "256700000001",
       grossAmount: 1_000_000,
       fees: 52_000,
       netAmount: 948_000,

@@ -27,6 +27,7 @@ import {
 } from "./event-progress-report-pdf";
 import {
   computePaidCashBreakdown,
+  formatWithdrawalMethodPhone,
   hasTimeComponent,
   normalizeReportTimeZone,
 } from "./event-progress-report-format";
@@ -251,7 +252,9 @@ export class EventProgressReportService {
         createdAt: schema.withdrawals.createdAt,
         reference: schema.withdrawals.reference,
         status: schema.withdrawals.status,
-        methodLabel: schema.payoutMethods.label,
+        methodType: schema.payoutMethods.type,
+        methodMsisdn: schema.payoutMethods.msisdn,
+        methodAccountNumber: schema.payoutMethods.accountNumber,
         grossAmount: schema.withdrawals.grossAmount,
         momoFee: schema.withdrawals.momoFee,
         platformFee: schema.withdrawals.platformFee,
@@ -330,7 +333,11 @@ export class EventProgressReportService {
         createdAt: w.createdAt,
         reference: w.reference,
         status: w.status,
-        methodLabel: w.methodLabel ?? "—",
+        methodPhone: formatWithdrawalMethodPhone(
+          w.methodType,
+          w.methodMsisdn,
+          w.methodAccountNumber
+        ),
         grossAmount: w.grossAmount,
         fees: w.momoFee + w.platformFee,
         netAmount: w.netAmount,

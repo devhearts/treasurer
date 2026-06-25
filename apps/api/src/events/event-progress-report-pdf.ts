@@ -412,14 +412,14 @@ export async function buildProgressReportPdf(
         { header: "Date & time", width: CONTENT_WIDTH * 0.16 },
         { header: "Reference", width: CONTENT_WIDTH * 0.24 },
         { header: "Method", width: CONTENT_WIDTH * 0.18 },
-        { header: "Status", width: CONTENT_WIDTH * 0.14 },
+        { header: "Gross", width: CONTENT_WIDTH * 0.14, align: "right" },
         { header: "Net", width: CONTENT_WIDTH * 0.14, align: "right" },
       ],
       data.withdrawals.map((w) => [
         formatReportDateTime(w.createdAt, timeZone),
         w.reference,
-        w.methodLabel,
-        w.status,
+        w.methodPhone,
+        formatUGX(w.grossAmount),
         formatUGX(w.netAmount),
       ])
     );

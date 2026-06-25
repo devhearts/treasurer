@@ -370,8 +370,8 @@ function renderWithdrawalRows(
             <tr>
               <td class="muted-cell">${escapeHtml(formatReportDateTime(w.createdAt, timeZone))}</td>
               <td class="muted-cell">${escapeHtml(w.reference)}</td>
-              <td class="muted-cell">${escapeHtml(w.methodLabel)}</td>
-              <td class="muted-cell">${escapeHtml(w.status)}</td>
+              <td class="muted-cell">${escapeHtml(w.methodPhone)}</td>
+              <td class="amount">${escapeHtml(formatUGX(w.grossAmount))}</td>
               <td class="amount">${escapeHtml(formatUGX(w.netAmount))}</td>
             </tr>`
     )
@@ -472,7 +472,7 @@ export function buildProgressReportHtml(data: ProgressReportData): string {
       <div class="sub-block">
         <table class="withdraw-table">
           <thead>
-            <tr><th>Date &amp; time</th><th>Reference</th><th>Method</th><th>Status</th><th>Net</th></tr>
+            <tr><th>Date &amp; time</th><th>Reference</th><th>Method</th><th>Gross</th><th>Net</th></tr>
           </thead>
           <tbody>
             ${renderWithdrawalRows(data.withdrawals, timeZone)}
