@@ -1,3 +1,4 @@
+import { buildProgressReportHtml } from "./event-progress-report-html";
 import {
   buildProgressReportPdf,
   type ProgressReportData,
@@ -59,6 +60,17 @@ const fixture: ProgressReportData = {
     availableToWithdraw: 1_500_000,
   },
 };
+
+describe("buildProgressReportHtml", () => {
+  it("renders branded sections from report data", () => {
+    const html = buildProgressReportHtml(fixture);
+    expect(html).toContain("Ceremony<span>Wallet</span> · Event Progress Report");
+    expect(html).toContain("Jane &amp; John Wedding");
+    expect(html).toContain("Cash contributions");
+    expect(html).toContain("Pledged contributions");
+    expect(html).toContain("Withdrawals");
+  });
+});
 
 describe("buildProgressReportPdf", () => {
   it("returns a non-empty PDF buffer with valid header", async () => {

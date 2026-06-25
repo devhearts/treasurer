@@ -241,6 +241,7 @@ export class EventProgressReportService {
       event: {
         title: event.title,
         type: event.type,
+        typeLabel: event.typeLabel,
         organizer: event.organizer,
         treasurerPhone: event.treasurerPhone,
         date: event.date,

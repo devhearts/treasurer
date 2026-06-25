@@ -300,6 +300,14 @@ export default function EventDetailContent({
     </div>
   );
 
+  const organisedBy =
+    event.organizer.trim() ? (
+      <div className="bg-light rounded-xl border border-muted/30 mb-4 px-4 py-3 text-sm">
+        <span className="text-muted">Organised by: </span>
+        <span className="text-surface font-medium">{event.organizer.trim()}</span>
+      </div>
+    ) : null;
+
   const aboutBudget = (
     <>
       <details open className="bg-light rounded-xl border border-muted/30 mb-4 overflow-hidden group">
@@ -330,6 +338,8 @@ export default function EventDetailContent({
           </div>
         </details>
       )}
+
+      {organisedBy}
     </>
   );
 
@@ -351,6 +361,7 @@ export default function EventDetailContent({
         contributions={publicContributions}
         raisedAmount={event.raisedAmount}
         targetAmount={event.targetAmount}
+        milestoneItems={event.milestoneItems}
       />
 
       <div id="contribute" ref={contributeRef} className="mt-8">
@@ -530,6 +541,7 @@ export default function EventDetailContent({
                   pledgedCount={pledgedCount}
                   totalCount={event.contributions.length}
                 />
+                {organisedBy}
                 {contributionsBlock}
               </div>
             )}

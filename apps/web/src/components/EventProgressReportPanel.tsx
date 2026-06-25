@@ -6,7 +6,6 @@ import {
   requestProgressReport,
 } from "@/app/actions/events";
 import type { EventProgressReport } from "@/lib/types";
-import { formatCalendarDate } from "@/lib/data";
 
 const POLL_MS = 2500;
 const MAX_POLLS = 48;
@@ -15,8 +14,16 @@ interface EventProgressReportPanelProps {
   eventSlug: string;
 }
 
-function formatReportDate(iso: string): string {
-  return formatCalendarDate(iso, "long");
+function formatReportTimestamp(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("en-UG", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export default function EventProgressReportPanel({
@@ -119,8 +126,8 @@ export default function EventProgressReportPanel({
       {isReady && report.downloadPath && (
         <div className="space-y-2">
           <p className="text-xs text-muted">
-            Generated{" "}
-            {formatReportDate(report.completedAt ?? report.createdAt ?? "")}
+            Generated on{" "}
+            {formatReportTimestamp(report.completedAt ?? report.createdAt ?? "")}
           </p>
           <div className="flex flex-wrap gap-2">
             <a
