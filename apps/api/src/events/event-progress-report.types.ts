@@ -23,7 +23,7 @@ export type ProgressReportWithdrawalRow = {
   createdAt: string;
   reference: string;
   status: string;
-  methodLabel: string;
+  methodPhone: string;
   grossAmount: number;
   fees: number;
   netAmount: number;

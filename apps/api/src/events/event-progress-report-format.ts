@@ -98,6 +98,18 @@ export function computePaidCashBreakdown(
   };
 }
 
+export function formatWithdrawalMethodPhone(
+  methodType: string | null | undefined,
+  msisdn: string | null | undefined,
+  accountNumber?: string | null | undefined
+): string {
+  if (msisdn?.trim()) return msisdn.trim();
+  if (methodType === "bank" && accountNumber?.trim()) {
+    return accountNumber.trim();
+  }
+  return "—";
+}
+
 export function buildFinancialSummaryRows(input: {
   targetAmount: number;
   raisedAmount: number;
