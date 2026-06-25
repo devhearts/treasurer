@@ -23,11 +23,11 @@ import {
   paymentPollingWaitLabel,
   paymentReceivedViaPhrase,
 } from "@/lib/payments";
-import { EVENT_TYPE_LABELS, formatUGX, getEventTypeLabel } from "@/lib/data";
+import { EVENT_TYPE_LABELS, formatUGX, getEventTypeLabel, OTHER_EVENT_TYPE_LABEL_MAX } from "@/lib/data";
 import { validateUgandaPhone } from "@/lib/phone";
 
 const EVENT_TYPES: { value: EventType; label: string }[] = (
-  ["wedding", "introduction", "funeral", "other"] as const
+  ["wedding", "introduction", "funeral", "charity", "other"] as const
 ).map((value) => ({ value, label: EVENT_TYPE_LABELS[value] }));
 
 const MOMO_POLL_MS = 2500;
@@ -85,6 +85,7 @@ export default function CreateEventForm({
   const [loading, setLoading] = useState(false);
 
   const [type, setType] = useState<EventType | null>(null);
+  const [customTypeLabel, setCustomTypeLabel] = useState("");
   const [title, setTitle] = useState("");
   const [organizer, setOrganizer] = useState("");
   const [treasurerPhone, setTreasurerPhone] = useState("");
@@ -254,6 +255,10 @@ export default function CreateEventForm({
       setActivateError("Location is required.");
       return;
     }
+    if (type === "other" && !customTypeLabel.trim()) {
+      setActivateError("Please specify the event type.");
+      return;
+    }
     setLoading(true);
     const imageUrls =
       photosRef.current.length > 0
@@ -276,6 +281,9 @@ export default function CreateEventForm({
       slug,
       title,
       type: type ?? "wedding",
+      ...(type === "other"
+        ? { typeLabel: customTypeLabel.trim() }
+        : {}),
       organizer,
       treasurerPhone,
       description,
@@ -311,7 +319,15 @@ export default function CreateEventForm({
     }
   }
 
-  const typeLabel = type ? EVENT_TYPES.find((t) => t.value === type)?.label : "";
+  const typeLabel =
+    type === "other"
+      ? getEventTypeLabel("other", customTypeLabel)
+      : type
+        ? EVENT_TYPES.find((t) => t.value === type)?.label
+        : "";
+
+  const canContinueFromTypeStep =
+    !!type && (type !== "other" || customTypeLabel.trim().length > 0);
 
   const detailsDateLabel = date
     ? new Date(`${date}T12:00:00`).toLocaleDateString("en-UG", {
@@ -344,7 +360,7 @@ export default function CreateEventForm({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (type) setStep(2);
+            if (canContinueFromTypeStep) setStep(2);
           }}
           className={GRID}
         >
@@ -361,7 +377,10 @@ export default function CreateEventForm({
                   <button
                     key={et.value}
                     type="button"
-                    onClick={() => setType(et.value)}
+                    onClick={() => {
+                      setType(et.value);
+                      if (et.value !== "other") setCustomTypeLabel("");
+                    }}
                     className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all text-left min-h-[56px] ${
                       type === et.value
                         ? "border-accent bg-accent/10 text-surface"
@@ -378,11 +397,23 @@ export default function CreateEventForm({
                   </button>
                 ))}
               </div>
+              {type === "other" && (
+                <FloatingLabelInput
+                  id="customTypeLabel"
+                  label="What type of event is this?"
+                  value={customTypeLabel}
+                  onChange={setCustomTypeLabel}
+                  required
+                  maxLength={OTHER_EVENT_TYPE_LABEL_MAX}
+                  placeholder="e.g. Birthday, Graduation"
+                  className="mt-4"
+                />
+              )}
             </div>
             <div className="p-4 border-t border-muted/20">
               <button
                 type="submit"
-                disabled={!type}
+                disabled={!canContinueFromTypeStep}
                 className="w-full bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:pointer-events-none text-white font-bold py-4 rounded-lg transition-colors"
               >
                 Continue
@@ -630,7 +661,7 @@ export default function CreateEventForm({
             <div className="px-6 py-5 border-t border-muted/20 space-y-3">
               <h2 className="text-lg font-bold text-surface leading-tight">{title}</h2>
               <p className="text-sm text-muted">
-                {getEventTypeLabel(type ?? "wedding")} · {detailsDateLabel}
+                {getEventTypeLabel(type ?? "wedding", customTypeLabel)} · {detailsDateLabel}
                 {location ? ` · ${location}` : ""}
               </p>
               {Number(targetAmount) > 0 && (

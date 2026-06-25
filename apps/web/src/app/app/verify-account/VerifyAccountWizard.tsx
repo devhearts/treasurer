@@ -10,6 +10,7 @@ import {
   submitVerificationWithImages,
   submitVerificationWithSession,
 } from "@/app/actions/verification";
+import { resendVerificationEmail } from "@/app/actions/auth";
 import type { VerificationStatus } from "@/lib/verification/types";
 import { SELFIE_CAPTURE_INSTRUCTIONS } from "@/lib/verification/selfie-instructions";
 import {
@@ -22,6 +23,8 @@ type CaptureMode = "device" | "phone" | null;
 
 interface VerifyAccountWizardProps {
   initialStatus: VerificationStatus;
+  userEmail: string;
+  emailVerified: boolean;
 }
 
 function isDesktopViewport(): boolean {
@@ -31,6 +34,8 @@ function isDesktopViewport(): boolean {
 
 export default function VerifyAccountWizard({
   initialStatus,
+  userEmail,
+  emailVerified,
 }: VerifyAccountWizardProps) {
   const router = useRouter();
   const [status, setStatus] = useState(initialStatus);
@@ -48,6 +53,24 @@ export default function VerifyAccountWizard({
     {}
   );
   const [resubmitting, setResubmitting] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [resendError, setResendError] = useState<string | null>(null);
+
+  async function handleResendVerificationEmail() {
+    setResendMessage(null);
+    setResendError(null);
+    setResendLoading(true);
+    const result = await resendVerificationEmail(userEmail.trim());
+    setResendLoading(false);
+    if (result.success) {
+      setResendMessage(
+        "If this address has an unverified account, we sent another email."
+      );
+    } else {
+      setResendError(result.error);
+    }
+  }
 
   function continueFromDetailsStep() {
     const { valid, errors } = validateVerificationDetails(legalName, phone);
@@ -128,12 +151,34 @@ export default function VerifyAccountWizard({
           Verify your identity to withdraw funds. Complete email verification
           first, then return here to continue.
         </p>
-        <Link
-          href="/app/account"
-          className="inline-flex text-sm font-medium text-accent hover:underline"
-        >
-          Back to account
-        </Link>
+        {resendMessage ? (
+          <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2 mb-4">
+            {resendMessage}
+          </p>
+        ) : null}
+        {resendError ? (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-4">
+            {resendError}
+          </p>
+        ) : null}
+        {!emailVerified ? (
+          <button
+            type="button"
+            disabled={resendLoading || !userEmail.trim()}
+            onClick={() => void handleResendVerificationEmail()}
+            className="w-full bg-accent hover:bg-accent/90 disabled:opacity-50 text-white font-medium py-3 rounded-lg"
+          >
+            {resendLoading ? "Sending…" : "Resend email verification link"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => router.refresh()}
+            className="w-full bg-accent hover:bg-accent/90 text-white font-medium py-3 rounded-lg"
+          >
+            Continue
+          </button>
+        )}
       </StatusCard>
     );
   }

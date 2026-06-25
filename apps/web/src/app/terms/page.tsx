@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { IconWallet } from "@/components/Icons";
+import SiteFooter from "@/components/SiteFooter";
 import TermsContent from "@/components/legal/TermsContent";
 
 export const metadata = {
@@ -39,6 +40,8 @@ export default function TermsPage() {
           </Link>
         </p>
       </div>
+
+      <SiteFooter wide />
     </main>
   );
 }

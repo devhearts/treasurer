@@ -11,12 +11,14 @@ import { formatFeeRatePercent } from "@/lib/wallet/fee-labels";
 import { payoutMethodPayloadFromForm } from "@/lib/wallet/payout-method-validation";
 import type {
   PayoutMethod,
+  WithdrawEventOption,
   WithdrawFeeQuote,
   WithdrawInitiateResult,
   WithdrawPollResult,
 } from "@/lib/wallet/types";
 import {
   deletePayoutMethod,
+  getWithdrawEventOptions,
   initiatePayoutMethodAdd,
   resendPayoutMethodAddOtp,
   updatePayoutMethod,
@@ -34,14 +36,17 @@ import { IconBack } from "@/components/Icons";
 const MOMO_POLL_MS = 2500;
 const MOMO_MAX_POLLS = 48;
 const DEFAULT_WITHDRAW_AMOUNT = 100_000;
+const MIN_WITHDRAW = 5000;
 
-function defaultWithdrawAmount(balance: number): string {
-  return String(Math.min(DEFAULT_WITHDRAW_AMOUNT, Math.max(0, balance)));
+function defaultWithdrawAmount(maxAmount: number): string {
+  return String(Math.min(DEFAULT_WITHDRAW_AMOUNT, Math.max(0, maxAmount)));
 }
 
 interface WithdrawWizardProps {
   initialBalance: number;
   initialMethods: PayoutMethod[];
+  initialEventOptions: WithdrawEventOption[];
+  preselectEventId?: string;
   userEmail: string;
   /** Verified accounts use a single auto-provisioned method; no add/edit/delete. */
   methodsReadOnly?: boolean;
@@ -59,14 +64,92 @@ function isEditFormMode(mode: MethodFormMode): mode is { editId: string } {
   return mode !== null && mode !== "add";
 }
 
+function formatEventWithdrawnLine(event: WithdrawEventOption): string {
+  if (event.withdrawnSoFar > 0 || event.pendingWithdrawals > 0) {
+    const parts = [`Withdrawn ${formatUGX(event.withdrawnSoFar)}`];
+    if (event.pendingWithdrawals > 0) {
+      parts.push(`Pending ${formatUGX(event.pendingWithdrawals)}`);
+    }
+    return parts.join(" · ");
+  }
+  if (event.legacyWithdrawnAttributed > 0) {
+    return `Withdrawn (before tracking) ${formatUGX(event.legacyWithdrawnAttributed)}`;
+  }
+  return `Withdrawn ${formatUGX(0)}`;
+}
+
+function EventOptionButton({
+  event,
+  selected,
+  onSelect,
+}: {
+  event: WithdrawEventOption;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`flex items-center gap-3.5 p-4 rounded-xl border-[1.5px] text-left transition-colors w-full ${
+        selected
+          ? "border-accent bg-lime/10"
+          : "border-muted/30 hover:bg-lime/5"
+      }`}
+    >
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-surface truncate">{event.title}</p>
+        <p className="text-xs text-muted mt-1">
+          Raised {formatUGX(event.platformRaised)} · {formatEventWithdrawnLine(event)}
+        </p>
+        <p className="text-xs text-accent font-medium mt-1">
+          Available {formatUGX(event.availableToWithdraw)}
+        </p>
+      </div>
+      <div
+        className={`w-[18px] h-[18px] rounded-full border-[1.5px] flex-shrink-0 ${
+          selected ? "border-accent bg-accent" : "border-muted/40"
+        }`}
+      >
+        {selected && (
+          <div className="w-2 h-2 bg-white rounded-full m-auto mt-[3px]" />
+        )}
+      </div>
+    </button>
+  );
+}
+
 export default function WithdrawWizard({
   initialBalance,
   initialMethods,
+  initialEventOptions,
+  preselectEventId,
   userEmail,
   methodsReadOnly = false,
 }: WithdrawWizardProps) {
   const router = useRouter();
   const [step, setStep] = useState(1);
+  const [eventOptions, setEventOptions] =
+    useState<WithdrawEventOption[]>(initialEventOptions);
+  const [selectedEventId, setSelectedEventId] = useState(() => {
+    if (!preselectEventId) return "";
+    const match = initialEventOptions.find((e) => e.id === preselectEventId);
+    if (match && match.availableToWithdraw >= MIN_WITHDRAW) {
+      return match.id;
+    }
+    return "";
+  });
+  const [preselectNotice, setPreselectNotice] = useState<string | null>(() => {
+    if (!preselectEventId) return null;
+    const match = initialEventOptions.find((e) => e.id === preselectEventId);
+    if (!match) {
+      return "The selected event could not be used for withdrawal.";
+    }
+    if (match.availableToWithdraw < MIN_WITHDRAW) {
+      return "That event has no funds available to withdraw.";
+    }
+    return null;
+  });
   const [methods, setMethods] = useState(initialMethods);
   const [selectedMethodId, setSelectedMethodId] = useState(
     initialMethods.find((m) => m.isDefault)?.id ?? initialMethods[0]?.id ?? ""
@@ -90,8 +173,28 @@ export default function WithdrawWizard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pollResult, setPollResult] = useState<WithdrawPollResult | null>(null);
+  const [showIneligibleEvents, setShowIneligibleEvents] = useState(false);
 
   const selectedMethod = methods.find((m) => m.id === selectedMethodId);
+  const selectedEvent = eventOptions.find((e) => e.id === selectedEventId);
+  const eligibleEvents = eventOptions.filter(
+    (e) => e.availableToWithdraw >= MIN_WITHDRAW
+  );
+  const ineligibleEvents = eventOptions.filter(
+    (e) => e.availableToWithdraw < MIN_WITHDRAW
+  );
+  const eventMaxAmount = selectedEvent
+    ? Math.min(initialBalance, selectedEvent.availableToWithdraw)
+    : 0;
+  const showLegacyNotice = eventOptions.some(
+    (e) => e.legacyWithdrawnAttributed > 0
+  );
+
+  const refreshEventOptions = useCallback(async () => {
+    const page = await getWithdrawEventOptions();
+    setEventOptions(page.events);
+    return page.events;
+  }, []);
 
   const refreshFees = useCallback(async (gross: number) => {
     const q = await quoteWithdraw(gross);
@@ -105,10 +208,20 @@ export default function WithdrawWizard({
   }, [amount, refreshFees]);
 
   useEffect(() => {
-    if (step !== 3 || resendSec <= 0) return;
+    if (step !== 4 || resendSec <= 0) return;
     const t = setInterval(() => setResendSec((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(t);
   }, [step, resendSec]);
+
+  useEffect(() => {
+    if (step !== 3) return;
+    void refreshEventOptions().then((events) => {
+      const event = events.find((e) => e.id === selectedEventId);
+      if (!event) return;
+      const maxAmount = Math.min(initialBalance, event.availableToWithdraw);
+      setAmount(defaultWithdrawAmount(maxAmount));
+    });
+  }, [step, selectedEventId, initialBalance, refreshEventOptions]);
 
   useEffect(() => {
     if (!addMethodPending || addResendSec <= 0) return;
@@ -243,8 +356,13 @@ export default function WithdrawWizard({
   }
 
   async function goToStep2() {
-    if (!selectedMethodId) {
-      setError("Select a withdraw method.");
+    if (!selectedEventId) {
+      setError("Select an event to withdraw from.");
+      return;
+    }
+    const event = eventOptions.find((e) => e.id === selectedEventId);
+    if (!event || event.availableToWithdraw < MIN_WITHDRAW) {
+      setError("Select an event with available funds to withdraw.");
       return;
     }
     setError(null);
@@ -252,8 +370,17 @@ export default function WithdrawWizard({
   }
 
   async function goToStep3() {
+    if (!selectedMethodId) {
+      setError("Select a withdraw method.");
+      return;
+    }
+    setError(null);
+    setStep(3);
+  }
+
+  async function goToStep4() {
     const gross = parseInt(amount.replace(/\D/g, ""), 10) || 0;
-    if (gross < 5000) {
+    if (gross < MIN_WITHDRAW) {
       setError("Minimum withdrawal is UGX 5,000.");
       return;
     }
@@ -261,26 +388,40 @@ export default function WithdrawWizard({
       setError("Amount exceeds available balance.");
       return;
     }
+    if (!selectedEventId) {
+      setError("Select an event to withdraw from.");
+      return;
+    }
+    const events = await refreshEventOptions();
+    const event = events.find((e) => e.id === selectedEventId);
+    const maxForEvent = event
+      ? Math.min(initialBalance, event.availableToWithdraw)
+      : 0;
+    if (gross > maxForEvent) {
+      setError("Amount exceeds available funds for this event.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const result = await initiateWithdraw({
+        eventId: selectedEventId,
         methodId: selectedMethodId,
         grossAmount: gross,
         idempotencyKey: crypto.randomUUID(),
       });
       if (!result.ok) {
-        withdrawDebug("goToStep3:initiate:error", { error: result.error });
+        withdrawDebug("goToStep4:initiate:error", { error: result.error });
         setError(result.error);
         return;
       }
-      withdrawDebug("goToStep3:initiate:ok", {
+      withdrawDebug("goToStep4:initiate:ok", {
         withdrawalId: result.data.withdrawalId,
         reference: result.data.reference,
       });
       setInitResult(result.data);
       setResendSec(result.data.resendAvailableInSec);
-      setStep(3);
+      setStep(4);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not start withdrawal.");
     } finally {
@@ -344,7 +485,7 @@ export default function WithdrawWizard({
       }
       withdrawDebug("handleVerifyOtp:done", { status: result.status });
       setPollResult(result);
-      setStep(4);
+      setStep(5);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Invalid or expired code.");
     } finally {
@@ -354,13 +495,13 @@ export default function WithdrawWizard({
 
   const gross = parseInt(amount.replace(/\D/g, ""), 10) || 0;
   const navTitle =
-    step === 3 ? "Confirm withdrawal" : step === 4 ? "Withdrawal" : "Withdraw";
+    step === 4 ? "Confirm withdrawal" : step === 5 ? "Withdrawal" : "Withdraw";
 
   return (
     <>
       <div className="bg-surface border-b border-muted/30 sticky top-14 z-40">
         <div className="max-w-lg mx-auto px-4 h-12 flex items-center gap-3">
-          {step < 4 ? (
+          {step < 5 ? (
             <button
               type="button"
               onClick={() => {
@@ -380,10 +521,10 @@ export default function WithdrawWizard({
           </h1>
           <span className="w-12" />
         </div>
-        {step <= 4 && step >= 1 && step < 4 && (
-          <StepIndicator total={4} current={step} />
+        {step <= 5 && step >= 1 && step < 5 && (
+          <StepIndicator total={5} current={step} />
         )}
-        {step === 4 && <StepIndicator total={4} current={4} />}
+        {step === 5 && <StepIndicator total={5} current={5} />}
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-4">
@@ -394,6 +535,123 @@ export default function WithdrawWizard({
         )}
 
         {step === 1 && (
+          <>
+            <h2 className="text-[15px] font-medium text-surface">
+              Select event
+            </h2>
+            <p className="text-sm text-muted mb-5">
+              Choose which event to withdraw platform funds from
+            </p>
+            {preselectNotice ? (
+              <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+                {preselectNotice}
+              </p>
+            ) : null}
+            {showLegacyNotice ? (
+              <p className="text-sm text-muted bg-cream border border-muted/30 rounded-lg px-3 py-2 mb-4">
+                Some past withdrawals were made before event tracking. Amounts
+                are estimated oldest-event-first.
+              </p>
+            ) : null}
+            {eventOptions.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-muted mb-4">
+                  No events with platform funds available to withdraw.
+                </p>
+                <Link
+                  href="/app/account"
+                  className="inline-block text-sm text-accent hover:underline"
+                >
+                  Back to account
+                </Link>
+              </div>
+            ) : eligibleEvents.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-muted mb-4">
+                  No events currently have enough available funds to withdraw
+                  (minimum UGX 5,000).
+                </p>
+                {ineligibleEvents.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowIneligibleEvents((v) => !v)}
+                    className="text-sm text-accent hover:underline"
+                  >
+                    {showIneligibleEvents
+                      ? "Hide unavailable events"
+                      : `Show ${ineligibleEvents.length} unavailable event${ineligibleEvents.length === 1 ? "" : "s"}`}
+                  </button>
+                ) : null}
+                {showIneligibleEvents ? (
+                  <div className="flex flex-col gap-2.5 mt-4 text-left">
+                    {ineligibleEvents.map((event) => (
+                      <div
+                        key={event.id}
+                        className="opacity-60 pointer-events-none"
+                      >
+                        <EventOptionButton
+                          event={event}
+                          selected={false}
+                          onSelect={() => {}}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {eligibleEvents.map((event) => (
+                  <EventOptionButton
+                    key={event.id}
+                    event={event}
+                    selected={selectedEventId === event.id}
+                    onSelect={() => setSelectedEventId(event.id)}
+                  />
+                ))}
+                {ineligibleEvents.length > 0 ? (
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowIneligibleEvents((v) => !v)}
+                      className="w-full text-sm text-muted hover:text-accent py-2"
+                    >
+                      {showIneligibleEvents
+                        ? "Hide unavailable events"
+                        : `Show ${ineligibleEvents.length} unavailable event${ineligibleEvents.length === 1 ? "" : "s"}`}
+                    </button>
+                    {showIneligibleEvents ? (
+                      <div className="flex flex-col gap-2.5">
+                        {ineligibleEvents.map((event) => (
+                          <div
+                            key={event.id}
+                            className="opacity-60 pointer-events-none"
+                          >
+                            <EventOptionButton
+                              event={event}
+                              selected={false}
+                              onSelect={() => {}}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={goToStep2}
+              disabled={!selectedEventId || eligibleEvents.length === 0}
+              className="w-full mt-7 bg-accent hover:bg-accent/90 text-white font-bold py-4 rounded-lg disabled:opacity-50"
+            >
+              Continue →
+            </button>
+          </>
+        )}
+
+        {step === 2 && (
           <>
             <h2 className="text-[15px] font-medium text-surface">
               Select withdraw method
@@ -563,7 +821,7 @@ export default function WithdrawWizard({
             </div>
             <button
               type="button"
-              onClick={goToStep2}
+              onClick={goToStep3}
               disabled={!selectedMethodId || methods.length === 0}
               className="w-full mt-7 bg-accent hover:bg-accent/90 text-white font-bold py-4 rounded-lg disabled:opacity-50"
             >
@@ -572,9 +830,12 @@ export default function WithdrawWizard({
           </>
         )}
 
-        {step === 2 && selectedMethod && (
+        {step === 3 && selectedMethod && selectedEvent && (
           <>
             <h2 className="text-[15px] font-medium text-surface">Enter amount</h2>
+            <p className="text-sm text-muted mb-1">
+              From {selectedEvent.title}
+            </p>
             <p className="text-sm text-muted mb-4">
               To {selectedMethod.label} · {selectedMethod.detailLine}
             </p>
@@ -590,8 +851,14 @@ export default function WithdrawWizard({
                 className="w-full text-3xl font-medium text-surface text-center bg-transparent outline-none"
               />
               <p className="text-xs text-muted mt-2">
-                Available:{" "}
+                Event available:{" "}
                 <span className="text-accent font-medium">
+                  {formatUGX(eventMaxAmount)}
+                </span>
+              </p>
+              <p className="text-xs text-muted mt-1">
+                Wallet balance:{" "}
+                <span className="font-medium text-surface">
                   {formatUGX(initialBalance)}
                 </span>
               </p>
@@ -601,7 +868,7 @@ export default function WithdrawWizard({
                 <button
                   key={v}
                   type="button"
-                  onClick={() => setAmount(String(v))}
+                  onClick={() => setAmount(String(Math.min(v, eventMaxAmount)))}
                   className="text-xs px-3.5 py-1.5 rounded-full border border-muted/30 text-muted hover:border-accent hover:text-accent"
                 >
                   {v.toLocaleString("en-UG")}
@@ -609,7 +876,7 @@ export default function WithdrawWizard({
               ))}
               <button
                 type="button"
-                onClick={() => setAmount(String(initialBalance))}
+                onClick={() => setAmount(String(eventMaxAmount))}
                 className="text-xs px-3.5 py-1.5 rounded-full border border-muted/30 text-muted hover:border-accent hover:text-accent"
               >
                 All funds
@@ -639,7 +906,7 @@ export default function WithdrawWizard({
             )}
             <button
               type="button"
-              onClick={goToStep3}
+              onClick={goToStep4}
               disabled={loading}
               className="w-full bg-accent hover:bg-accent/90 text-white font-bold py-4 rounded-lg disabled:opacity-50"
             >
@@ -648,9 +915,15 @@ export default function WithdrawWizard({
           </>
         )}
 
-        {step === 3 && initResult && fees && (
+        {step === 4 && initResult && fees && selectedEvent && (
           <>
             <div className="bg-cream rounded-xl p-4 mb-5 text-sm space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted">Event</span>
+                <span className="font-medium text-surface text-right max-w-[60%] truncate">
+                  {selectedEvent.title}
+                </span>
+              </div>
               <div className="flex justify-between">
                 <span className="text-muted">Method</span>
                 <span className="font-medium text-surface">
@@ -720,7 +993,7 @@ export default function WithdrawWizard({
           </>
         )}
 
-        {step === 4 && pollResult && (
+        {step === 5 && pollResult && (
           <>
             {pollResult.status === "SUCCESSFUL" ? (
               <div className="text-center py-6">

@@ -22,6 +22,7 @@ import {
   EVENT_IMAGE_MAX_BYTES,
   type CreateEventInput,
 } from "./events.service";
+import { EventProgressReportService } from "./event-progress-report.service";
 import { SessionGuard } from "../auth/session.guard";
 import { Public } from "../common/public.decorator";
 import { requestAuditContext } from "../audit/audit-context";
@@ -34,7 +35,10 @@ type UploadedImageFile = {
 
 @Controller("events")
 export class EventsController {
-  constructor(private readonly events: EventsService) {}
+  constructor(
+    private readonly events: EventsService,
+    private readonly progressReports: EventProgressReportService
+  ) {}
 
   @Get("mine")
   async mine(@Req() req: Request & { sessionUserId?: string }) {
@@ -63,6 +67,7 @@ export class EventsController {
     body: {
       title: string;
       type: string;
+      typeLabel?: string | null;
       organizer: string;
       treasurerPhone: string;
       description: string;
@@ -239,6 +244,51 @@ export class EventsController {
       requestAuditContext(req)
     );
     return { success: true };
+  }
+
+  @Post("by-slug/:slug/progress-report")
+  @UseGuards(SessionGuard)
+  async requestProgressReport(
+    @Req() req: Request & { sessionUserId?: string },
+    @Param("slug") slug: string
+  ) {
+    return this.progressReports.requestReport(
+      req.sessionUserId!,
+      slug,
+      requestAuditContext(req)
+    );
+  }
+
+  @Get("by-slug/:slug/progress-report")
+  @UseGuards(SessionGuard)
+  async getProgressReport(
+    @Req() req: Request & { sessionUserId?: string },
+    @Param("slug") slug: string
+  ) {
+    const report = await this.progressReports.getLatestReport(
+      req.sessionUserId!,
+      slug
+    );
+    return report ?? { reportId: null, status: null };
+  }
+
+  @Get("by-slug/:slug/progress-report/download")
+  @UseGuards(SessionGuard)
+  async downloadProgressReport(
+    @Req() req: Request & { sessionUserId?: string },
+    @Param("slug") slug: string
+  ): Promise<StreamableFile> {
+    const obj = await this.progressReports.streamLatestReport(
+      req.sessionUserId!,
+      slug
+    );
+    if (!obj) {
+      throw new NotFoundException("Report not found.");
+    }
+    return new StreamableFile(obj.body, {
+      type: "application/pdf",
+      disposition: `attachment; filename="${obj.filename}"`,
+    });
   }
 
   @Post("by-slug/:slug/contributions")

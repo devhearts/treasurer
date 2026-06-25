@@ -14,11 +14,11 @@ import {
   isEventImageWithinSizeLimit,
 } from "@/lib/event-image-upload";
 import { uploadEventImageWithProgress } from "@/lib/upload-event-image-client";
-import { EVENT_TYPE_LABELS, formatUGX, getEventTypeLabel } from "@/lib/data";
+import { EVENT_TYPE_LABELS, formatUGX, getEventTypeLabel, OTHER_EVENT_TYPE_LABEL_MAX } from "@/lib/data";
 import { validateUgandaPhone } from "@/lib/phone";
 
 const EVENT_TYPES: { value: EventType; label: string }[] = (
-  ["wedding", "introduction", "funeral", "other"] as const
+  ["wedding", "introduction", "funeral", "charity", "other"] as const
 ).map((value) => ({ value, label: EVENT_TYPE_LABELS[value] }));
 
 const GRID = "gap-4";
@@ -72,6 +72,9 @@ export default function EditEventForm({
 
   const [type, setType] = useState<EventType | null>(
     (initialEvent.type as EventType) ?? "wedding"
+  );
+  const [customTypeLabel, setCustomTypeLabel] = useState(
+    initialEvent.type === "other" ? (initialEvent.typeLabel ?? "") : ""
   );
   const [title, setTitle] = useState(initialEvent.title ?? "");
   const [organizer, setOrganizer] = useState(initialEvent.organizer ?? "");
@@ -168,6 +171,10 @@ export default function EditEventForm({
       alert("Location is required.");
       return;
     }
+    if (type === "other" && !customTypeLabel.trim()) {
+      alert("Please specify the event type.");
+      return;
+    }
     setLoading(true);
     const imageUrlsSorted = [...photosRef.current]
       .sort(
@@ -180,6 +187,9 @@ export default function EditEventForm({
       const result = await updateEvent(slug, {
         title: title.trim(),
         type: type ?? "wedding",
+        ...(type === "other"
+          ? { typeLabel: customTypeLabel.trim() }
+          : { typeLabel: null }),
         organizer: organizer.trim(),
         treasurerPhone: treasurerPhone.trim(),
         description: description.trim(),
@@ -206,7 +216,15 @@ export default function EditEventForm({
     }
   }
 
-  const typeLabel = type ? EVENT_TYPES.find((t) => t.value === type)?.label : "";
+  const typeLabel =
+    type === "other"
+      ? getEventTypeLabel("other", customTypeLabel)
+      : type
+        ? EVENT_TYPES.find((t) => t.value === type)?.label
+        : "";
+
+  const canContinueFromTypeStep =
+    !!type && (type !== "other" || customTypeLabel.trim().length > 0);
 
   const detailsDateLabel = date
     ? new Date(`${date}T12:00:00`).toLocaleDateString("en-UG", {
@@ -247,7 +265,7 @@ export default function EditEventForm({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (type) setStep(2);
+            if (canContinueFromTypeStep) setStep(2);
           }}
           className={GRID}
         >
@@ -264,7 +282,10 @@ export default function EditEventForm({
                   <button
                     key={et.value}
                     type="button"
-                    onClick={() => setType(et.value)}
+                    onClick={() => {
+                      setType(et.value);
+                      if (et.value !== "other") setCustomTypeLabel("");
+                    }}
                     className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all text-left min-h-[56px] ${
                       type === et.value
                         ? "border-accent bg-accent/10 text-surface"
@@ -283,11 +304,23 @@ export default function EditEventForm({
                   </button>
                 ))}
               </div>
+              {type === "other" && (
+                <FloatingLabelInput
+                  id="customTypeLabel"
+                  label="What type of event is this?"
+                  value={customTypeLabel}
+                  onChange={setCustomTypeLabel}
+                  required
+                  maxLength={OTHER_EVENT_TYPE_LABEL_MAX}
+                  placeholder="e.g. Birthday, Graduation"
+                  className="mt-4"
+                />
+              )}
             </div>
             <div className="p-4 border-t border-muted/20">
               <button
                 type="submit"
-                disabled={!type}
+                disabled={!canContinueFromTypeStep}
                 className="w-full bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:pointer-events-none text-white font-bold py-4 rounded-lg transition-colors"
               >
                 Continue
@@ -530,7 +563,7 @@ export default function EditEventForm({
                 {title}
               </h2>
               <p className="text-sm text-muted">
-                {getEventTypeLabel(type ?? "wedding")} · {detailsDateLabel}
+                {getEventTypeLabel(type ?? "wedding", customTypeLabel)} · {detailsDateLabel}
                 {location ? ` · ${location}` : ""}
               </p>
               {Number(targetAmount) > 0 && (

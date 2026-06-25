@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Contribution } from "@/lib/types";
-import { formatCalendarDate, formatUGX } from "@/lib/data";
+import { Contribution, MilestoneItem } from "@/lib/types";
+import { formatCalendarDate, formatUGX, getProgressPercent } from "@/lib/data";
 import { absolutePublicEventUrl } from "@/lib/event-share";
 import { IconCopy, IconReceipt } from "@/components/Icons";
 
@@ -14,6 +14,7 @@ interface ContributionReceiptProps {
   contributions: Contribution[];
   raisedAmount: number;
   targetAmount: number;
+  milestoneItems?: MilestoneItem[];
 }
 
 function formatContributionLine(c: Contribution, index: number): string {
@@ -38,6 +39,21 @@ function appendContributionSection(
   lines.push(``);
 }
 
+function appendMilestoneSummary(
+  lines: string[],
+  milestoneItems: MilestoneItem[]
+): void {
+  if (milestoneItems.length === 0) return;
+  lines.push(`MILESTONE SUMMARY:`);
+  milestoneItems.forEach((m, i) => {
+    const pct = getProgressPercent(m.raisedAmount, m.targetAmount);
+    lines.push(
+      `${i + 1}. ${m.name}: ${formatUGX(m.raisedAmount)} of ${formatUGX(m.targetAmount)} (${pct}%)`
+    );
+  });
+  lines.push(``);
+}
+
 function buildReceiptText(
   eventTitle: string,
   eventSlug: string,
@@ -45,7 +61,8 @@ function buildReceiptText(
   eventLocation: string,
   contributions: Contribution[],
   raisedAmount: number,
-  targetAmount: number
+  targetAmount: number,
+  milestoneItems: MilestoneItem[] = []
 ): string {
   const dateStr = new Date(eventDate).toLocaleDateString("en-UG", {
     day: "numeric",
@@ -65,20 +82,22 @@ function buildReceiptText(
     `Date: ${dateStr}`,
     `Address: ${eventLocation}`,
     ``,
+    `Contribute online:`,
+    absolutePublicEventUrl(eventSlug),
+    ``,
     `CONTRIBUTIONS (${contributions.length}):`,
     ``,
   ];
 
   appendContributionSection(lines, `Cash Contributions:`, paid);
   appendContributionSection(lines, `Pledged Contributions:`, pledged);
+  appendMilestoneSummary(lines, milestoneItems);
   lines.push(`Total Cash Raised: ${formatUGX(raisedAmount)}`);
   if (targetAmount > 0) {
     lines.push(`Target: ${formatUGX(targetAmount)}`);
     lines.push(`Progress: ${progressPct}%`);
     lines.push(``);
   }
-  lines.push(`Contribute online:`);
-  lines.push(absolutePublicEventUrl(eventSlug));
   return lines.join("\n");
 }
 
@@ -90,6 +109,7 @@ export default function ContributionReceipt({
   contributions,
   raisedAmount,
   targetAmount,
+  milestoneItems = [],
 }: ContributionReceiptProps) {
   const [copied, setCopied] = useState(false);
   const receiptText = buildReceiptText(
@@ -99,7 +119,8 @@ export default function ContributionReceipt({
     eventLocation,
     contributions,
     raisedAmount,
-    targetAmount
+    targetAmount,
+    milestoneItems
   );
 
   async function handleCopy() {

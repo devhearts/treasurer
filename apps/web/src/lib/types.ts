@@ -1,4 +1,9 @@
-export type EventType = "wedding" | "introduction" | "funeral" | "other";
+export type EventType =
+  | "wedding"
+  | "introduction"
+  | "funeral"
+  | "charity"
+  | "other";
 
 export type EventLifecycleStatus =
   | "active"
@@ -47,6 +52,8 @@ export interface CeremonyEvent {
   userId?: string | null;
   title: string;
   type: EventType;
+  /** Custom label when type is "other". */
+  typeLabel?: string | null;
   organizer: string;
   treasurerPhone: string; // Mobile Money number where contributions are received
   description: string;
@@ -69,6 +76,17 @@ export interface CeremonyEvent {
    */
   imageUrls?: string[];
 }
+
+export type EventProgressReportStatus = "pending" | "ready" | "failed";
+
+export type EventProgressReport = {
+  reportId: string | null;
+  status: EventProgressReportStatus | null;
+  createdAt?: string;
+  completedAt?: string;
+  downloadPath?: string;
+  errorMessage?: string;
+};
 
 /** POST /events — server sets raisedAmount, contributions, createdAt. */
 export type CreateCeremonyEvent = Omit<

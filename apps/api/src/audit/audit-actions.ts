@@ -36,6 +36,9 @@ export const AuditAction = {
     stopped: "event.stopped",
     suspended: "event.suspended",
     unsuspended: "event.unsuspended",
+    progressReportRequested: "event.progress_report.requested",
+    progressReportReady: "event.progress_report.ready",
+    progressReportFailed: "event.progress_report.failed",
   },
   invitation: {
     draftCreated: "invitation.draft.created",

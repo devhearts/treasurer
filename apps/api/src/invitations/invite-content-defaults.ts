@@ -7,6 +7,7 @@ type EventSlice = {
   date: string;
   location: string;
   type: string;
+  typeLabel?: string | null;
   description: string;
   imageUrls?: unknown;
 };
@@ -19,6 +20,8 @@ export function defaultTemplateForEvent(eventType: string): InviteTemplateId {
       return "minimal";
     case "funeral":
       return "memorial";
+    case "charity":
+      return "celebrate";
     default:
       return "celebrate";
   }
@@ -60,6 +63,7 @@ function defaultFooterForType(type: string): string {
     wedding: "Reception to follow",
     introduction: "Your presence is requested",
     funeral: "Condolences and support welcome",
+    charity: "Your support makes a difference",
     other: "We hope you can join us",
   };
   return footers[type] ?? "We hope you can join us";
@@ -70,9 +74,17 @@ function defaultHeadlineForType(type: string): string {
     wedding: "Wedding",
     introduction: "Introduction",
     funeral: "Memorial",
+    charity: "Charity",
     other: "Celebration",
   };
   return labels[type] ?? "Celebration";
+}
+
+function resolveTypeHeadline(event: Pick<EventSlice, "type" | "typeLabel">): string {
+  if (event.type === "other" && event.typeLabel?.trim()) {
+    return event.typeLabel.trim();
+  }
+  return defaultHeadlineForType(event.type);
 }
 
 function isoDatePart(date: string): string {
@@ -163,6 +175,7 @@ function templateLayer(
   templateId: InviteTemplateId
 ): Partial<InviteCardContent> {
   const type = event.type;
+  const typeHeadline = resolveTypeHeadline(event);
   const { name1, name2 } = namesFromEvent(event);
   const title = event.title.trim();
   const org = event.organizer.trim();
@@ -199,7 +212,7 @@ function templateLayer(
       return {
         name1,
         name2,
-        headline: defaultHeadlineForType(type),
+        headline: typeHeadline,
         date: fmtDate,
         venue,
         location: locationLine,
@@ -225,7 +238,7 @@ function templateLayer(
       return {
         name1,
         name2,
-        headline: defaultHeadlineForType(type),
+        headline: typeHeadline,
         subtitle: "We would love to see you there",
         date: fmtDate,
         venue,
@@ -238,7 +251,7 @@ function templateLayer(
       return {
         name1: name1.toUpperCase(),
         name2: name2 ? name2.toUpperCase() : "",
-        headline: (type === "other" ? "Birthday" : defaultHeadlineForType(type)).toUpperCase(),
+        headline: (type === "other" && !event.typeLabel?.trim() ? "Birthday" : typeHeadline).toUpperCase(),
         tagline: "LET'S PARTY!",
         date: formatDateShortUpper(event.date).slice(0, 15),
         venue: venue.toUpperCase(),
@@ -264,7 +277,7 @@ function templateLayer(
       }
       return {
         name1: title || name1,
-        headline: title || defaultHeadlineForType(type),
+        headline: title || typeHeadline,
         hostLine: org ? `Presented by ${org}` : "You are invited",
         date: fmtDate,
         venue,
@@ -277,7 +290,7 @@ function templateLayer(
       return {
         name1,
         name2,
-        headline: type === "other" ? "Baby shower" : defaultHeadlineForType(type),
+        headline: type === "other" && !event.typeLabel?.trim() ? "Baby shower" : typeHeadline,
         subtitle: type === "other" ? "Oh baby!" : "Come celebrate with us",
         date: fmtDate,
         venue,
@@ -290,7 +303,7 @@ function templateLayer(
       return {
         name1: (title.split(/\s+/)[0] || name1).toUpperCase().replace(/\s/g, "_"),
         name2: name2 ? name2.toUpperCase().replace(/\s/g, "_") : "",
-        headline: (title || defaultHeadlineForType(type)).toUpperCase(),
+        headline: (title || typeHeadline).toUpperCase(),
         tagline: "ACCESS GRANTED",
         hostLine: org ? org.toUpperCase() : undefined,
         date: iso ? iso.replace(/-/g, ".") : fmtDate,
@@ -385,7 +398,7 @@ function templateLayer(
         name1,
         name2,
         subtitle: "PLEASE SAVE THE DATE FOR",
-        tagline: (title || defaultHeadlineForType(type)).toUpperCase(),
+        tagline: (title || typeHeadline).toUpperCase(),
         date: iso,
         venue,
         location: locationLine,
@@ -400,8 +413,8 @@ function templateLayer(
       return {
         hostLine: (org || title || name1).toUpperCase(),
         subtitle: "CORDIALLY INVITES YOU TO A",
-        tagline: title || `${defaultHeadlineForType(type)} Event`,
-        headline: (title || defaultHeadlineForType(type)).toUpperCase(),
+        tagline: title || `${typeHeadline} Event`,
+        headline: (title || typeHeadline).toUpperCase(),
         date: formatWeekdayComma(event.date),
         time: `${formatMonthDayUpper(event.date)} AT 8:00 PM`,
         venue: (venue || "VENUE TBA").toUpperCase(),
@@ -451,7 +464,7 @@ export function defaultContentFromEvent(
   const shared: InviteCardContent = {
     name1,
     name2,
-    headline: defaultHeadlineForType(event.type),
+    headline: resolveTypeHeadline(event),
     date: formatEventDateForCard(event.date),
     time: "",
     venue,

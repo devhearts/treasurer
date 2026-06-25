@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { IconWallet } from "@/components/Icons";
+import SiteFooter from "@/components/SiteFooter";
 import LoginForm from "./LoginForm";
 
 export const metadata = {
@@ -51,6 +52,8 @@ export default async function LoginPage({
           </Link>
         </p>
       </div>
+
+      <SiteFooter />
     </main>
   );
 }

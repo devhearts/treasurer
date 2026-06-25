@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { IconWallet } from "@/components/Icons";
+import SiteFooter from "@/components/SiteFooter";
 import ForgotPasswordForm from "./ForgotPasswordForm";
 
 export const metadata = {
@@ -35,6 +36,8 @@ export default function ForgotPasswordPage() {
           </Link>
         </p>
       </div>
+
+      <SiteFooter />
     </main>
   );
 }

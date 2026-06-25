@@ -15,7 +15,11 @@ export default async function VerifyAccountPage() {
 
   return (
     <main className="min-h-screen bg-light">
-      <VerifyAccountWizard initialStatus={status} />
+      <VerifyAccountWizard
+        initialStatus={status}
+        userEmail={user.email}
+        emailVerified={!!user.emailVerified}
+      />
     </main>
   );
 }

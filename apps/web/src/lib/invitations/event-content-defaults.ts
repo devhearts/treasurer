@@ -38,7 +38,7 @@ export function buildDefaultInviteContentFromEvent(
     defaultTemplateForEvent(event.type)) as InviteTemplateId;
   const { name1, name2 } = namesFromEvent(event);
   const { venue, locationLine } = parseEventLocation(event.location);
-  const headline = getEventTypeLabel(event.type);
+  const headline = getEventTypeLabel(event.type, event.typeLabel);
 
   const shared: InviteCardContent = {
     name1,

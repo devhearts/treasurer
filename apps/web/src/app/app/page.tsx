@@ -1,15 +1,16 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getMyEvents } from "@/app/actions/events";
-import { IconWallet } from "@/components/Icons";
 import HomeEventsList from "@/components/HomeEventsList";
+import SiteFooter from "@/components/SiteFooter";
+import { groupEventsByTreasurerSection } from "@/lib/event-lifecycle";
 
 export default async function AppHome() {
   const events = await getMyEvents();
   if (events.length === 0) {
     redirect("/app/onboarding");
   }
-  const featured = events.slice(0, 5);
+  const { active } = groupEventsByTreasurerSection(events);
 
   return (
     <main>
@@ -54,24 +55,21 @@ export default async function AppHome() {
         </details>
       </section>
 
-      {featured.length > 0 && (
+      {events.length > 0 && (
         <section className="max-w-lg mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-muted text-sm">My events ({featured.length})</p>
+            <p className="text-muted text-sm">
+              My events
+              {active.length > 0 ? ` (${active.length} active)` : ""}
+            </p>
             <Link href="/app/events" className="text-sm text-accent font-medium hover:underline">
               View all
             </Link>
           </div>
-          <HomeEventsList events={featured} />
+          <HomeEventsList events={events} activeLimit={5} />
         </section>
       )}
-      <footer className="bg-surface text-light/70 py-6 mt-8">
-        <div className="max-w-lg mx-auto px-4 text-center text-sm">
-          <span className="font-semibold text-light">CeremonyWallet</span>
-          <span className="mx-2">·</span>
-          <span>Making fundraising seamless.</span>
-        </div>
-      </footer>
+      <SiteFooter className="mt-8" />
     </main>
   );
 }

@@ -12,6 +12,7 @@ import {
   eventStatusBadgeClass,
   eventStatusLabel,
 } from "@/lib/event-lifecycle";
+import EventProgressReportPanel from "@/components/EventProgressReportPanel";
 
 interface EventLifecycleControlsProps {
   event: CeremonyEvent;
@@ -140,6 +141,9 @@ export default function EventLifecycleControls({
           <p className="text-xs text-muted mt-2 whitespace-pre-wrap">
             {event.statusMessage}
           </p>
+        )}
+        {status === "stopped" && (
+          <EventProgressReportPanel eventSlug={event.slug} />
         )}
         {error && !stopModalOpen && (
           <p className="text-xs text-red-600 mt-2" role="alert">

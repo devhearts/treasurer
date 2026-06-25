@@ -83,6 +83,8 @@ export const events = mysqlTable(
     slug: varchar("slug", { length: 191 }).notNull(),
     title: varchar("title", { length: 500 }).notNull(),
     type: varchar("type", { length: 32 }).notNull(),
+    /** User-specified label when type is "other". */
+    typeLabel: varchar("type_label", { length: 48 }),
     organizer: varchar("organizer", { length: 255 }).notNull(),
     treasurerPhone: varchar("treasurer_phone", { length: 32 }).notNull(),
     description: text("description").notNull(),
@@ -326,6 +328,35 @@ export const withdrawalOtps = mysqlTable(
     createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
   },
   (t) => [index("idx_withdrawal_otps_withdrawal").on(t.withdrawalId)]
+);
+
+/** Async-generated PDF progress report for a stopped event. */
+export const eventProgressReports = mysqlTable(
+  "event_progress_reports",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    eventId: varchar("event_id", { length: 36 }).notNull(),
+    userId: varchar("user_id", { length: 36 }).notNull(),
+    status: varchar("status", { length: 16 }).notNull(),
+    storageKey: varchar("storage_key", { length: 512 }),
+    errorMessage: text("error_message"),
+    createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
+    completedAt: datetime("completed_at", { mode: "string", fsp: 3 }),
+  },
+  (t) => [
+    index("idx_event_progress_reports_event_created").on(t.eventId, t.createdAt),
+  ]
+);
+
+/** Links a withdrawal to the event it draws platform funds from. */
+export const withdrawalEvents = mysqlTable(
+  "withdrawal_events",
+  {
+    withdrawalId: varchar("withdrawal_id", { length: 36 }).primaryKey(),
+    eventId: varchar("event_id", { length: 36 }).notNull(),
+    createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
+  },
+  (t) => [index("idx_withdrawal_events_event").on(t.eventId)]
 );
 
 /** Draft payout method awaiting email OTP before insert. */

@@ -21,7 +21,6 @@ import {
   IconBack,
   IconShare,
   IconCopy,
-  IconInvite,
 } from "@/components/Icons";
 import {
   buildEventShareBlurb,
@@ -30,6 +29,7 @@ import {
 } from "@/lib/event-share";
 import { publicStatusNotice } from "@/lib/event-lifecycle";
 import EventStatusNotice from "@/components/EventStatusNotice";
+import PublicEventTopChrome from "@/components/PublicEventTopChrome";
 import EventLifecycleControls from "./EventLifecycleControls";
 
 interface EventDetailContentProps {
@@ -206,7 +206,7 @@ export default function EventDetailContent({
           <EventTypeIcon type={event.type} className="w-6 h-6" />
         </div>
         <div className="min-w-0">
-          <p className="text-light/70 text-sm">{getEventTypeLabel(event.type)}</p>
+          <p className="text-light/70 text-sm">{getEventTypeLabel(event.type, event.typeLabel)}</p>
           <h1 className="text-xl font-bold truncate">{event.title}</h1>
           <p className="text-2xl font-bold text-accent mt-2">
             {formatUGX(event.raisedAmount)}
@@ -232,6 +232,12 @@ export default function EventDetailContent({
             Contribute
           </button>
         )
+      ) : isPublicView && statusNotice ? (
+        <EventStatusNotice
+          notice={statusNotice}
+          variant="hero"
+          className="mt-6 text-center"
+        />
       ) : null}
     </>
   );
@@ -248,14 +254,30 @@ export default function EventDetailContent({
 
   const hasEventPhotos = Boolean(event.imageUrls && event.imageUrls.length > 0);
 
-  const photoGallery = hasEventPhotos ? (
-    <div className="pt-2 mb-4">
-      <EventPhotoGallery
-        imageSources={event.imageUrls!}
-        mergeFooter={galleryMergeFooter}
-      />
-    </div>
+  const eventPhotoGallery = hasEventPhotos ? (
+    <EventPhotoGallery
+      imageSources={event.imageUrls!}
+      mergeFooter={galleryMergeFooter}
+    />
   ) : null;
+
+  const publicHeroOrGallery = hasEventPhotos ? (
+    <div className="relative pt-2 mb-4">
+      <PublicEventTopChrome
+        onShare={() => void handleShare()}
+        variant="overlay"
+      />
+      {eventPhotoGallery}
+    </div>
+  ) : (
+    <div className="bg-surface text-light rounded-xl p-6 mb-4">
+      <PublicEventTopChrome
+        onShare={() => void handleShare()}
+        variant="inline"
+      />
+      {heroInner}
+    </div>
+  );
 
   const shareRow = (
     <div className="flex gap-2 mb-4">
@@ -277,6 +299,14 @@ export default function EventDetailContent({
       </button>
     </div>
   );
+
+  const organisedBy =
+    event.organizer.trim() ? (
+      <div className="bg-light rounded-xl border border-muted/30 mb-4 px-4 py-3 text-sm">
+        <span className="text-muted">Organised by: </span>
+        <span className="text-surface font-medium">{event.organizer.trim()}</span>
+      </div>
+    ) : null;
 
   const aboutBudget = (
     <>
@@ -308,6 +338,8 @@ export default function EventDetailContent({
           </div>
         </details>
       )}
+
+      {organisedBy}
     </>
   );
 
@@ -329,6 +361,7 @@ export default function EventDetailContent({
         contributions={publicContributions}
         raisedAmount={event.raisedAmount}
         targetAmount={event.targetAmount}
+        milestoneItems={event.milestoneItems}
       />
 
       <div id="contribute" ref={contributeRef} className="mt-8">
@@ -347,7 +380,7 @@ export default function EventDetailContent({
             payerPhoneLabel={payerPhoneLabel}
             initialMilestoneId={allocateToMilestoneId ?? null}
           />
-        ) : statusNotice ? (
+        ) : statusNotice && !isPublicView ? (
           <EventStatusNotice notice={statusNotice} />
         ) : null}
       </div>
@@ -429,10 +462,12 @@ export default function EventDetailContent({
           </div>
         ) : null}
 
-        {photoGallery}
+        {isPublicView ? publicHeroOrGallery : null}
+        {!isPublicView && hasEventPhotos ? (
+          <div className="pt-2 mb-4">{eventPhotoGallery}</div>
+        ) : null}
         {isPublicView ? (
           <>
-            {!hasEventPhotos ? heroBlock : null}
             {shareRow}
             {aboutBudget}
             {contributionsBlock}
@@ -486,16 +521,6 @@ export default function EventDetailContent({
                 {!hasEventPhotos ? heroBlock : null}
                 {shareRow}
                 {aboutBudget}
-                <div className="mt-4">
-                  <Link
-                    href={`/app/events/${event.slug}/invite`}
-                    className="flex items-center justify-center gap-2 p-4 rounded-xl border border-muted/30 text-surface font-medium hover:bg-muted/10"
-                  >
-                    <IconInvite className="w-5 h-5 text-accent" />
-                    <span className="sm:hidden">Invitations</span>
-                    <span className="hidden sm:inline">Invitation cards</span>
-                  </Link>
-                </div>
                 <p className="text-center text-sm text-muted mt-6 mb-2">
                   Use <strong className="text-surface">Milestones</strong> for sub-goals, or <strong className="text-surface">Contributions</strong> to pay and record receipts.
                 </p>
@@ -516,6 +541,7 @@ export default function EventDetailContent({
                   pledgedCount={pledgedCount}
                   totalCount={event.contributions.length}
                 />
+                {organisedBy}
                 {contributionsBlock}
               </div>
             )}

@@ -1,6 +1,6 @@
 "use server";
 
-import type { CeremonyEvent, CreateCeremonyEvent } from "@/lib/types";
+import type { CeremonyEvent, CreateCeremonyEvent, EventProgressReport } from "@/lib/types";
 import { clearSession, getCurrentUser } from "@/app/actions/auth";
 import { serverApiFetch, serverApiJson } from "@/lib/server-api";
 
@@ -57,6 +57,7 @@ export async function getEventForEdit(
 export type UpdateEventPayload = {
   title: string;
   type: string;
+  typeLabel?: string | null;
   organizer: string;
   treasurerPhone: string;
   description: string;
@@ -331,4 +332,46 @@ export async function stopEvent(
   message: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   return lifecycleAction(slug, "stop", { message });
+}
+
+export async function getProgressReportStatus(
+  slug: string
+): Promise<EventProgressReport | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  try {
+    const data = await serverApiJson<EventProgressReport>(
+      `events/by-slug/${encodeURIComponent(slug)}/progress-report`
+    );
+    if (!data?.reportId || !data.status) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+export async function requestProgressReport(
+  slug: string
+): Promise<
+  | { success: true; report: EventProgressReport }
+  | { success: false; error: string }
+> {
+  const user = await getCurrentUser();
+  if (!user) {
+    await clearSession();
+    return { success: false, error: "You must be signed in." };
+  }
+  try {
+    const report = await serverApiJson<EventProgressReport>(
+      `events/by-slug/${encodeURIComponent(slug)}/progress-report`,
+      { method: "POST" }
+    );
+    return { success: true, report };
+  } catch (e) {
+    return {
+      success: false,
+      error:
+        e instanceof Error ? e.message : "Failed to request progress report.",
+    };
+  }
 }

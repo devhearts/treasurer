@@ -40,7 +40,7 @@ export default function EventCard({ event }: EventCardProps) {
             )}
             <div className="min-w-0">
               <span className="inline-block text-light/90 text-xs font-medium mb-1">
-                {getEventTypeLabel(event.type)}
+                {getEventTypeLabel(event.type, event.typeLabel)}
               </span>
               <h3 className="text-light font-bold text-lg leading-tight truncate">
                 {event.title}
