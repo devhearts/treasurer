@@ -255,7 +255,8 @@ export class EventsController {
     return this.progressReports.requestReport(
       req.sessionUserId!,
       slug,
-      requestAuditContext(req)
+      requestAuditContext(req),
+      EventProgressReportService.readRequestTimeZoneFromHeaders(req.headers)
     );
   }
 

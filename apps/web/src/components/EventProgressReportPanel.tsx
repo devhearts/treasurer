@@ -88,7 +88,8 @@ export default function EventProgressReportPanel({
   async function handleRequest() {
     setError(null);
     setLoading(true);
-    const result = await requestProgressReport(eventSlug);
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const result = await requestProgressReport(eventSlug, timeZone);
     setLoading(false);
     if (!result.success) {
       setError(result.error);

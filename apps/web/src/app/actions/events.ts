@@ -351,7 +351,8 @@ export async function getProgressReportStatus(
 }
 
 export async function requestProgressReport(
-  slug: string
+  slug: string,
+  timeZone?: string
 ): Promise<
   | { success: true; report: EventProgressReport }
   | { success: false; error: string }
@@ -362,9 +363,16 @@ export async function requestProgressReport(
     return { success: false, error: "You must be signed in." };
   }
   try {
+    const headers: HeadersInit = {};
+    if (timeZone?.trim()) {
+      headers["X-Timezone"] = timeZone.trim();
+    }
     const report = await serverApiJson<EventProgressReport>(
       `events/by-slug/${encodeURIComponent(slug)}/progress-report`,
-      { method: "POST" }
+      {
+        method: "POST",
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
+      }
     );
     return { success: true, report };
   } catch (e) {

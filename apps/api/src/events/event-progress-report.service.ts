@@ -25,7 +25,21 @@ import {
   buildProgressReportPdf,
   type ProgressReportData,
 } from "./event-progress-report-pdf";
+import {
+  computePaidCashBreakdown,
+  hasTimeComponent,
+  normalizeReportTimeZone,
+} from "./event-progress-report-format";
 import { computeEventWithdrawAvailability } from "../wallet/withdraw-event-availability";
+
+function readRequestTimeZone(
+  headers: Record<string, string | string[] | undefined>
+): string | undefined {
+  const raw = headers["x-timezone"];
+  if (typeof raw === "string") return raw;
+  if (Array.isArray(raw)) return raw[0];
+  return undefined;
+}
 
 export type EventProgressReportStatus = "pending" | "ready" | "failed";
 
@@ -52,17 +66,20 @@ export class EventProgressReportService {
   async requestReport(
     userId: string,
     slug: string,
-    ctx?: AuditRequestContext
+    ctx?: AuditRequestContext,
+    timeZone?: string
   ): Promise<EventProgressReportDto> {
     const row = await this.requireStoppedOwnerEvent(userId, slug);
     const reportId = randomUUID();
     const now = formatMysqlDateTimeUtc(new Date());
+    const normalizedTimeZone = normalizeReportTimeZone(timeZone);
 
     await this.db.insert(schema.eventProgressReports).values({
       id: reportId,
       eventId: row.id,
       userId,
       status: "pending",
+      timeZone: normalizedTimeZone,
       createdAt: now,
     });
 
@@ -76,7 +93,7 @@ export class EventProgressReportService {
       ctx,
     });
 
-    void this.generateReport(reportId, row.id, userId, slug).catch((err) => {
+    void this.generateReport(reportId, row.id, userId, slug, normalizedTimeZone).catch((err) => {
       this.log.error(
         `Progress report ${reportId} failed: ${err instanceof Error ? err.message : String(err)}`
       );
@@ -137,14 +154,15 @@ export class EventProgressReportService {
     reportId: string,
     eventId: string,
     userId: string,
-    slug: string
+    slug: string,
+    timeZone: string
   ): Promise<void> {
     try {
       if (!this.storage.isConfigured()) {
         throw new Error("File storage is not configured.");
       }
 
-      const data = await this.assembleReportData(eventId, userId, slug);
+      const data = await this.assembleReportData(eventId, userId, slug, timeZone);
       const buffer = await buildProgressReportPdf(data);
       const storageKey = `events/${eventId}/progress-reports/${reportId}.pdf`;
       await this.storage.putObject(storageKey, buffer, "application/pdf");
@@ -195,16 +213,38 @@ export class EventProgressReportService {
   async assembleReportData(
     eventId: string,
     userId: string,
-    slug: string
+    slug: string,
+    timeZone?: string
   ): Promise<ProgressReportData> {
     const event = await this.events.getBySlug(slug);
     if (!event || event.id !== eventId) {
       throw new NotFoundException("Event not found.");
     }
 
+    const normalizedTimeZone = normalizeReportTimeZone(timeZone);
+
     const milestoneNameById = new Map(
       event.milestoneItems.map((m) => [m.id, m.name])
     );
+
+    const contributionRows = await this.db
+      .select({
+        name: schema.contributions.name,
+        anonymous: schema.contributions.anonymous,
+        amount: schema.contributions.amount,
+        status: schema.contributions.status,
+        date: schema.contributions.date,
+        pledgeHopeBy: schema.contributions.pledgeHopeBy,
+        manual: schema.contributions.manual,
+        milestoneId: schema.contributions.milestoneId,
+        paidAt: schema.paymentIntents.updatedAt,
+      })
+      .from(schema.contributions)
+      .leftJoin(
+        schema.paymentIntents,
+        eq(schema.contributions.paymentReferenceId, schema.paymentIntents.referenceId)
+      )
+      .where(eq(schema.contributions.eventId, eventId));
 
     const withdrawalRows = await this.db
       .select({
@@ -235,8 +275,36 @@ export class EventProgressReportService {
       eventId
     );
 
+    const contributions = contributionRows.map((c) => {
+      const manual = !!c.manual;
+      const paidAt = c.paidAt?.trim();
+      const recordedAt =
+        c.status === "paid" && paidAt && hasTimeComponent(paidAt)
+          ? paidAt
+          : c.date;
+      const recordedAtHasTime =
+        c.status === "paid" && !!paidAt && hasTimeComponent(paidAt);
+
+      return {
+        name: c.anonymous ? "Anonymous" : c.name,
+        amount: c.amount,
+        status: c.status as "paid" | "pledged",
+        date: c.date,
+        recordedAt,
+        recordedAtHasTime,
+        milestoneName: c.milestoneId
+          ? milestoneNameById.get(c.milestoneId)
+          : undefined,
+        manual,
+        pledgeHopeBy: c.pledgeHopeBy ?? undefined,
+      };
+    });
+
+    const cashBreakdown = computePaidCashBreakdown(contributions);
+
     return {
       generatedAt: formatMysqlDateTimeUtc(new Date()),
+      timeZone: normalizedTimeZone,
       eventSlug: slug,
       event: {
         title: event.title,
@@ -257,17 +325,7 @@ export class EventProgressReportService {
         targetAmount: m.targetAmount,
         raisedAmount: m.raisedAmount,
       })),
-      contributions: event.contributions.map((c) => ({
-        name: c.anonymous ? "Anonymous" : c.name,
-        amount: c.amount,
-        status: c.status,
-        date: c.date,
-        milestoneName: c.milestoneId
-          ? milestoneNameById.get(c.milestoneId)
-          : undefined,
-        manual: c.manual,
-        pledgeHopeBy: c.pledgeHopeBy,
-      })),
+      contributions,
       withdrawals: withdrawalRows.map((w) => ({
         createdAt: w.createdAt,
         reference: w.reference,
@@ -278,7 +336,14 @@ export class EventProgressReportService {
         netAmount: w.netAmount,
       })),
       withdrawSummary,
+      cashBreakdown,
     };
+  }
+
+  static readRequestTimeZoneFromHeaders(
+    headers: Record<string, string | string[] | undefined>
+  ): string | undefined {
+    return readRequestTimeZone(headers);
   }
 
   private toDto(

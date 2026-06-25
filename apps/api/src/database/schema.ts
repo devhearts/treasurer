@@ -340,6 +340,7 @@ export const eventProgressReports = mysqlTable(
     status: varchar("status", { length: 16 }).notNull(),
     storageKey: varchar("storage_key", { length: 512 }),
     errorMessage: text("error_message"),
+    timeZone: varchar("time_zone", { length: 64 }),
     createdAt: datetime("created_at", { mode: "string", fsp: 3 }).notNull(),
     completedAt: datetime("completed_at", { mode: "string", fsp: 3 }),
   },
