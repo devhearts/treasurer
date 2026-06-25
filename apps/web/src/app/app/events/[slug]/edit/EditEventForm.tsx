@@ -307,7 +307,7 @@ export default function EditEventForm({
               {type === "other" && (
                 <FloatingLabelInput
                   id="customTypeLabel"
-                  label="What type of event is this?"
+                  label="Specify event"
                   value={customTypeLabel}
                   onChange={setCustomTypeLabel}
                   required

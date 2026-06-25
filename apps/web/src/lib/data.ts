@@ -130,7 +130,7 @@ export const EVENT_TYPE_LABELS: Record<string, string> = {
   introduction: "Give away, Introductions",
   funeral: "Condolences",
   charity: "Charity",
-  other: "Specify event",
+  other: "Other",
 };
 
 /** Shorter labels for filter tabs and compact UI. */
