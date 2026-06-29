@@ -39,6 +39,14 @@ export async function resolveRukapayPayoutRecipient(
     );
   }
 
+  if (!config.validateBeneficiary) {
+    return {
+      phoneNumber: msisdn,
+      mnoProvider: inferred,
+      recipientName: "CeremonyWallet Recipient",
+    };
+  }
+
   const validation = await rukapayValidateBeneficiary(config, {
     phoneNumber: msisdn,
     mnoProvider: inferred,

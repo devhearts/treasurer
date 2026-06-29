@@ -7,9 +7,11 @@ export interface RukapayConfig {
   sandbox: boolean;
   callbackUrl: string;
   walletType: string;
+  /** When true, call validate-beneficiary before PARTNER_SEND_MNO payouts. */
+  validateBeneficiary: boolean;
 }
 
-function parseSandboxFlag(raw: string | undefined): boolean {
+function parseBoolFlag(raw: string | undefined): boolean {
   const v = raw?.trim().toLowerCase();
   return v === "1" || v === "true";
 }
@@ -24,7 +26,10 @@ export function rukapayConfigFromApp(c: ConfigService): RukapayConfig | null {
   const currency = (
     c.get<string>("RUKAPAY_CURRENCY")?.trim() || "UGX"
   ).toUpperCase();
-  const sandbox = parseSandboxFlag(c.get<string>("RUKAPAY_SANDBOX"));
+  const sandbox = parseBoolFlag(c.get<string>("RUKAPAY_SANDBOX"));
+  const validateBeneficiary = parseBoolFlag(
+    c.get<string>("RUKAPAY_VALIDATE_BENEFICIARY")
+  );
   const callbackUrlOverride = c.get<string>("RUKAPAY_CALLBACK_URL")?.trim();
   const webOrigin =
     c.get<string>("WEB_ORIGIN")?.trim() ??
@@ -45,5 +50,6 @@ export function rukapayConfigFromApp(c: ConfigService): RukapayConfig | null {
     sandbox,
     callbackUrl,
     walletType,
+    validateBeneficiary,
   };
 }

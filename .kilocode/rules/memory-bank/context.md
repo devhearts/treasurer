@@ -76,8 +76,8 @@
 ## Recent: RukaPay payment processor
 
 - **Processor kind**: `rukapay` via `PAYMENT_PROCESSOR_TYPE=rukapay` (third option alongside `mtn_momo`, `pawapay`).
-- **API** ([`rukapay.client.ts`](apps/api/src/payments/rukapay.client.ts)): Gateway API with `x-api-key` auth. Collections: `POST …/process-transfer` (`PARTNER_COLLECT_MNO`, requires `callbackUrl`). Payouts: validate beneficiary then `PARTNER_SEND_MNO`. Status: `GET …/transactions/{partnerReference}/status`. Sandbox: `RUKAPAY_SANDBOX=1` uses `-sandbox` endpoint suffixes; default base URL `https://dev-api.rukapay.net/api/v1/gateway`.
-- **Env**: `RUKAPAY_API_KEY`, optional `RUKAPAY_BASE_URL`, `RUKAPAY_CURRENCY`, `RUKAPAY_CALLBACK_URL` (defaults to `{WEB_ORIGIN}/webhooks/rukapay`), `RUKAPAY_WALLET_TYPE` (default `ESCROW`).
+- **API** ([`rukapay.client.ts`](apps/api/src/payments/rukapay.client.ts)): Gateway API with `x-api-key` auth. Collections: `POST …/process-transfer` (`PARTNER_COLLECT_MNO`, requires `callbackUrl`). Payouts: optional validate-beneficiary (`RUKAPAY_VALIDATE_BENEFICIARY=1`) then `PARTNER_SEND_MNO`. Status: `GET …/transactions/{partnerReference}/status`. Sandbox: `RUKAPAY_SANDBOX=1` uses `-sandbox` endpoint suffixes; default base URL `https://dev-api.rukapay.net/api/v1/gateway`.
+- **Env**: `RUKAPAY_API_KEY`, optional `RUKAPAY_BASE_URL`, `RUKAPAY_CURRENCY`, `RUKAPAY_CALLBACK_URL` (defaults to `{WEB_ORIGIN}/webhooks/rukapay`), `RUKAPAY_WALLET_TYPE` (default `ESCROW`), `RUKAPAY_VALIDATE_BENEFICIARY` (opt-in: call validate-beneficiary before payouts).
 - **Withdrawals**: [`disburseViaRukapay`](apps/api/src/wallet/withdrawals.service.ts) + poll/reconcile on init error (same pattern as PawaPay).
 - **Web**: [`apps/web/src/lib/payments/index.ts`](apps/web/src/lib/payments/index.ts) — MTN + Airtel networks, mobile-money labels (grouped with PawaPay).
 
