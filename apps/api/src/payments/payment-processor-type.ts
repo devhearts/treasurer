@@ -1,6 +1,12 @@
 import { ConfigService } from "@nestjs/config";
 import type { PaymentProcessorKind } from "./payment.types";
 
+const VALID_PROCESSORS: readonly PaymentProcessorKind[] = [
+  "mtn_momo",
+  "pawapay",
+  "rukapay",
+];
+
 /** Single source of truth for PAYMENT_PROCESSOR_TYPE (matches PaymentProcessorFactory). */
 export function getPaymentProcessorType(
   config: ConfigService
@@ -13,5 +19,8 @@ export function getPaymentProcessorType(
   )
     .trim()
     .toLowerCase();
-  return raw === "pawapay" ? "pawapay" : "mtn_momo";
+  if ((VALID_PROCESSORS as readonly string[]).includes(raw)) {
+    return raw as PaymentProcessorKind;
+  }
+  return "mtn_momo";
 }

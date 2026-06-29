@@ -24,6 +24,7 @@ import { syncEventRaisedAmount } from "../events/event-raised-amount";
 
 function paymentNotConfiguredMessage(kind: PaymentProcessorKind): string {
   if (kind === "pawapay") return "PawaPay payments are not configured.";
+  if (kind === "rukapay") return "RukaPay payments are not configured.";
   return "MoMo payments are not configured.";
 }
 
@@ -614,7 +615,9 @@ export class PaymentsService {
   private processorKindFromIntent(
     processor: string
   ): PaymentProcessorKind {
-    return processor === "pawapay" ? "pawapay" : "mtn_momo";
+    if (processor === "pawapay") return "pawapay";
+    if (processor === "rukapay") return "rukapay";
+    return "mtn_momo";
   }
 
   /** Reconcile a stale payment intent against the provider (background job). */

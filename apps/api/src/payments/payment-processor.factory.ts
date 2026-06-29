@@ -13,9 +13,17 @@ import {
   pawapayPredictCorrespondent,
   pawapayRequestDeposit,
 } from "./pawapay.client";
+import type { RukapayConfig } from "./rukapay.config";
+import { rukapayConfigFromApp } from "./rukapay.config";
+import {
+  rukapayCollectFromMno,
+  rukapayGetTransactionStatus,
+  rukapayMnoProvider,
+} from "./rukapay.client";
 import { getPaymentProcessorType } from "./payment-processor-type";
 import type {
   PaymentProcessor,
+  PaymentProcessorKind,
   PaymentStatusBody,
   RequestToPayParams,
 } from "./payment.types";
@@ -34,7 +42,7 @@ function statementDesc(payeeNote: string, payerMessage: string): string {
 export class PaymentProcessorFactory {
   constructor(private readonly config: ConfigService) {}
 
-  getProcessorType(): "mtn_momo" | "pawapay" {
+  getProcessorType(): PaymentProcessorKind {
     return getPaymentProcessorType(this.config);
   }
 
@@ -42,9 +50,12 @@ export class PaymentProcessorFactory {
     return this.getProcessorByKind(this.getProcessorType());
   }
 
-  getProcessorByKind(kind: "mtn_momo" | "pawapay"): PaymentProcessor {
+  getProcessorByKind(kind: PaymentProcessorKind): PaymentProcessor {
     if (kind === "pawapay") {
       return this.createPawapay();
+    }
+    if (kind === "rukapay") {
+      return this.createRukapay();
     }
     return this.createMtnMomo();
   }
@@ -144,6 +155,49 @@ export class PaymentProcessorFactory {
           };
         }
         return { status: d.status, rawPayload };
+      },
+    };
+  }
+
+  private createRukapay(): PaymentProcessor {
+    const cfg = (): RukapayConfig | null => rukapayConfigFromApp(this.config);
+    return {
+      kind: "rukapay",
+      supportedNetworks: ["mtn", "airtel"],
+      isConfigured: () => cfg() !== null,
+      getCurrency: () => cfg()?.currency ?? null,
+      requestToPay: async (params: RequestToPayParams) => {
+        const c = cfg();
+        if (!c) throw new Error("RukaPay is not configured");
+        const mnoProvider = rukapayMnoProvider(params.payerMsisdn);
+        await rukapayCollectFromMno(c, {
+          phoneNumber: params.payerMsisdn,
+          mnoProvider,
+          amount: params.amount,
+          partnerReference: params.referenceId,
+          narration: statementDesc(params.payeeNote, params.payerMessage),
+        });
+      },
+      getPaymentStatus: async (referenceId: string) => {
+        const c = cfg();
+        if (!c) throw new Error("RukaPay is not configured");
+        const response = await rukapayGetTransactionStatus(c, referenceId);
+        if (!response?.transaction) {
+          return { status: "PENDING", rawPayload: null };
+        }
+        const txn = response.transaction;
+        const rawPayload = txn as unknown as Record<string, unknown>;
+        const status = txn.status ?? "PENDING";
+        if (status === "FAILED") {
+          const msg =
+            response.message || response.error || "Payment failed.";
+          return {
+            status,
+            reason: { message: msg, code: response.error },
+            rawPayload,
+          };
+        }
+        return { status, rawPayload };
       },
     };
   }

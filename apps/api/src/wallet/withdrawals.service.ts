@@ -41,6 +41,16 @@ import {
   resolvePawapayPayoutRecipient,
   type PawapayPayoutMethodType,
 } from "../payments/pawapay.payout";
+import {
+  resolveRukapayPayoutRecipient,
+  rukapayFailureMessageFromStatus,
+  type RukapayPayoutMethodType,
+} from "../payments/rukapay.payout";
+import { rukapayConfigFromApp } from "../payments/rukapay.config";
+import {
+  rukapayGetTransactionStatus,
+  rukapaySendToMno,
+} from "../payments/rukapay.client";
 import { PaymentProcessorFactory } from "../payments/payment-processor.factory";
 import { normalizeProviderPollStatus } from "../payments/payment-status";
 import { maskMsisdn, shortId } from "./withdraw-log.util";
@@ -416,6 +426,10 @@ export class WithdrawalsService {
       return this.disburseViaPawapay(userId, withdrawalId, w, method);
     }
 
+    if (processorType === "rukapay") {
+      return this.disburseViaRukapay(userId, withdrawalId, w, method);
+    }
+
     return this.disburseViaMomo(userId, withdrawalId, w, method);
   }
 
@@ -634,6 +648,157 @@ export class WithdrawalsService {
     }
   }
 
+  private async disburseViaRukapay(
+    userId: string,
+    withdrawalId: string,
+    w: typeof schema.withdrawals.$inferSelect,
+    method: typeof schema.payoutMethods.$inferSelect
+  ) {
+    this.log.debug(
+      `disburse rukapay withdrawal=${shortId(withdrawalId)} net=${w.netAmount} methodType=${method.type}`
+    );
+    const rukapayConfig = rukapayConfigFromApp(this.config);
+    if (!rukapayConfig || !method.msisdn) {
+      this.log.warn(
+        `disburse rukapay not configured withdrawal=${shortId(withdrawalId)}`
+      );
+      await this.reverseDebitAndFail(
+        w.id,
+        userId,
+        w.grossAmount,
+        "RukaPay payouts are not configured"
+      );
+      throw new BadRequestException("Withdrawal disbursement is not available.");
+    }
+
+    if (method.type !== "mtn_momo" && method.type !== "airtel_momo") {
+      await this.reverseDebitAndFail(
+        w.id,
+        userId,
+        w.grossAmount,
+        "Unsupported payout method"
+      );
+      throw new BadRequestException("This payout method cannot be used with RukaPay.");
+    }
+
+    let recipient: {
+      phoneNumber: string;
+      mnoProvider: "MTN" | "AIRTEL";
+      recipientName: string;
+    };
+    try {
+      recipient = await resolveRukapayPayoutRecipient(
+        rukapayConfig,
+        method.msisdn,
+        method.type as RukapayPayoutMethodType,
+        w.reference
+      );
+      this.log.debug(
+        `disburse rukapay recipient withdrawal=${shortId(withdrawalId)} provider=${recipient.mnoProvider} phone=${maskMsisdn(recipient.phoneNumber)}`
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Invalid payout destination";
+      this.log.warn(
+        `disburse rukapay recipient failed withdrawal=${shortId(withdrawalId)}: ${msg} ${formatProcessorExceptionForLog(e)}`
+      );
+      await this.reverseDebitAndFail(w.id, userId, w.grossAmount, msg);
+      throw new BadRequestException(msg);
+    }
+
+    const processorRef = randomUUID();
+    const updated = formatMysqlDateTimeUtc(new Date());
+    await this.db
+      .update(schema.withdrawals)
+      .set({
+        status: "processing",
+        processorRef,
+        updatedAt: updated,
+      })
+      .where(eq(schema.withdrawals.id, w.id));
+
+    try {
+      await rukapaySendToMno(rukapayConfig, {
+        phoneNumber: recipient.phoneNumber,
+        mnoProvider: recipient.mnoProvider,
+        amount: w.netAmount,
+        partnerReference: processorRef,
+        recipientName: recipient.recipientName,
+        narration: "CeremonyWallet withdrawal",
+      });
+      this.log.debug(
+        `disburse rukapay accepted withdrawal=${shortId(withdrawalId)} processorRef=${shortId(processorRef)}`
+      );
+    } catch (e) {
+      const fallbackMsg = processorUserMessage(e, "RukaPay payout failed");
+      this.log.warn(
+        `disburse rukapay initiate error withdrawal=${shortId(withdrawalId)} processorRef=${shortId(processorRef)}: ${fallbackMsg} ${formatProcessorExceptionForLog(e)} — checking status`
+      );
+      return this.reconcileRukapayAfterInitError(
+        userId,
+        withdrawalId,
+        w,
+        rukapayConfig,
+        processorRef,
+        fallbackMsg
+      );
+    }
+
+    return this.poll(userId, withdrawalId);
+  }
+
+  private async reconcileRukapayAfterInitError(
+    userId: string,
+    withdrawalId: string,
+    w: typeof schema.withdrawals.$inferSelect,
+    rukapayConfig: NonNullable<ReturnType<typeof rukapayConfigFromApp>>,
+    partnerReference: string,
+    fallbackFailMessage: string
+  ) {
+    try {
+      const check = await rukapayGetTransactionStatus(
+        rukapayConfig,
+        partnerReference
+      );
+      const payoutStatus = check?.transaction?.status;
+      this.log.debug(
+        `rukapay reconcile check withdrawal=${shortId(withdrawalId)} partnerRef=${shortId(partnerReference)} status=${payoutStatus ?? "—"}`
+      );
+      const { bucket } = normalizeProviderPollStatus(payoutStatus);
+      if (bucket === "success") {
+        const updated = formatMysqlDateTimeUtc(new Date());
+        await this.db
+          .update(schema.withdrawals)
+          .set({ status: "completed", updatedAt: updated })
+          .where(eq(schema.withdrawals.id, w.id));
+        this.log.debug(
+          `rukapay reconcile completed withdrawal=${shortId(withdrawalId)} partnerRef=${shortId(partnerReference)}`
+        );
+        const refreshed = await this.getWithdrawalForUser(userId, withdrawalId);
+        const method = await this.payoutMethods.getForUser(
+          userId,
+          refreshed.methodId
+        );
+        this.notifyWithdrawalCompleted(userId, refreshed, method);
+        return this.buildPollSuccess(refreshed, method);
+      }
+      if (bucket === "failed") {
+        const msg = rukapayFailureMessageFromStatus(check, fallbackFailMessage);
+        this.log.warn(
+          `rukapay reconcile fail withdrawal=${shortId(withdrawalId)} partnerRef=${shortId(partnerReference)}: ${msg}`
+        );
+        await this.reverseDebitAndFail(w.id, userId, w.grossAmount, msg);
+        throw new BadRequestException(msg);
+      }
+      return this.poll(userId, withdrawalId);
+    } catch (reconcileErr) {
+      if (reconcileErr instanceof BadRequestException) throw reconcileErr;
+      this.log.warn(
+        `rukapay reconcile check error withdrawal=${shortId(withdrawalId)} partnerRef=${shortId(partnerReference)}: ${formatProcessorExceptionForLog(reconcileErr)} — leaving processing for poll`
+      );
+      return this.poll(userId, withdrawalId);
+    }
+  }
+
   async poll(userId: string, withdrawalId: string) {
     const w = await this.getWithdrawalForUser(userId, withdrawalId);
     const method = await this.payoutMethods.getForUser(userId, w.methodId);
@@ -667,6 +832,9 @@ export class WithdrawalsService {
     if (w.status === "processing" && w.processorRef) {
       if (processorType === "pawapay") {
         return this.pollPawapayPayout(userId, withdrawalId, w, method);
+      }
+      if (processorType === "rukapay") {
+        return this.pollRukapayPayout(userId, withdrawalId, w, method);
       }
 
       return this.pollMomoDisbursement(userId, withdrawalId, w, method);
@@ -786,6 +954,63 @@ export class WithdrawalsService {
     } catch (e) {
       this.log.warn(
         `poll pawapay error withdrawal=${shortId(withdrawalId)}: ${formatProcessorExceptionForLog(e)}`
+      );
+      return { status: "PENDING" as const };
+    }
+    return { status: "PENDING" as const };
+  }
+
+  private async pollRukapayPayout(
+    userId: string,
+    withdrawalId: string,
+    w: typeof schema.withdrawals.$inferSelect,
+    method: typeof schema.payoutMethods.$inferSelect
+  ) {
+    const rukapayConfig = rukapayConfigFromApp(this.config);
+    if (!rukapayConfig || !w.processorRef) {
+      return { status: "PENDING" as const };
+    }
+    try {
+      const check = await rukapayGetTransactionStatus(
+        rukapayConfig,
+        w.processorRef
+      );
+      if (!check?.transaction?.status) {
+        this.log.debug(
+          `poll rukapay no status withdrawal=${shortId(withdrawalId)}`
+        );
+        return { status: "PENDING" as const };
+      }
+      const { bucket, rawUpper } = normalizeProviderPollStatus(
+        check.transaction.status
+      );
+      this.log.debug(
+        `poll rukapay withdrawal=${shortId(withdrawalId)} rawStatus=${rawUpper} bucket=${bucket}`
+      );
+      if (bucket === "success") {
+        const updated = formatMysqlDateTimeUtc(new Date());
+        await this.db
+          .update(schema.withdrawals)
+          .set({ status: "completed", updatedAt: updated })
+          .where(eq(schema.withdrawals.id, w.id));
+        const refreshed = await this.getWithdrawalForUser(userId, withdrawalId);
+        this.notifyWithdrawalCompleted(userId, refreshed, method);
+        return this.buildPollSuccess(refreshed, method);
+      }
+      if (bucket === "failed") {
+        const msg = rukapayFailureMessageFromStatus(check, "Payout failed");
+        this.log.warn(
+          `poll rukapay failed withdrawal=${shortId(withdrawalId)}: ${msg}`
+        );
+        await this.reverseDebitAndFail(w.id, userId, w.grossAmount, msg);
+        return {
+          status: "FAILED" as const,
+          message: msg,
+        };
+      }
+    } catch (e) {
+      this.log.warn(
+        `poll rukapay error withdrawal=${shortId(withdrawalId)}: ${formatProcessorExceptionForLog(e)}`
       );
       return { status: "PENDING" as const };
     }

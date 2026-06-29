@@ -1,4 +1,4 @@
-export type PaymentProcessorKind = "pawapay" | "momo";
+export type PaymentProcessorKind = "pawapay" | "momo" | "rukapay";
 
 const LOG_BODY_MAX = 16_000;
 
@@ -132,13 +132,30 @@ export function pawapayErrorMessage(
   return trimmed.slice(0, 500) || `HTTP ${httpStatus}`;
 }
 
+export function rukapayErrorMessage(
+  parsed: unknown,
+  rawBody: string,
+  httpStatus: number
+): string {
+  if (typeof parsed === "object" && parsed !== null) {
+    const o = parsed as Record<string, unknown>;
+    if (typeof o.message === "string" && o.message) return o.message;
+    if (typeof o.error === "string" && o.error) return o.error;
+  }
+  const trimmed = rawBody.trim();
+  return trimmed.slice(0, 500) || `HTTP ${httpStatus}`;
+}
+
 /** Short message safe for DB / API responses (not full provider JSON). */
 export function processorUserMessage(e: unknown, fallback = "Payment failed"): string {
   if (e instanceof PaymentProcessorHttpError) {
     const msg = e.message.trim();
     if (msg && !msg.startsWith("{")) return msg;
     if (e.parsedBody) {
-      const parsed = pawapayErrorMessage(e.parsedBody, e.rawBody, e.httpStatus);
+      const parsed =
+        e.provider === "rukapay"
+          ? rukapayErrorMessage(e.parsedBody, e.rawBody, e.httpStatus)
+          : pawapayErrorMessage(e.parsedBody, e.rawBody, e.httpStatus);
       if (parsed && !parsed.startsWith("{")) return parsed;
     }
     return fallback;

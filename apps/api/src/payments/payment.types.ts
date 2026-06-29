@@ -1,4 +1,4 @@
-export type PaymentProcessorKind = "mtn_momo" | "pawapay";
+export type PaymentProcessorKind = "mtn_momo" | "pawapay" | "rukapay";
 export type PaymentNetwork = "mtn" | "airtel";
 
 export type PaymentPollResult =

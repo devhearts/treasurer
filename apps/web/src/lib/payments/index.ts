@@ -8,10 +8,14 @@ export type {
   RequestToPayParams,
 } from "./types";
 
+function isMultiNetworkKind(kind: PaymentProcessorKind): boolean {
+  return kind === "pawapay" || kind === "rukapay";
+}
+
 export function paymentNetworksForKind(
   kind: PaymentProcessorKind
 ): readonly PaymentNetwork[] {
-  if (kind === "pawapay") return ["mtn", "airtel"];
+  if (isMultiNetworkKind(kind)) return ["mtn", "airtel"];
   return ["mtn"];
 }
 
@@ -20,6 +24,9 @@ export function paymentNotConfiguredMessage(
 ): string {
   if (kind === "pawapay") {
     return "PawaPay payments are not configured.";
+  }
+  if (kind === "rukapay") {
+    return "RukaPay payments are not configured.";
   }
   return "MoMo payments are not configured.";
 }
@@ -41,7 +48,7 @@ export function paymentPhoneValidationMessage(
 }
 
 export function paymentCtaLabel(kind: PaymentProcessorKind): string {
-  if (kind === "pawapay") return "Pay with Mobile money";
+  if (isMultiNetworkKind(kind)) return "Pay with Mobile money";
   return "Pay with MTN Momo";
 }
 
@@ -49,12 +56,12 @@ export function paymentCtaLabel(kind: PaymentProcessorKind): string {
 export function paymentReceivedViaPhrase(
   kind: PaymentProcessorKind
 ): "via Mobile Money" | "via MTN MoMo" {
-  if (kind === "pawapay") return "via Mobile Money";
+  if (isMultiNetworkKind(kind)) return "via Mobile Money";
   return "via MTN MoMo";
 }
 
 /** Shown while polling for wallet approval. */
 export function paymentPollingWaitLabel(kind: PaymentProcessorKind): string {
-  if (kind === "pawapay") return "Waiting for Mobile Money…";
+  if (isMultiNetworkKind(kind)) return "Waiting for Mobile Money…";
   return "Waiting for MTN MoMo…";
 }

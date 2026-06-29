@@ -12,4 +12,11 @@ export class WebhooksController {
   pawapay(@Body() _body: unknown) {
     return { received: true };
   }
+
+  /** Stub: RukaPay collection callback (fulfillment via poll + reconciliation). */
+  @Post("rukapay")
+  @HttpCode(200)
+  rukapay(@Body() _body: unknown) {
+    return { received: true };
+  }
 }
