@@ -99,6 +99,9 @@ export function eventShareTitle(event: CeremonyEvent): string {
   return `${head}${suffix}`;
 }
 
+/** Max event about text included in Web Share / clipboard blurb (matches form limit). */
+export const EVENT_SHARE_ABOUT_MAX_LEN = 10_000;
+
 /**
  * Multi-line message for clipboard and apps that only read `text` (SMS, some share targets).
  * Always ends with the public event URL on its own last line(s).
@@ -116,7 +119,10 @@ export function buildEventShareBlurb(
   out += ` · ${when}`;
   const desc = event.description.trim();
   if (desc) {
-    const short = desc.length > 200 ? `${desc.slice(0, 197)}…` : desc;
+    const short =
+      desc.length > EVENT_SHARE_ABOUT_MAX_LEN
+        ? `${desc.slice(0, EVENT_SHARE_ABOUT_MAX_LEN - 1)}…`
+        : desc;
     out += `\n\n${short}`;
   }
   out += `\n\nContribute or follow along (CeremonyWallet):\n${absoluteUrl}`;
