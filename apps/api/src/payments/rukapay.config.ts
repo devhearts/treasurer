@@ -16,23 +16,34 @@ function parseBoolFlag(raw: string | undefined): boolean {
   return v === "1" || v === "true";
 }
 
+function parseOptionalBoolFlag(raw: string | undefined): boolean | undefined {
+  if (raw === undefined || raw.trim() === "") return undefined;
+  return parseBoolFlag(raw);
+}
+
+function envString(c: ConfigService, key: string): string | undefined {
+  return c.get<string>(key) ?? process.env[key];
+}
+
 export function rukapayConfigFromApp(c: ConfigService): RukapayConfig | null {
-  const apiKey = c.get<string>("RUKAPAY_API_KEY")?.trim();
+  const apiKey = envString(c, "RUKAPAY_API_KEY")?.trim();
   if (!apiKey) return null;
 
   const baseUrl =
-    c.get<string>("RUKAPAY_BASE_URL")?.trim() ||
+    envString(c, "RUKAPAY_BASE_URL")?.trim() ||
     "https://dev-api.rukapay.net/api/v1/gateway";
   const currency = (
-    c.get<string>("RUKAPAY_CURRENCY")?.trim() || "UGX"
+    envString(c, "RUKAPAY_CURRENCY")?.trim() || "UGX"
   ).toUpperCase();
-  const sandbox = parseBoolFlag(c.get<string>("RUKAPAY_SANDBOX"));
-  const validateBeneficiary = parseBoolFlag(
-    c.get<string>("RUKAPAY_VALIDATE_BENEFICIARY")
+  const sandbox = parseBoolFlag(envString(c, "RUKAPAY_SANDBOX"));
+  const validateOverride = parseOptionalBoolFlag(
+    envString(c, "RUKAPAY_VALIDATE_BENEFICIARY")
   );
-  const callbackUrlOverride = c.get<string>("RUKAPAY_CALLBACK_URL")?.trim();
+  /** In sandbox, default to validate-beneficiary-sandbox unless explicitly disabled. */
+  const validateBeneficiary = validateOverride ?? sandbox;
+  const callbackUrlOverride = envString(c, "RUKAPAY_CALLBACK_URL")?.trim();
   const webOrigin =
-    c.get<string>("WEB_ORIGIN")?.trim() ??
+    envString(c, "WEB_ORIGIN")?.trim() ??
     c.get<string>("app.webOrigin")?.trim() ??
     "";
   const callbackUrl =
@@ -41,7 +52,7 @@ export function rukapayConfigFromApp(c: ConfigService): RukapayConfig | null {
       ? `${webOrigin.replace(/\/+$/, "")}/webhooks/rukapay`
       : "");
   const walletType =
-    c.get<string>("RUKAPAY_WALLET_TYPE")?.trim() || "ESCROW";
+    envString(c, "RUKAPAY_WALLET_TYPE")?.trim() || "ESCROW";
 
   return {
     baseUrl: baseUrl.replace(/\/+$/, ""),

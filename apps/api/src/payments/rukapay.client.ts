@@ -67,16 +67,29 @@ export interface RukapayTransactionStatusResponse {
   transaction?: RukapayTransaction;
 }
 
+function rukapayGatewayPath(
+  config: RukapayConfig,
+  liveSegment: string,
+  sandboxSegment: string
+): string {
+  const segment = config.sandbox ? sandboxSegment : liveSegment;
+  return `${config.baseUrl}/${segment}`;
+}
+
 function processTransferPath(config: RukapayConfig): string {
-  const suffix = config.sandbox ? "process-transfer-sandbox" : "process-transfer";
-  return `${config.baseUrl}/${suffix}`;
+  return rukapayGatewayPath(
+    config,
+    "process-transfer",
+    "process-transfer-sandbox"
+  );
 }
 
 function validateBeneficiaryPath(config: RukapayConfig): string {
-  const suffix = config.sandbox
-    ? "validate-beneficiary-sandbox"
-    : "validate-beneficiary";
-  return `${config.baseUrl}/${suffix}`;
+  return rukapayGatewayPath(
+    config,
+    "validate-beneficiary",
+    "validate-beneficiary-sandbox"
+  );
 }
 
 export function rukapayMnoProvider(msisdn: string): RukapayMnoProvider {

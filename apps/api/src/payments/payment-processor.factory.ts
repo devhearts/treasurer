@@ -19,6 +19,7 @@ import {
   rukapayCollectFromMno,
   rukapayGetTransactionStatus,
   rukapayMnoProvider,
+  rukapayValidateBeneficiary,
 } from "./rukapay.client";
 import { getPaymentProcessorType } from "./payment-processor-type";
 import type {
@@ -170,6 +171,13 @@ export class PaymentProcessorFactory {
         const c = cfg();
         if (!c) throw new Error("RukaPay is not configured");
         const mnoProvider = rukapayMnoProvider(params.payerMsisdn);
+        if (c.validateBeneficiary) {
+          await rukapayValidateBeneficiary(c, {
+            phoneNumber: params.payerMsisdn,
+            mnoProvider,
+            reference: params.referenceId,
+          });
+        }
         await rukapayCollectFromMno(c, {
           phoneNumber: params.payerMsisdn,
           mnoProvider,
