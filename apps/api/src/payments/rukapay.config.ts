@@ -7,7 +7,7 @@ export interface RukapayConfig {
   sandbox: boolean;
   callbackUrl: string;
   walletType: string;
-  /** When true, call validate-beneficiary before PARTNER_SEND_MNO payouts. */
+  /** When true, call validate-user (live) / validate-beneficiary-sandbox before PARTNER_SEND_MNO payouts. */
   validateBeneficiary: boolean;
 }
 

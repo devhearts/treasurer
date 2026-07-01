@@ -87,7 +87,7 @@ function processTransferPath(config: RukapayConfig): string {
 function validateBeneficiaryPath(config: RukapayConfig): string {
   return rukapayGatewayPath(
     config,
-    "validate-beneficiary",
+    "validate-user",
     "validate-beneficiary-sandbox"
   );
 }

@@ -409,7 +409,7 @@ async function test07AuthenticationCheck(
   const name = "Authentication Check";
   const url = gatewayPath(
     config,
-    "validate-beneficiary",
+    "validate-user",
     "validate-beneficiary-sandbox"
   );
   try {
@@ -460,7 +460,7 @@ async function test08ApiKeyTamper(
   const name = "API keys (tampered)";
   const url = gatewayPath(
     config,
-    "validate-beneficiary",
+    "validate-user",
     "validate-beneficiary-sandbox"
   );
   const badKey = `${config.apiKey.slice(0, 8)}TAMPERED`;
@@ -728,7 +728,7 @@ async function bankPositivePull(
   const name = "Positive Validation (Pull)";
   const url = gatewayPath(
     config,
-    "validate-beneficiary",
+    "validate-user",
     "validate-beneficiary-sandbox"
   );
   try {
@@ -969,7 +969,7 @@ async function main(): Promise<void> {
   console.log(`Test date: ${todayLabel()}`);
   console.log(`Environment: ${config.sandbox ? "SANDBOX" : "LIVE"}`);
   console.log(`Base URL: ${config.baseUrl}`);
-  console.log(`Validate endpoint: ${gatewayPath(config, "validate-beneficiary", "validate-beneficiary-sandbox")}`);
+  console.log(`Validate endpoint: ${gatewayPath(config, "validate-user", "validate-beneficiary-sandbox")}`);
   console.log("═".repeat(72));
   console.log("");
 
