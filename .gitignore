@@ -47,3 +47,6 @@ data/
 # Misc
 *.log
 .cache/
+
+
+qa-output/

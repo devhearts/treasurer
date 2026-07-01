@@ -64,3 +64,12 @@ export function rukapayConfigFromApp(c: ConfigService): RukapayConfig | null {
     validateBeneficiary,
   };
 }
+
+/** Load RukaPay config from process.env (CLI / scripts without Nest). */
+export function rukapayConfigFromEnv(): RukapayConfig | null {
+  const stub = {
+    get: <T = string>(key: string): T | undefined =>
+      process.env[key] as T | undefined,
+  } as ConfigService;
+  return rukapayConfigFromApp(stub);
+}

@@ -26,6 +26,10 @@
 - **Wallet gating**: withdraw + payout-method add/edit/delete blocked until verified; on approve, auto-provision single MTN/Airtel MoMo method from verified phone.
 - **Web**: `/app/verify-account` wizard (camera or desktop QR → `/verify-capture/[token]`), [`VerificationBanner`](apps/web/src/components/verification/VerificationBanner.tsx), withdraw/account/profile gating. [`CameraCapture`](apps/web/src/components/verification/CameraCapture.tsx) uses a single `preview`-gated effect with cleanup cancellation and ignores benign `video.play()` abort/interrupt errors (React Strict Mode / remount). Capture flow: take photo → preview with **Retake** / **Continue** (confirm only then calls `onCapture`); device wizard and mobile QR capture use step labels (selfie → ID front → ID back).
 
+## Recent: Auth flows QA (agent-browser, localhost:3030)
+
+- **2026-07-01**: Exploratory QA of auth flows on Docker dev web (`HOST_PORT_WEB=3030`) via `agent-browser` CLI. Plan + report in [`qa-output/auth-flows/`](qa-output/auth-flows/) (`qa-plan.md`, `report.md`, `screenshots/`). **18/20 flows passed.** Findings: (1) **high** — `resetPassword` server action in [`apps/web/src/app/actions/auth.ts`](apps/web/src/app/actions/auth.ts) does not check `res.ok` on `serverApiFetchInternal`, so invalid reset tokens redirect to `/login?reset=1` with a false success banner; (2) **medium** — verification banner on `/app/profile` covers the Log out button until dismissed. Seed user `demo@example.com` not in dev DB; emails go to Brevo SMTP (not Mailpit).
+
 ## Recent: Google Apps Script MySQL-to-Sheets connector
 
 - **App**: [`apps/gappscript/mysql-excel-connector/`](apps/gappscript/mysql-excel-connector/) — bound Spreadsheet script using built-in **Jdbc** service to `SELECT` reporting tables from Treasurer MariaDB into one tab per table.
@@ -79,6 +83,7 @@
 - **API** ([`rukapay.client.ts`](apps/api/src/payments/rukapay.client.ts)): Gateway API with `x-api-key` auth. Collections: `POST …/process-transfer` (`PARTNER_COLLECT_MNO`, requires `callbackUrl`). Payouts: optional validate-beneficiary (`RUKAPAY_VALIDATE_BENEFICIARY=1`) then `PARTNER_SEND_MNO`. Status: `GET …/transactions/{partnerReference}/status`. Sandbox: `RUKAPAY_SANDBOX=1` uses `-sandbox` endpoint suffixes; default base URL `https://dev-api.rukapay.net/api/v1/gateway`.
 - **Env**: `RUKAPAY_API_KEY`, optional `RUKAPAY_BASE_URL`, `RUKAPAY_CURRENCY`, `RUKAPAY_CALLBACK_URL` (defaults to `{WEB_ORIGIN}/webhooks/rukapay`), `RUKAPAY_WALLET_TYPE` (default `ESCROW`), `RUKAPAY_VALIDATE_BENEFICIARY` (live: opt-in; sandbox: on by default → `validate-beneficiary-sandbox`).
 - **Withdrawals**: [`disburseViaRukapay`](apps/api/src/wallet/withdrawals.service.ts) + poll/reconcile on init error (same pattern as PawaPay).
+- **UAT CLI**: `npm run rukapay-uat -w @treasurer/api` — runs Rhino Payment Services sign-off checklist (15 cases) against sandbox/live Gateway API; loads `apps/api/.env` automatically.
 - **Web**: [`apps/web/src/lib/payments/index.ts`](apps/web/src/lib/payments/index.ts) — MTN + Airtel networks, mobile-money labels (grouped with PawaPay).
 
 ## Recent: Deposit reconciliation (stale payment intents)
